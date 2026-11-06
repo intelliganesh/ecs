@@ -1,9 +1,15 @@
 from datetime import date
 from itertools import count
+from pathlib import Path
 from typing import Literal
+import xml.etree.ElementTree as ET
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.db import engine
 
 
 router = APIRouter(prefix="/retirement-builder", tags=["retirement-builder"])
@@ -112,6 +118,20 @@ _jobs: dict[int, RetirementBuilderJob] = {}
 _job_ids = count(1)
 
 
+def _load_query(sql_id: str) -> str:
+    query_file = Path(__file__).resolve().parents[2] / "query.brl"
+    root = ET.parse(query_file).getroot()
+    for statement in root.findall("sql"):
+        if statement.get("sqlid") == sql_id:
+            query = (statement.text or "").strip()
+            if query:
+                return query
+    raise RuntimeError(f"SQL query {sql_id} was not found in {query_file}")
+
+
+QUERY_42 = _load_query("42")
+
+
 @router.get("/options", response_model=RetirementBuilderOptions)
 def get_retirement_builder_options() -> RetirementBuilderOptions:
     return RetirementBuilderOptions(
@@ -149,9 +169,14 @@ def get_retirement_builder_options() -> RetirementBuilderOptions:
     )
 
 
-@router.get("/jobs", response_model=list[RetirementBuilderJob])
-def list_retirement_builder_jobs() -> list[RetirementBuilderJob]:
-    return list(_jobs.values())
+@router.get("/jobs", response_model=list[dict[str, object]])
+def list_retirement_builder_jobs() -> list[dict[str, object]]:
+    try:
+        with engine.connect() as connection:
+            rows = connection.execute(text(QUERY_42)).mappings().all()
+        return [dict(row) for row in rows]
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="Unable to load Retirement Builder jobs from the database") from exc
 
 
 @router.post("/jobs", response_model=RetirementBuilderJob, status_code=status.HTTP_201_CREATED)
