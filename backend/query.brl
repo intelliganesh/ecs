@@ -1,0 +1,2091 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<Statements>
+	<sql sqlid="1" help="GET EMPLOYEE BENEFITS BY CLEINT ">
+		<![CDATA[
+     select EMP.Client_Id ,EMP.EE_ID,EM.EE_SORT_NAME,BEN_PLAN_ID,Ben_Plan_Desc,Payee_id ,Ben_Plan_Type_Code,Prem_PEO_Amt,sum(B_EE_DEDUCT) dedeamnt,Prem_PEO_Amt-Contrib_EE_Total_Amt employercontr
+from export.EMPLOYEE_COM EMP
+Inner Join export.EMPLOYEE_BEN_DETAIL BEN on EMP.Client_ID=BEN.Client_ID and EMP.EE_ID=BEN.EE_ID 
+Inner Join export.EMPLOYEE_PER EM on EM.U2_id=EMP.EE_ID 
+Inner Join export.BENEFIT_PLANS BP on BP.u2_id =BEN.BEN_PLAN_ID 
+Inner Join export.EPV EP on EP.EE_ID=EMP.EE_ID and EP.Client_ID=EMP.Client_ID 
+Inner Join export.EPV_BEN_PLAN EPV on EPV.u2_id=EP.u2_id and BEN.BEN_PLAN_ID=EPV.B_PLAN_ID 
+where EMP.Client_id=@CLIENT_ID  and BP.Bill_Code in ('DEN' ,'LIFE','LTD','MED','STD','VIS') 
+and YEAR(PAY_DATE)=YEAR(GETDATE()) and MONTH(PAY_DATE)=MONTH(GETDATE())-1
+and BEN_COV_DETAIL_EFF_DATE=(select max( BEN_COV_DETAIL_EFF_DATE)
+from export.EMPLOYEE_BEN_DETAIL BEN1 where BEN.Client_ID=BEN1.Client_id and BEN.EE_ID=BEN1.EE_ID and BEN.BEN_PLAN_ID=BEN1.BEN_PLAN_ID)
+
+group by EMP.Client_Id ,EMP.EE_ID,EM.EE_SORT_NAME,BEN_PLAN_ID,Ben_Plan_Desc,Payee_id,Ben_Plan_Type_Code,Prem_PEO_Amt,Prem_PEO_Amt-Contrib_EE_Total_Amt
+
+      ]]>
+
+	</sql>
+
+	<sql sqlid="2" help="GET ALL EMPLOYEE BENEFITS BY CLIENT AND EMPLOYEE ID">
+		<![CDATA[
+   SELECT [Id]
+      ,EBR.[Client_ID]
+      ,EBR.[EE_ID]
+	  ,EP.EE_SORT_NAME
+      ,[BEN_YEAR]
+      ,[BEN_MONTH] BENMONTH
+      ,case when BEN_MONTH=0 then ''
+	  else DATENAME(MM,cAST([BEN_MONTH] as varchar)+'/01/'+cast([BEN_YEAR] as varchar)) end BEN_MONTH
+      ,EBR.[Insurance_Class_Id]
+      ,BEN_PLAN_ID
+	  ,BEN_PLAN_DESC
+      ,EBR.[Payee_ID]
+      ,[Ben_Plan_Type_Code]
+      ,[Prem_PEO_Amt]
+      ,B_EE_DEDUCT [EE_CNTB_AMT]
+      ,[total_prem]-B_EE_CONTRIB [ER_CNTB_AMT]
+      ,[Action_Type]
+      ,[Adjust_AMT]
+      ,[Net_AMT]
+  
+
+  FROM [Syd].[dbo].[EMPLOYEE_BENEFIT_RECONCILED] EBR
+  INNER JOIN [Prism].export.Employee_Per EP ON EP.U2_ID = EBR.EE_ID
+  LEFT JOIN [prism].export.BENEFIT_PLANS BP on BP.BEN_PLAN_ID_pk= EBR.BEN_PLAN_ID
+ left join [Syd].[dbo].prism_voucher_info pv on EBR.client_id = pv.client_id and ebr.ee_id = pv.ee_id and ebr.ben_month=pv.mnth and ebr.ben_year = pv.yr 
+  and ebr.ben_plan_id = pv.b_plan_id
+  WHERE EBR.Client_ID=@CLIENT_ID
+  and EBR.EE_ID='@EMP_ID'
+  and EBR.Insurance_Class_Id = '@BEN_CLASS_ID'
+  and (EBR.BEN_YEAR=@IYEAR OR 'Y'='@FLAG')
+  --and EBR.Payee_ID NOT IN ('NOT')
+  order by 5 desc,6 desc
+   ]]>
+	</sql>
+	<sql sqlid="3" help="INSERT EMPLOYEE RECONCILED DETAILS">
+		<![CDATA[
+    INSERT INTO [Syd].[dbo].[EMPLOYEE_BENEFIT_RECONCILED]
+           ([Client_ID]
+           ,[EE_ID]
+           ,[BEN_PLAN_ID]
+           ,[Payee_ID]
+           ,[Ben_Plan_Type_Code]
+           ,[Prem_PEO_Amt]
+           ,[EE_CNTB_AMT]
+           ,[ER_CNTB_AMT]
+           ,[Action_Type]
+           ,[Insurance_Class_Id]
+           ,[BEN_YEAR]
+           ,[BEN_MONTH]
+           )
+     VALUES(
+			@CLIENT_ID
+           ,'@EMP_ID'
+           ,'@BEN_PLAN_ID'
+           ,'@PAYEE_ID'
+           ,'@BEN_PLAN_TYPE_CODE'
+           ,@PREM_PEO_AMT
+           ,@EE_CNTB_AMT
+           ,@ER_CNTB_AMT
+           ,'@ACTION'
+           ,'@Insurance_Class_Id'
+           ,@BEN_YEAR,
+           @BEN_MONTH
+           )
+    ]]>
+	</sql>
+	<sql sqlid="4" help="BENEFIT_CLASS_CODES/TYPE">
+		<![CDATA[
+     select u2_id,CLASS_DESC from export.BENEFIT_CLASS where u2_id NOT IN ('B')
+    ]]>
+	</sql>
+	<sql sqlid="5" help="GET BENEFIT PLANS">
+		<![CDATA[
+    select u2_Id,BEN_PLAN_DESC from export.BENEFIT_PLANS
+    ]]>
+	</sql>
+	<sql sqlid="6" help="GET BENEFIT CARRIERS/PayeeID">
+		<![CDATA[
+    select distinct BP.Payee_ID,
+                    PC.Payee_Name 
+                    from export.BENEFIT_PLANS BP
+                    inner join export.Payee_Codes PC on PC.Payee_ID = BP.Payee_ID
+    ]]>
+	</sql>
+	<sql sqlid="7" help="GET PREMIUM FOR LOAD">
+		<![CDATA[
+    select 
+	EMP.Client_Id,
+	EMP.EE_ID,
+	EM.EE_SORT_NAME,
+	YEAR(GETDATE()) BEN_YEAR,
+	MONTH(GETDATE())-3 BEN_MONTH,
+	BEN_PLAN_ID,
+	Ben_Plan_Desc,
+	BP.Insurance_Class_Id,
+	Payee_id ,
+	Ben_Plan_Type_Code,
+	Prem_PEO_Amt,
+	sum(B_EE_DEDUCT) dedeamnt,
+	Prem_PEO_Amt-Contrib_EE_Total_Amt employercontr
+from export.EMPLOYEE_COM EMP
+Inner Join export.EMPLOYEE_BEN_DETAIL BEN on EMP.Client_ID=BEN.Client_ID and EMP.EE_ID=BEN.EE_ID 
+Inner Join export.EMPLOYEE_PER EM on EM.U2_id=EMP.EE_ID 
+Inner Join export.BENEFIT_PLANS BP on BP.u2_id =BEN.BEN_PLAN_ID 
+Inner Join export.EPV EP on EP.EE_ID=EMP.EE_ID and EP.Client_ID=EMP.Client_ID 
+Inner Join export.EPV_BEN_PLAN EPV on EPV.u2_id=EP.u2_id and BEN.BEN_PLAN_ID=EPV.B_PLAN_ID 
+where 
+ BP.Insurance_Class_Id='@BEN_CLASS'
+and Payee_Id = '@PAYEE_ID'
+and BEN_PLAN_ID='@BEN_PLAN_ID'
+and BP.Bill_Code in ('DEN' ,'LIFE','LTD','MED','STD','VIS') 
+and YEAR(PAY_DATE)=YEAR(GETDATE()) and MONTH(PAY_DATE)=MONTH(GETDATE())-3
+and BEN_COV_DETAIL_EFF_DATE=(select max( BEN_COV_DETAIL_EFF_DATE)
+from export.EMPLOYEE_BEN_DETAIL BEN1 where BEN.Client_ID=BEN1.Client_id and BEN.EE_ID=BEN1.EE_ID and BEN.BEN_PLAN_ID=BEN1.BEN_PLAN_ID)
+group by EMP.Client_Id ,EMP.EE_ID,EM.EE_SORT_NAME,BEN_PLAN_ID,Ben_Plan_Desc,BP.Insurance_Class_Id,Payee_id,Ben_Plan_Type_Code,Prem_PEO_Amt,Prem_PEO_Amt-Contrib_EE_Total_Amt
+    ]]>
+	</sql>
+
+	<sql sqlid="8" help="Update the BENEFITS RECONCILED">
+		<![CDATA[
+      UPDATE [Syd].[dbo].[EMPLOYEE_BENEFIT_RECONCILED]
+      SET 
+	    Prem_PEO_AMT =@Prem_PEO_AMT,
+	    Adjust_AMT = @Adjust_Amt,
+      ACTION_TYPE='@ACTION',
+      USERID='@IN_USER',
+      timestamp_up=GETDATE()
+	    where Id=@Id
+    ]]>
+	</sql>
+
+	<sql sqlid="9" help="GET DISTINCT YEARS DROPDOWN">
+		<![CDATA[
+      select distinct YEAR(Pay_Date) YR from export.EPV
+      where YEAR(PAY_DATE) BETWEEN YEAR(GETDATE())-10 and YEAR(GETDATE())+1
+	  union
+	  select year(getdate())+1 YR
+    ]]>
+	</sql>
+
+	<sql sqlid="10" help="GET DISTINCT MONTH DROPDOWN">
+		<![CDATA[
+     select distinct MONTH(PAY_DATE) MO, SUBSTRING(DATENAME(MM,PAY_DATE),0,4) MON from export.EPV
+     order by 1
+    ]]>
+	</sql>
+	<sql sqlid="11" help="GET PLAN TYPES BASED ON YEAR AND MONTH">
+		<![CDATA[
+   select u2_id,CLASS_DESC from export.BENEFIT_CLASS Bc where ( NOT EXISTS 
+	 (select 1 from [Syd].dbo.[EMPLOYEE_BENEFIT_RECONCILED] RC where BEN_YEAR=@OPT_YEAR and BEN_MONTH=@OPT_MONTH
+	 and Bc.u2_id=Rc.Insurance_Class_id) or 'Y'='@OPT_CHECK'   ) and u2_id NOT IN ('B')
+  ]]>
+	</sql>
+
+	<sql sqlid="12" help="GET CLIENT BEN PLANS">
+		<![CDATA[
+       select DISTINCT 
+	  BEN_PLAN_ID,
+	  bp.BEN_PLAN_DESC,
+	  BEN_PLAN_TYPE_CODE,
+	  PAYEE_ID 
+	  from prism.export.client_benefits CB 
+      INNER JOIN  prism.export.benefit_plans bp on bp.u2_id = cb.ben_plan_id
+      LEFT JOIN prism.export.BENEFIT_RULES_CONTRIB_RULES BR ON BR.CLIENT_ID_1 = CB.CLIENT_ID AND BR.BEN_PLAN_ID_1=CB.BEN_PLAN_ID
+      where client_id = @CLIENT_ID
+      and Insurance_class_id = '@BEN_CLASS_ID'
+      AND BILL_CODE NOT LIKE '%SDI%'
+      AND PAYEE_ID NOT IN ('NOT')
+      --AND BEN_PLAN_TYPE_CODE !=''
+    ]]>
+	</sql>
+	<sql sqlid="13" help="INSERT MISSING BENEFIT OF EMPLOYEE ">
+		<![CDATA[
+      INSERT INTO  [Syd].[dbo].[EMPLOYEE_BENEFIT_RECONCILED]
+      (
+	         [Client_ID]
+            ,[EE_ID]
+            ,[BEN_YEAR]
+            ,[BEN_MONTH]
+            ,[Insurance_Class_Id]
+            ,[BEN_PLAN_ID]
+            ,[Payee_ID]
+            ,[Ben_Plan_Type_Code]
+            ,[Prem_PEO_Amt]
+            ,[EE_CNTB_AMT]
+            ,[ER_CNTB_AMT]
+            ,[Action_Type]
+            ,[Adjust_AMT]
+            ,[Net_AMT]
+            ,[USERID]
+            ,[timestamp_up]
+	        )
+	        VALUES(
+	        @CLIENT_ID,
+	        '@EMP_ID',
+	        @BEN_YEAR,
+	        @BEN_MONTH,
+	        '@CLASS_ID',
+	        '@BEN_PLAN_ID',
+	        '@PAYEE_ID',
+	        '@Ben_Plan_Type_Code',
+	        @Prem_PEO_Amt,
+	        0,0,'NC',0,0
+	        ,'@USERID',GETDATE()
+	        )
+
+    ]]>
+	</sql>
+
+	<sql sqlid="14" help="INSERT INTO MASS MUTUAL ROW">
+		<![CDATA[
+    
+    INSERT INTO [Syd].dbo.syd_mass_mutual_trans
+    ( 
+       [RAW_DATA]
+      ,[FILEID]
+    )
+    VALUES(
+	    '@ROW_DATA',
+	    '@FILEID'		
+    )
+    ]]>
+	</sql>
+
+	<sql sqlid="15" help="READ ALL CASE GENERATORS">
+		<![CDATA[
+     SELECT [AUDIT_ID]
+      ,[AUDIT_NAME]
+      ,[EMAIL_HEADER]
+      ,[EMAIL_BODY]
+      ,[SQL_TEXT]
+      ,[FREQUENCY]
+	  ,FREQ_NAME,JOB_STATUS
+  FROM [Syd].[dbo].[SYD_AUDIT_INFO] SAI
+  INNER JOIN [Syd].dbo.SYD_AUDIT_FREQ_DEF FD ON FD.FREQ_FLAG = SAI.FREQUENCY
+    ]]>
+	</sql>
+
+	<sql sqlid="16" help="READ ALL FREQUENCY FOR AUDIT">
+		<![CDATA[
+    SELECT [FREQ_SEQ_NO]
+      ,[FREQ_NAME]
+      ,[FREQ_FLAG]
+  FROM [Syd].[dbo].[SYD_AUDIT_FREQ_DEF]
+    ]]>
+	</sql>
+
+	<sql sqlid="17" help="INSERT AUDIT CASE">
+		<![CDATA[
+    INSERT INTO [Syd].[dbo].[SYD_AUDIT_INFO](
+      [AUDIT_NAME]
+          ,[EMAIL_HEADER]
+          ,[EMAIL_BODY]
+          ,[SQL_TEXT]
+          ,[FREQUENCY]
+          ,[USERID]
+          ,[JOB_STATUS]
+          ,[SQL_KEY]
+          ,[AUDIT_DESC]
+      )
+      VALUES(
+	    '@AUD_NAME',
+	    '@AUD_MAIL_SUB',
+	    '@AUD_MAIL_BODY',
+	    '@SQL_STMT',
+	    '@FREQ_FLAG',
+      '@USERID',
+      @JSTATUS,
+      '@SQL_KEY',
+      '@AUD_DESC'
+      )
+      SELECT SCOPE_IDENTITY()
+    ]]>
+	</sql>
+
+
+	<sql sqlid="18" help="UPDATE AUDIT CASE">
+		<![CDATA[
+     UPDATE [Syd].[dbo].[SYD_AUDIT_INFO]
+	SET
+	[AUDIT_NAME]='@AUD_NAME',
+    [EMAIL_HEADER]='@AUD_MAIL_SUB',
+    [EMAIL_BODY]='@AUD_MAIL_BODY',
+    [SQL_TEXT]='@SQL_STMT',
+    [FREQUENCY]='@FREQ_FLAG',
+    [USERID] ='@USERID',
+    [JOB_STATUS]='@JSTATUS',
+    [SQL_KEY]='@SQL_KEY',
+    [AUDIT_DESC]='@AUD_DESC'
+ where AUDIT_ID=@AUD_ID
+    ]]>
+	</sql>
+
+	<sql sqlid="19" help="READ ALL NOTIFIED TO USERS">
+		<![CDATA[
+    SELECT 
+       [NOTIFYTO_ID]
+      ,[AUDIT_ID]
+      ,[NOTIFY_NAME]
+      ,[NOTIFY_TO_MAIL]
+      ,[NOTIFY_CC_MAIL]
+  FROM [Syd].[dbo].[SYD_AUDIT_NOTIFY_INFO] WHERE AUDIT_ID=@AUD_ID
+    ]]>
+	</sql>
+
+	<sql sqlid="20" help="INSERT NOTIFIED TO USER">
+		<![CDATA[
+    INSERT INTO [Syd].[dbo].[SYD_AUDIT_NOTIFY_INFO]
+    (
+      [AUDIT_ID]
+      ,[NOTIFY_NAME]
+      ,[NOTIFY_TO_MAIL]
+      ,[NOTIFY_CC_MAIL]
+    )
+    VALUES(
+      @AUD_ID,
+      '@NOTIFY_NAME',
+      '@NOTIFY_TO_MAIL',
+      '@NOTIFY_CC_MAIL'
+    )
+    ]]>
+	</sql>
+
+	<sql sqlid="21" help="UPDATE NOTIFIED TO USER">
+		<![CDATA[
+    UPDATE [Syd].[dbo].[SYD_AUDIT_NOTIFY_INFO]
+    SET
+      [NOTIFY_NAME]='@NOTIFY_NAME',
+      [NOTIFY_TO_MAIL]='@NOTIFY_TO_MAIL',
+      [NOTIFY_CC_MAIL]='@NOTIFY_CC_MAIL'
+    WHERE AUDIT_ID=@AUD_ID
+    ]]>
+	</sql>
+
+	<sql sqlid="22" help="READ CASE GENERATORS BY ID">
+		<![CDATA[
+     SELECT SAI.[AUDIT_ID]
+      ,[AUDIT_NAME]
+      ,[AUDIT_DESC]
+      ,[EMAIL_HEADER]
+      ,[EMAIL_BODY]
+      ,[SQL_TEXT]
+      ,[FREQUENCY]
+	  ,FREQ_NAME
+    ,JOB_STATUS
+    ,SQL_KEY
+	,NOTIFY_CC_MAIL
+	,NOTIFY_TO_MAIL
+  FROM [Syd].[dbo].[SYD_AUDIT_INFO] SAI
+  INNER JOIN [Syd].dbo.SYD_AUDIT_FREQ_DEF FD ON FD.FREQ_FLAG = SAI.FREQUENCY
+  LEFT JOIN [Syd].dbo.SYD_AUDIT_NOTIFY_INFO NI ON NI.AUDIT_ID = SAI.AUDIT_ID
+  WHERE SAI.AUDIT_ID=@AUD_ID
+    ]]>
+	</sql>
+
+	<sql sqlid="23" help="UPDATE AUDIT DATA TBL AFTER MAIL">
+		<![CDATA[
+    UPDATE [Syd].dbo.SYD_AUDIT_data
+    SET 
+        AUDIT_FLAG='Y'
+    where MASTER_AUDIT_ID=@AUD_ID AND AUDIT_FLAG='N'
+    ]]>
+	</sql>
+
+	<sql sqlid="24" help="READ ALL RECORDKEEPER S">
+		<![CDATA[
+ 	select FileID,
+   Client_ID		,
+   File_Name		,
+   Delimiter_Typ	,
+   Cust_Cal		from  RET_TB_RECORDKEEPER_INFO order by FileID desc 
+    ]]>
+	</sql>
+	<sql sqlid="25" help="READ  RECORDKEEPER By Id">
+		<![CDATA[
+  select FileID,
+  Client_ID		,
+  File_Name		,
+  Delimiter_Typ	,
+  Cust_Cal		from  RET_TB_RECORDKEEPER_INFO where FileID=@FileID
+    ]]>
+	</sql>
+	<sql sqlid="26" help="DELETE RECORDKEEPER By Id">
+		<![CDATA[
+    BEGIN TRANSACTION;
+    SAVE TRANSACTION MySavePoint;
+    BEGIN TRY
+    DELETE FROM RET_TB_RECORDKEEPER_INFO WHERE FileID IN (@FileID)
+    DELETE from [dbo].[RET_TB_RECORDKEEPER_FILE_DETAIL] where FileID in (@FileID)
+    COMMIT TRANSACTION 
+    END TRY
+    BEGIN CATCH
+    IF @@TRANCOUNT > 0
+    BEGIN
+    ROLLBACK TRANSACTION MySavePoint; 
+    END
+    END CATCH
+    ]]>
+	</sql>
+
+	<sql sqlid="27" help="READ ALL RECORDKEEPER FILE DETAIL">
+		<![CDATA[
+    select FileID,
+    Type_Of_Record ,
+    Column_Name,
+    Column_Sequence,
+    Max_length,
+    Mapping_Column,
+    Start_Position,
+    Default_flag from [dbo].[RET_TB_RECORDKEEPER_FILE_DETAIL] WHERE FileID=@FileID
+    ]]>
+	</sql>
+
+	<sql sqlid="28" help="READ  RECORDKEEPER FILE DETAIL By ID,Type_Of_Record and Column_Sequence">
+		<![CDATA[
+    select FileID,
+    Type_Of_Record ,
+    Column_Name,
+    Column_Sequence,
+    Max_length,
+    Mapping_Column,
+    Start_Position,
+    Default_flag from [dbo].[RET_TB_RECORDKEEPER_FILE_DETAIL] where FileID=@FileID and Type_Of_Record='@Type_Of_Record' and Column_Sequence=@Column_Sequence
+    ]]>
+	</sql>
+	<sql sqlid="29" help="DELETE RECORDKEEPER FILE DETAIL By ID,Type_Of_Record and Column_Sequence">
+		<![CDATA[
+   DELETE from [dbo].[RET_TB_RECORDKEEPER_FILE_DETAIL] where FileID in (@FileID) and Type_Of_Recordin ('@Type_Of_Record') and Column_Sequence in (@Column_Sequence)
+    ]]>
+	</sql>
+	<sql sqlid="30" help="for getting table columns">
+		<![CDATA[
+  
+    SELECT [mapping_column]
+      ,[mapping_column_desc]
+      ,[mapping_column_dt]
+  FROM  [dbo].[rjob_mapping_column]
+    ]]>
+	
+  </sql>  
+  <sql sqlid="31" help="Save Query">
+    <![CDATA[
+ INSERT INTO [dbo].[rjob_query]
+           ([jobid]
+           ,[recttype]
+           ,[Query]
+           ,Conditions
+           ,[Sort_Order])
+     VALUES
+           (@jobid,
+           '@recttype',
+           '@Query',
+           '@conditionalStmt',
+           '@sortOrder')
+    ]]>
+	</sql>
+	<sql sqlid="32" help="Get File Type">
+		<![CDATA[
+select * from [dbo].[rjob_file_typ]
+]]>
+	</sql>
+	<sql sqlid="33" help="Get Format">
+		<![CDATA[
+SELECT [jobformat],[jobformat]+' - '+[jobformat_desc] as jobdesc FROM [dbo].[rjobformat] where jobformattype='@jobformattype'  
+  union all
+SELECT [jobformat],[jobformat]+' - '+[jobformat_desc] as jobdesc FROM [dbo].[rjobformat] where jobformattype='all'    
+
+]]>
+	</sql>
+
+	<sql sqlid="34" help="Get frequency">
+		<![CDATA[
+select shcdperiod as frequency  from [dbo].[rjob_job_schd_master] where shcdday is  null
+union  all
+select shcdday as frequency  from [dbo].[rjob_job_schd_master] where shcdperiod is  null
+]]>
+	</sql>
+
+	<sql sqlid="35" help="Save file_detail">
+		<![CDATA[
+INSERT INTO [dbo].[rjob_file_detail]
+           ([jobid]
+           ,[jobclientcolumn]
+           ,[jobfieldmapping]
+           ,[jobdefaultvalue]
+           ,[jobformat]
+           ,[jobrectype]
+           ,[startposition]
+           ,[field_len]
+           ,[DataSetNo]
+           ,[ColSeqNo])
+     VALUES
+           (@jobid
+           ,'@jobclientcolumn'
+           ,'@jobfieldmapping'
+           ,'@jobdefaultvalue'
+           ,'@jobformat'
+           ,'@jobrectype'
+           ,@startposition
+           ,@field_len,@datasetNo,@colSeqNo)
+
+]]>
+	</sql>
+	<sql sqlid="36" help="Save file info">
+		<![CDATA[
+
+
+INSERT INTO [dbo].[rjob]
+           ([jobdesc]
+           ,[jobfilename]
+           ,[jobstatus]
+           ,[joblastmodified]
+           ,[joblastrun],[filetype],[ismerge],[mergeemail],[includeHeader],[FileNameFormat],[isEnabled],[StoreResults],[enddate])
+     VALUES
+           ('@jobdesc',
+			'@jobfilename',
+			'@jobstatus',
+			GETDATE(),
+			GETDATE(),'@filetype',@ismerge, '@mergeemail',@includeHRecord,'@fileNameFormat','@isEnabled','@StoreResult','@enddate')
+      SELECT SCOPE_IDENTITY()
+
+]]>
+	</sql>
+
+	<sql sqlid="37" help="Save file Client Details">
+		<![CDATA[
+
+
+ INSERT INTO [dbo].[rjob_client_detail]
+  ([jobid]
+  ,[jobclientid]
+  ,[jobemailind])
+  VALUES
+  (@jobid
+  ,@jobclientid
+  ,'@jobemailind')
+
+
+]]>
+	</sql>
+
+	<sql sqlid="38" help="Save file Client sched Details">
+		<![CDATA[
+
+
+ INSERT INTO [dbo].[rjob_schedule_info]
+  ([jobid]
+  ,[jobName]
+  ,[startDateTime]
+  ,[dayInterval]
+  ,[weekInterval]
+  ,[rbJobTypeChk]
+  ,[ScheduleType]
+  ,[MonthlyWeekNo]
+  ,[ScheduleWeek],[MonthlyDate],
+   [schedule_hr]
+      ,[schedule_min]
+      ,[schedules_session]
+  )
+  VALUES
+  (@jobid
+  ,'@jobName'
+  ,CONVERT(DATETIME, '@startDateTime')
+  ,@dayInterval
+  ,@weekInterval
+  ,'@rbJobTypeChk'
+  ,'@ScheduleType'
+  ,'@MonthlyWeekNo'
+  ,'@ScheduleWeek','@MonthlyDate',
+  '@schedule_hr','@schedule_min','@schedule_session'
+  
+  )
+
+
+]]>
+	</sql>
+
+	<sql sqlid="50" help="INSERT JOB HISTORY DATA">
+		<![CDATA[
+         delete from      [dbo].[rjob_history] where [Job_Id]=  @jobid
+
+ INSERT INTO [dbo].[rjob_history]
+  ([Job_Id]
+      ,[Job_Create_Date]
+      ,[Job_Last_Trigger_Date]
+      ,[Job_Next_Trigger_Date]
+      ,[Job_Last_Status]
+      ,[Job_Last_Message]
+      ,[Job_Update_Date])
+  VALUES
+  (@jobid
+  ,GETDATE()
+  ,CONVERT(DATETIME, '@LAST_TRIGGER_DATE')
+  ,CONVERT(DATETIME, '@NEXT_TRIGGER_DATE')
+  ,'@STATUS'
+  ,'@STAT_MSG'
+  ,GETDATE()
+  )
+
+
+]]>
+	</sql>
+	<sql sqlid="51" help="UPDATE JOB HISTORY DATA">
+		<![CDATA[
+     UPDATE [dbo].[rjob_history]
+      SET [Job_Last_Trigger_Date]=GETDATE(),
+      [Job_Next_Trigger_Date]=GETDATE(),
+      [Job_Last_Status]='@STATUS',
+      [Job_Last_Message]='@STAT_MSG',
+      [Job_Update_Date]=GETDATE()
+    WHERE job_id=@JOB_ID	  
+    ]]>
+	</sql>
+
+	<sql sqlid="52" help="UPDATE MANUAL JOB HISTORY DATA">
+		<![CDATA[
+     UPDATE [dbo].[rjob_history]
+      SET [Job_Last_Trigger_Date]=GETDATE(),
+      [Job_Last_Status]='@STATUS',
+      [Job_Last_Message]='@STAT_MSG',
+      [Job_Update_Date]=GETDATE()
+    WHERE job_id=@JOB_ID	  
+    ]]>
+	</sql>
+
+	<sql sqlid="53" help="Get Formats All">
+		<![CDATA[
+SELECT [jobformat],[jobformat]+' - '+[jobformat_desc] as jobdesc,[jobformattype] FROM [dbo].[rjobformat]   
+
+]]>
+	</sql>
+	<sql sqlid="54" help="INSERT FILE SORT DETAILS">
+		<![CDATA[
+    INSERT INTO [dbo].[rjob_file_sorting_details]
+  (
+	job_id
+    ,sort_order
+    ,mapping_column
+  )
+  VALUES(
+  @jobid,
+  @order,
+ '@mapping'
+  )
+    ]]>
+	</sql>
+	<sql sqlid="55" help="INSERT FILE Conditions DETAILS">
+		<![CDATA[
+    INSERT INTO [dbo].[rjob_file_condition_details]
+  (
+	    job_id
+      ,mapping_column
+      ,condition_symbol
+      ,condition_value
+  )
+  VALUES(
+  @jobid,
+  '@mapping',
+ '@Symbol',
+ '@val'
+  )
+    ]]>
+	</sql>
+
+
+
+
+	<sql sqlid="42" help="Get file Client Details">
+		<![CDATA[
+SELECT RJ.jobid
+      ,[jobdesc]
+      ,[jobfilename]
+      ,[jobstatus]
+      ,[joblastmodified]
+      ,case when (case when joblastrun> ISNULL(job_last_trigger_Date,'01/01/1900') then joblastrun
+	  else Job_Last_Trigger_Date end)='01/01/1900' then '' else (case when joblastrun> ISNULL(job_last_trigger_Date,'01/01/1900') then joblastrun
+	  else Job_Last_Trigger_Date end) end
+	  joblastrun
+	  ,case when RSI.ScheduleWeek =0 then 'Sunday'
+			when RSI.ScheduleWeek=1 then 'Monday'
+			when RSI.ScheduleWeek=2 then 'Tuesday'
+			when RSI.ScheduleWeek=3 then 'Wednesday'
+			when RSI.ScheduleWeek=4 then 'Thursday'
+			when RSI.ScheduleWeek=5 then 'Friday'
+			when RSI.ScheduleWeek=6 then 'Saturday' 
+			else '' end as runday
+	  ,CAST(RSI.schedule_hr as varchar)+':'+case when schedule_min=0 then '00' else cast(schedule_min as varchar) end +' '+RSI.schedules_session runtime
+	  ,case when RSI.ScheduleType='D' then 'Daily'
+			when RSI.ScheduleType='W' then 'Weekly'
+			when RSI.ScheduleType='B' then 'Bi-Weekly'
+			when RSI.ScheduleType='M' then 'Monthly'
+			when RSI.ScheduleType='MD' then 'Monthly'
+			else '' end ScheduleType
+      ,[filetype]
+      ,[ismerge]
+      ,[isEnabled]
+	  ,case when ISNULL(isEnabled,0)=1 then 'Yes' else 'No' end as IsActive
+	  ,RH.Job_Last_Status,
+	  RH.Job_Last_Message,
+	  CONVERT(VARCHAR,RHD.START_DATE,101) as Start_Date,
+   CONVERT(VARCHAR,RHD.END_DATE,101) as End_Date
+  FROM [dbo].[rjob] RJ
+  inner join [dbo].[rjob_schedule_info] RSI on RSI.jobid=RJ.jobid
+  left join [dbo].[rjob_history] RH on RH.Job_Id=RJ.jobid
+  left join (Select top 1 [Id]
+      ,[Job_Id]
+      ,[Flag]
+      ,[Start_Date]
+      ,[End_Date]
+      ,[Pay_Date]
+	  from [dbo].rjob_history_details 
+	  order by Id desc) RHD ON RHD.Job_Id=RJ.jobid 
+     where isEnabled=1
+	order by isEnabled desc
+]]>
+	</sql>
+
+	<sql sqlid="43" help="Get file Client Details">
+		<![CDATA[
+ --SELECT [id]
+ -- ,[client_name]
+  --,[client_email]
+  --FROM [dbo].[Client]
+  select cast(Client_ID as decimal) as id,CAST(Client_ID as varchar)+' - '+Client_DBA_Name as client_name from prism.export.Client_Details
+where Client_Status_Code!='T'
+order by 1,2
+  
+]]>
+	</sql>
+	<sql sqlid="44" help="delete file info">
+		<![CDATA[
+  DELETE FROM [dbo].[rjob_query] WHERE jobid=@jobid
+  DELETE FROM [dbo].[rjob_client_detail] WHERE jobid=@jobid
+  DELETE FROM [dbo].[rjob_file_detail] WHERE jobid=@jobid
+  DELETE FROM [dbo].[rjob_schedule_info] WHERE jobid=@jobid
+  DELETE FROM [dbo].[rjob_file_sorting_details] where job_id=@jobid
+  DELETE FROM [dbo].[rjob_file_condition_details] where job_id=@jobid
+]]>
+	</sql>
+	<sql sqlid="45" help="update file info">
+		<![CDATA[
+  UPDATE [dbo].[rjob]
+   SET [jobdesc] = '@jobdesc'
+      ,[jobfilename] = '@jobfilename'
+      ,[jobstatus] = '@jobstatus'
+      ,[joblastmodified] = GETDATE()
+      ,[joblastrun] = GETDATE()
+      ,[filetype] = '@filetype'
+      ,[ismerge] = @ismerge 
+      ,[mergeemail]='@mergeemail'
+      ,[FileNameFormat]='@fileNameFormat'
+	  ,[includeHeader]=@includeHRecord
+    ,[isEnabled]='@isEnabled'
+      ,[StoreResults] ='@StoreResult'
+ WHERE [jobid]=@jobid
+]]>
+	</sql>
+
+	<sql sqlid="56" help="INSERT MANUAL CHECK DETAILS">
+		<![CDATA[
+    INSERT INTO [dbo].[up_pay_info]
+  (
+	    [Client_id]
+      ,[EE_ID]
+      ,[Total_RegHrs]
+      ,[Total_Reg]
+      ,[Total_OT_Hrs]
+      ,[Total_OT]
+      ,[Total_Flat]
+      ,[Total_Reimb]
+  )
+  VALUES(
+  '@clientid',
+  '@eeid',
+ @total_reghrs,
+ @total_reg,
+ @total_ot_hrs,
+ @total_ot,
+ @total_flat,
+ @total_reimb
+  )
+    ]]>
+	</sql>
+
+	<sql sqlid="57" help="delete pay file info">
+		<![CDATA[
+  DELETE FROM [dbo].[up_pay_info] where Client_id='@clientid'
+  
+  ]]>
+	</sql>
+
+
+	<sql sqlid="58" help="delete tsv file info">
+		<![CDATA[
+  DELETE FROM [dbo].[IRS_TB_TSV]
+  
+  ]]>
+	</sql>
+
+	<sql sqlid="59" help="INSERT TO IRS_TB_CUSTOM_DATA">
+		<![CDATA[
+    INSERT INTO [dbo].[IRS_TB_CUSTOM_DATA]
+    (
+      [AEIN]
+      ,[ERCWAGES1]
+      ,[ERCWAGES]
+      ,[SSDEFERALAMT]
+    )
+    VALUES(
+      '@federal_id',
+      @erc_wages1,
+      @erc_wages,
+      @ssdeferalamt
+    
+    )
+    
+    ]]>
+	</sql>
+
+	<sql sqlid="60" help="UPDATE TO IRS_TB_CUSTOM_DATA">
+		<![CDATA[
+    UPDATE  [dbo].[IRS_TB_CUSTOM_DATA]
+    SET
+      [ERCWAGES1] =@erc_wages1,
+      [ERCWAGES]=@erc_wages,
+      [SSDEFERALAMT] =@ssdeferalamt
+    where [AEIN] ='@federal_id'
+    
+    ]]>
+	</sql>
+
+	<sql sqlid="61" help="DELETE CUSTOM DATA FROM IRS_TB_CUSTOM_DATA">
+		<![CDATA[
+      DELETE FROM [dbo].[IRS_TB_CUSTOM_DATA] WHERE AEIN='@federal_id'
+    ]]>
+	</sql>
+
+	<sql sqlid="62" help="GET ALL EIN">
+		<![CDATA[
+         Select distinct Federal_Id, 
+CAST(Client_ID as VARCHAR) Client_ID , 
+CAST(Client_ID as VARCHAR) +'-'+Client_DBA_NAME as Client_DBA_NAME 
+from prism.export.Client_Details cd where cd.Client_Id in (select distinct c4 from
+ [dbo].[IRS_TB_TSV])
+    ]]>
+	</sql>
+
+	<sql sqlid="63" help="GET IRS CUSTOM">
+		<![CDATA[
+    Select 
+			CAST(Client_ID as varchar)+'-'+Client_DBA_Name Client_DBA_Name,
+      [AEIN]
+      ,[ERCWAGES1]
+      ,[ERCWAGES]
+      ,[SSDEFERALAMT]
+      from [dbo].[IRS_TB_CUSTOM_DATA] IT
+	  inner join prism.export.Client_Details cd on cd.Federal_Id= IT.AEIN 
+	   where AEIN ='@EINNO'
+    
+    ]]>
+	</sql>
+
+	<sql sqlid="64" help="GET IRS FINAL TABLE DATA">
+		<![CDATA[
+    SELECT 
+	   [AEIN]
+      ,[BTYPEOFWAGE]
+      ,[CLINE1]
+      ,[DLINE2]
+      ,[ELINE3]
+      ,[FLINE5AI]
+      ,[GLINE5AII]
+      ,[HLINE5E]
+      ,[ILINE5F]
+      ,[JLINE11A]
+      ,[KLINE11B]
+      ,[LLINE11C]
+      ,[MLINE12]
+      ,[NLINE13A]
+      ,[OLINE13B]
+      ,[PLINE13C]
+      ,[QLINE13D]
+      ,[RLINE13F]
+      ,[SLINE19]
+      ,[TLINE20]
+      ,[ULINE21]
+      ,[VLINE22]
+      ,[WTOTAL]
+      ,[XLINE24]
+      ,[YLINE25]
+      ,[SEQ_NO]
+  FROM [dbo].[IRS_TB_FINAL_TABLE]
+    ]]>
+	</sql>
+
+	<sql sqlid="65" help="GET PDF MASTER DATA">
+		<![CDATA[
+    Select 
+	    FEDERAL_ID,
+	    Client_DBA_NAME,
+	    1 as TYPE_OF_FILER,
+	    (SELECT TOP 1 SUBSTRING(C1,0,5) FROM [Syd].[dbo].[IRS_TB_TSV]) CY ,
+	    (SELECT TOP 1 SUBSTRING(C1,5,1) FROM [Syd].[dbo].[IRS_TB_TSV]) Q 
+    from prism.export.Client_Details where CLIENT_ID=428
+    
+    ]]>
+	</sql>
+
+	<sql sqlid="66" help="INSERT DATA FOR FINAL TABLE">
+		<![CDATA[
+INSERT INTO [dbo].[IRS_TB_FINAL_TABLE] ([AEIN]
+      ,[BTYPEOFWAGE]
+      ,[CLINE1]
+      ,[DLINE2]
+      ,[ELINE3]
+      ,[FLINE5AI]
+      ,[GLINE5AII]
+      ,[HLINE5E]
+      ,[ILINE5F]
+      ,[JLINE11A]
+      ,[KLINE11B]
+      ,[LLINE11C]
+      ,[MLINE12]
+      ,[NLINE13A]
+      ,[OLINE13B]
+      ,[PLINE13C]
+      ,[QLINE13D]
+      ,[RLINE13F]
+      ,[SLINE19]
+      ,[TLINE20]
+      ,[ULINE21]
+      ,[VLINE22]
+      ,[WTOTAL]
+      ,[XLINE24]
+      ,[YLINE25]
+      ,[Client_EIN]
+      ,[Client_Name]
+      ,[QTR]
+  ) VALUES('@a','@b',@c,@d,@e,@f,@g,@h,@i,@j,@k,@l,@m,@n,@o,@p,@q,@r,@s,@t,@u,@v,@w,@x,@y,'@1ein','@1name','@1qtrinfo')
+    
+    ]]>
+	</sql>
+
+	<sql sqlid="67" help="DELETE FROM [dbo].[IRS_TB_FINAL_TABLE]">
+		<![CDATA[
+    TRUNCATE TABLE [dbo].[IRS_TB_FINAL_TABLE]
+    ]]>
+	</sql>
+
+	<sql sqlid="68" help="Check FINAL TABLE DATA">
+		<![CDATA[
+       Select count(*) as Count from [dbo].[IRS_TB_FINAL_TABLE]
+    ]]>
+  </sql>
+  
+  <sql sqlid="200" help="Get file Client Details">
+    <![CDATA[
+SELECT RJ.jobid
+      ,[jobdesc]
+      ,[jobfilename]
+      ,[jobstatus]
+      ,[joblastmodified]
+      ,job_last_trigger_Date as joblastrun
+	  ,case when RSI.ScheduleWeek =0 then 'Sunday'
+			when RSI.ScheduleWeek=1 then 'Monday'
+			when RSI.ScheduleWeek=2 then 'Tuesday'
+			when RSI.ScheduleWeek=3 then 'Wednesday'
+			when RSI.ScheduleWeek=4 then 'Thursday'
+			when RSI.ScheduleWeek=5 then 'Friday'
+			when RSI.ScheduleWeek=6 then 'Saturday' 
+			else '' end as runday
+			
+	  ,CAST(RSI.schedule_hr as varchar)+':'+case when schedule_min=0 then '00' else cast(schedule_min as varchar) end +' '+RSI.schedules_session runtime
+	  ,case when RSI.ScheduleType='D' then 'Daily'
+			when RSI.ScheduleType='W' then 'Weekly'
+			when RSI.ScheduleType='B' then 'Bi-Weekly'
+			when RSI.ScheduleType='M' then 'Monthly'
+			when RSI.ScheduleType='MD' then 'Monthly'
+			else '' end ScheduleType
+      ,[filetype]
+      ,[ismerge]
+      ,[isEnabled]
+	  ,case when ISNULL(isEnabled,0)=1 then 'Yes' else 'No' end as IsActive
+	  ,RH.Job_Last_Status,
+	  RH.Job_Last_Message,
+	  CONVERT(VARCHAR,RHD.START_DATE,101) as Start_Date,
+   CONVERT(VARCHAR,RHD.END_DATE,101) as End_Date
+  FROM [dbo].[payroll_job] RJ
+  inner join [dbo].[payroll_schedule_info] RSI on RSI.jobid=RJ.jobid
+  left join [dbo].[payroll_history] RH on RH.Job_Id=RJ.jobid
+  left join (Select top 1 [Id]
+      ,[Job_Id]
+      ,[Flag]
+      ,[Start_Date]
+      ,[End_Date]
+      ,[Pay_Date]
+	  from [dbo].payroll_history_details 
+	  order by Id desc) RHD ON RHD.Job_Id=RJ.jobid 
+     where isEnabled=1
+	order by isEnabled desc
+]]>
+  </sql>
+  <sql sqlid="201" help="Save file info">
+    <![CDATA[
+
+
+INSERT INTO [dbo].[payroll_job]
+           ([jobdesc]
+           ,[jobfilename]
+           ,[jobstatus]
+           ,[joblastmodified]
+           ,[joblastrun],[filetype],[ismerge],[mergeemail],[includeHeader],[FileNameFormat],[isEnabled],[StoreResults],[enddate])
+     VALUES
+           ('@jobdesc',
+			'@jobfilename',
+			'@jobstatus',
+			GETDATE(),
+			GETDATE(),'@filetype',@ismerge, '@mergeemail',@includeHRecord,'@fileNameFormat','@isEnabled','@StoreResult','@enddate')
+      SELECT SCOPE_IDENTITY()
+
+]]>
+  </sql>  
+  
+  
+  <sql sqlid="202" help="update file info">
+    <![CDATA[
+  UPDATE [dbo].[payroll_job]
+   SET [jobdesc] = '@jobdesc'
+      ,[jobfilename] = '@jobfilename'
+      ,[jobstatus] = '@jobstatus'
+      ,[joblastmodified] = GETDATE()
+      ,[joblastrun] = GETDATE()
+      ,[filetype] = '@filetype'
+      ,[ismerge] = @ismerge 
+      ,[mergeemail]='@mergeemail'
+      ,[FileNameFormat]='@fileNameFormat'
+	  ,[includeHeader]=@includeHRecord
+    ,[isEnabled]='@isEnabled'
+      ,[StoreResults] ='@StoreResult'
+ WHERE [jobid]=@jobid
+]]>
+  </sql>
+  <sql sqlid="203" help="delete file info">
+    <![CDATA[
+  DELETE FROM [dbo].[payroll_query] WHERE jobid=@jobid
+  DELETE FROM [dbo].[payroll_client_detail] WHERE jobid=@jobid
+  DELETE FROM [dbo].[payroll_file_detail] WHERE jobid=@jobid
+  DELETE FROM [dbo].[payroll_schedule_info] WHERE jobid=@jobid
+  DELETE FROM [dbo].[payroll_file_sorting_details] where job_id=@jobid
+  DELETE FROM [dbo].[payroll_file_condition_details] where job_id=@jobid
+  DELETE FROM [dbo].[payroll_wage_mapping] where job_id=@jobid
+  DELETE FROM [dbo].[payroll_grouping] where job_id=@jobid
+]]>
+  </sql>
+ <sql sqlid="204" help="Save Query">
+    <![CDATA[
+ INSERT INTO [dbo].[payroll_query]
+           ([jobid]
+           ,[recttype]
+           ,[Query]
+           ,Conditions
+           ,[Sort_Order])
+     VALUES
+           (@jobid,
+           '@recttype',
+           '@Query',
+           '@conditionalStmt',
+           '@sortOrder')
+    ]]>
+  </sql>
+    <sql sqlid="205" help="Save file_detail">
+    <![CDATA[
+INSERT INTO [dbo].[payroll_file_detail]
+           ([jobid]
+           ,[jobclientcolumn]
+           ,[jobfieldmapping]
+           ,[jobdefaultvalue]
+           ,[jobformat]
+           ,[jobrectype]
+           ,[startposition]
+           ,[field_len]
+           ,[DataSetNo],[ColSeqNo])
+     VALUES
+           (@jobid
+           ,'@jobclientcolumn'
+           ,'@jobfieldmapping'
+           ,'@jobdefaultvalue'
+           ,'@jobformat'
+           ,'@jobrectype'
+           ,@startposition
+           ,@field_len,@datasetNo,@colSeqNo)
+
+]]>
+  </sql>
+  
+  <sql sqlid="206" help="Save file Client Details">
+    <![CDATA[
+
+
+ INSERT INTO [dbo].[payroll_client_detail]
+  ([jobid]
+  ,[jobclientid]
+  ,[jobemailind])
+  VALUES
+  (@jobid
+  ,@jobclientid
+  ,'@jobemailind')
+
+
+]]>
+  </sql>
+  
+    <sql sqlid="207" help="Save file Client sched Details">
+    <![CDATA[
+
+
+ INSERT INTO [dbo].[payroll_schedule_info]
+  ([jobid]
+  ,[jobName]
+  ,[startDateTime]
+  ,[dayInterval]
+  ,[weekInterval]
+  ,[rbJobTypeChk]
+  ,[ScheduleType]
+  ,[MonthlyWeekNo]
+  ,[ScheduleWeek],[MonthlyDate],
+   [schedule_hr]
+      ,[schedule_min]
+      ,[schedules_session]
+  )
+  VALUES
+  (@jobid
+  ,'@jobName'
+  ,CONVERT(DATETIME, '@startDateTime')
+  ,@dayInterval
+  ,@weekInterval
+  ,'@rbJobTypeChk'
+  ,'@ScheduleType'
+  ,'@MonthlyWeekNo'
+  ,'@ScheduleWeek','@MonthlyDate',
+  '@schedule_hr','@schedule_min','@schedule_session'
+  
+  )
+
+
+]]>
+  </sql>
+  
+   <sql sqlid="208" help="INSERT FILE SORT DETAILS">
+    <![CDATA[
+    INSERT INTO [dbo].[payroll_file_sorting_details]
+  (
+	job_id
+    ,sort_order
+    ,mapping_column
+  )
+  VALUES(
+  @jobid,
+  @order,
+ '@mapping'
+  )
+    ]]>
+  </sql>
+    <sql sqlid="209" help="INSERT FILE Conditions DETAILS">
+    <![CDATA[
+    INSERT INTO [dbo].[payroll_file_condition_details]
+  (
+	    job_id
+      ,mapping_column
+      ,condition_symbol
+      ,condition_value
+  )
+  VALUES(
+  @jobid,
+  '@mapping',
+ '@Symbol',
+ '@val'
+  )
+    ]]>
+  </sql>
+	 <sql sqlid="210" help="for getting table columns">
+    <![CDATA[
+  
+    SELECT [mapping_column]
+      ,[mapping_column_desc]
+      ,[mapping_column_dt]
+      ,[ApplyGroup]
+  FROM  [dbo].[payroll_mapping_column]
+    ]]>
+  </sql>
+	<sql sqlid="211" help="Get pay code DETAILS">
+		<![CDATA[
+    select  distinct ec.pay_code,ec.pay_code+' - '+ec.pay_code_desc as pay_code_desc,cc.u2_id
+	from prism.export.client_details_pay_codes cc
+   inner join prism.export.earning_codes ec on ec.Pay_Code=cc.Pay_Code
+  
+    ]]>
+	</sql>
+	<sql sqlid="212" help="INSERT FILE Conditions DETAILS">
+    <![CDATA[
+    INSERT INTO [dbo].[payroll_wage_mapping]
+  (
+	    job_id
+      ,client_id
+      ,wage_column
+      ,pay_code
+	  ,search_word
+  )
+  VALUES(
+  @jobid,
+  '@clientid',
+ '@wagecolumn',
+ '@paycode','@searchWord'
+  )
+    ]]>
+	</sql>
+	<sql sqlid="213" help="INSERT column grouping DETAILS">
+		<![CDATA[
+    INSERT INTO [dbo].[payroll_grouping]
+  (
+	    job_id
+      ,grouping_column
+     
+  )
+  VALUES(
+  @jobid,
+  '@job_grouping_column'
+  )
+    ]]>
+	</sql>
+	<sql sqlid="214" help="INSERT column grouping DETAILS">
+		<![CDATA[
+   select  distinct ec.pay_code as searchResult,ec.pay_code+' - '+ec.pay_code_desc as pay_code_desc 
+	from prism.export.client_details_pay_codes cc
+   inner join prism.export.earning_codes ec on ec.Pay_Code=cc.Pay_Code
+   WHERE ec.pay_code LIKE '%@searchWord%'
+    ]]>
+	</sql>
+	<sql sqlid="216" help="INSERT Payroll HISTORY DATA">
+		<![CDATA[
+         delete from      [dbo].[payroll_history] where [Job_Id]=  @jobid
+
+ INSERT INTO [dbo].[payroll_history]
+  ([Job_Id]
+      ,[Job_Create_Date]
+      ,[Job_Last_Trigger_Date]
+      ,[Job_Next_Trigger_Date]
+      ,[Job_Last_Status]
+      ,[Job_Last_Message]
+      ,[Job_Update_Date])
+  VALUES
+  (@jobid
+  ,GETDATE()
+  ,CONVERT(DATETIME, '@LAST_TRIGGER_DATE')
+  ,CONVERT(DATETIME, '@NEXT_TRIGGER_DATE')
+  ,'@STATUS'
+  ,'@STAT_MSG'
+  ,GETDATE()
+  )
+
+
+]]>
+	</sql>
+	<sql sqlid="217" help="UPDATE JOB HISTORY DATA">
+		<![CDATA[
+     UPDATE [dbo].[payroll_history]
+      SET [Job_Last_Trigger_Date]=GETDATE(),
+      [Job_Next_Trigger_Date]=GETDATE(),
+      [Job_Last_Status]='@STATUS',
+      [Job_Last_Message]='@STAT_MSG',
+      [Job_Update_Date]=GETDATE()
+    WHERE job_id=@JOB_ID	  
+    ]]>
+	</sql>
+
+	<sql sqlid="218" help="UPDATE MANUAL JOB HISTORY DATA">
+		<![CDATA[
+     UPDATE [dbo].[payroll_history]
+      SET [Job_Last_Trigger_Date]=GETDATE(),
+      [Job_Last_Status]='@STATUS',
+      [Job_Last_Message]='@STAT_MSG',
+      [Job_Update_Date]=GETDATE()
+    WHERE job_id=@JOB_ID	  
+    ]]>
+	</sql>
+	<sql sqlid="219" help="Get master columns grouping data">
+		<![CDATA[
+     select grouping_id,grouping_desc from  [dbo].[payroll_master_grouping]     
+    ]]>
+	</sql>
+	<sql sqlid="69" help="GET BM CONTACTS">
+		<![CDATA[
+        SELECT sbc.Id
+      ,[Company_name]
+      ,[Contact_Name]
+      ,[Address1]
+      ,[Address2]
+      ,[City]
+      ,[State]
+      ,[Zip]
+      ,[Phone1]
+      ,[Fax]
+      ,[Email]
+      ,[WebUrl]
+      ,[WebUserName]
+      ,[WebPassword]
+      ,sbc.Contact_type as TypeId
+	  ,SBCT.CONTACT_TYPE
+      ,[isActive]
+  FROM [dbo].[SYD_BM_CONTACTS] SBC
+  INNER JOIN dbo.SYD_BM_CONTACT_TYPE_MASTER SBCT on SBCT.Id=SBC.Contact_type 
+
+      ]]>
+	</sql>
+	<sql sqlid="70" help="GET BM CONTACTS BY ID">
+		<![CDATA[
+         SELECT sbc.Id
+      ,[Company_name]
+      ,[Contact_Name]
+      ,[Address1]
+      ,[Address2]
+      ,[City]
+      ,[State]
+      ,[Zip]
+      ,[Phone1]
+      ,[Fax]
+      ,[Email]
+      ,[WebUrl]
+      ,[WebUserName]
+      ,[WebPassword]
+      ,sbc.Contact_type as TypeId
+	  ,SBCT.CONTACT_TYPE
+      ,[isActive]
+  FROM [dbo].[SYD_BM_CONTACTS] SBC
+  INNER JOIN dbo.SYD_BM_CONTACT_TYPE_MASTER SBCT on SBCT.Id=SBC.Contact_type 
+  WHERE sbc.Id=@id
+      ]]>
+	</sql>
+	<sql sqlid="71" help="INSERT BM CONTACTS">
+		<![CDATA[
+            INSERT INTO [dbo].[SYD_BM_CONTACTS]
+  (Company_name,Contact_Name,Address1,Address2,City,State,Zip,Phone1,Fax,Contact_type,Email,WebUrl,WebUserName,WebPassword,isActive)
+  VALUES
+  ('@companyName','@contactName','@address1','@address2','@city','@state','@zipCode','@phone1','@fax','@contactType','@email','@webUrl','@webUsername','@webPassword',@status)
+  Select SCOPE_IDENTITY()
+      ]]>
+	</sql>
+	<sql sqlid="72" help="UPDATE BM CONTACTS">
+		<![CDATA[
+          
+  UPDATE [dbo].[SYD_BM_CONTACTS]
+  SET
+  [Company_name]='@companyName'
+      ,[Contact_Name]='@contactName'
+      ,[Address1]='@address1'
+      ,[Address2]='@address2'
+      ,[City]='@city'
+      ,[State]='@state'
+      ,[Zip]='@zipCode'
+      ,[Phone1]='@phone1'
+      ,[Fax]='@fax'
+      ,[Contact_type]='@contactType'
+      ,[Email]='@email'
+      ,[WebUrl]='@webUrl'
+      ,[WebUserName]='@webUsername'
+      ,[WebPassword]='@webPassword'
+      ,[isActive]=@status
+WHERE Id=@id
+      ]]>
+	</sql>
+	<sql sqlid="73" help="Delete BM CONTACTS">
+		<![CDATA[
+           Delete from [dbo].[SYD_BM_CONTACTS] where Id=@id
+      ]]>
+	</sql>
+	<sql sqlid="74" help="BM CONTACT TYPES">
+		<![CDATA[
+    SELECT  [Id]
+      ,[CONTACT_TYPE]
+  FROM [dbo].[SYD_BM_CONTACT_TYPE_MASTER]
+    ]]>
+	</sql>
+	<sql sqlid="75" help="GET BM CLIENT GROUP MASTER">
+		<![CDATA[
+    SELECT Id,[Client_Group_Id]
+      ,[Client_Group_Name]
+  FROM [dbo].[SYD_BM_CLIENT_GROUP_MASTER]
+    ]]>
+	</sql>
+	<sql sqlid="76" help="GET BM CLIENT GROUP BY ID">
+		<![CDATA[
+    SELECT Id, [Client_Group_Id]
+      ,[Client_Group_Name]
+  FROM [dbo].[SYD_BM_CLIENT_GROUP_MASTER] where Id=@id
+    ]]>
+	</sql>
+	<sql sqlid="77" help="INSERT CLIENT GROUP MASTER">
+		<![CDATA[
+    INSERT INTO [dbo].[SYD_BM_CLIENT_GROUP_MASTER] (Client_Group_Id,Client_Group_Name)
+    VALUES('@groupId','@groupName')
+    ]]>
+	</sql>
+	<sql sqlid="78" help="UPDATE CLIENT GROUP MASTER">
+		<![CDATA[
+    UPDATE [dbo].[SYD_BM_CLIENT_GROUP_MASTER]
+    SET
+    Client_Group_Id='@groupId',
+    Client_Group_Name='@groupName'
+    WHERE Id=@id
+    ]]>
+	</sql>
+	<sql sqlid="79" help="DELETE CLIENT GROUP">
+		<![CDATA[
+    DELETE from [dbo].[SYD_BM_CLIENT_GROUP_MASTER] where Id=@id
+    ]]>
+	</sql>
+	<sql sqlid="80" help="GET CLIENT DOCUMENTS">
+		<![CDATA[
+         SELECT [Document_Id]
+      ,[File_Name]
+      ,[File_Description]
+      ,BC.CLASS_DESC [Plan_Type]
+      ,[Plan_Id]
+      ,[Client_Id]
+      ,Document_Type
+      ,[Effective_Date]
+      ,[IsActive]
+      ,DocUrlName
+  FROM [dbo].[SYD_BM_CLIENT_DOCUMENTS] BCD
+  inner join [Syd].[dbo].[SYD_BM_INS_CLASS] BC on BCD.Plan_Type=BC.CLASS_CODE
+  where Client_Id='@clientId'
+    ]]>
+	</sql>
+
+	<sql sqlid="81" help="GET CLIENT DOC BY Id">
+		<![CDATA[
+        SELECT [Document_Id]
+      ,[File_Name]
+      ,[File_Description]
+      ,[Plan_Type]
+      ,[Plan_Id]
+      ,[Client_Id]
+      ,Document_Type
+      ,[Effective_Date]
+      ,[IsActive]
+      ,DocUrlName
+  FROM [dbo].[SYD_BM_CLIENT_DOCUMENTS]
+  where Document_Id='@docId'
+    ]]>
+	</sql>
+
+	<sql sqlid="82" help="INSERT CLIENT DOC">
+		<![CDATA[
+         INSERT INTO [dbo].[SYD_BM_CLIENT_DOCUMENTS]
+([File_Name]
+      ,[File_Description]
+      ,[Plan_Type]
+      ,[Plan_Id]
+      ,[Client_Id]
+      ,Document_Type
+      ,[Effective_Date]
+      ,[IsActive]
+      ,[DocUrlName])
+	  VALUES('@fileName','@fileDesc','@planType','@planId','@clientId','@docType','@effDt','@status','@docUrl')
+    ]]>
+	</sql>
+
+	<sql sqlid="83" help="UPDATE CLIENT DOC">
+		<![CDATA[
+        UPDATE [dbo].[SYD_BM_CLIENT_DOCUMENTS]
+     SET [File_Name]='@fileName'
+      ,[File_Description]='@fileDesc'
+      ,[Plan_Type]='@planType'
+      ,[Plan_Id]='@planId'
+      ,[Client_Id]='@clientId'
+      ,[Document_Type]='@docType'
+      ,[Effective_Date]='@effDt'
+      ,[IsActive]='@status'
+      ,DocUrlName='@docUrl'
+  where Document_Id=@docId and Client_id='@clientId'
+    ]]>
+	</sql>
+	<sql sqlid="84" help="DELETE CLIENT DOC">
+		<![CDATA[
+        DELETE FROM [dbo].[SYD_BM_CLIENT_DOCUMENTS] where Document_Id=@docId  
+    ]]>
+	</sql>
+	<sql sqlid="85" help="GET CLIENT SUMMARY">
+		<![CDATA[
+    SELECT CD.U2_ID,
+CLIENT_DBA_NAME,
+case when bill_template_code='ASO' then 'ASO' else 'PEO' end as CLIENT_TYPE,
+CSC.CLIENT_STATUS_CLASS_DESC as STATUS,
+DOC_COUNT,
+COUNT(SB.PLAN_ID) PLAN_COUNT
+FROM PRISM.EXPORT.CLIENT_DETAILS CD
+INNER JOIN PRISM.[EXPORT].[CLIENT_STATUS_CODES] CSC ON CSC.U2_ID=CD.CLIENT_STATUS_CODE
+LEFT JOIN (Select Client_ID ,count(DOCUMENT_ID) DOC_COUNT from DBO.SYD_BM_CLIENT_DOCUMENTS GROUP BY CLIENT_ID)  SD ON SD.CLIENT_ID=CD.U2_ID
+LEFT JOIN DBO.SYD_BM_PLAN_INFO SB ON SB.CLIENT_ID=CD.CLIENT_ID
+GROUP BY CD.U2_ID,DOC_COUNT,
+CLIENT_DBA_NAME,case when bill_template_code='ASO' then 'ASO' else 'PEO' end,
+CSC.CLIENT_STATUS_CLASS_DESC
+order by 3,2
+    ]]>
+	</sql>
+	<sql sqlid="86" help="GET PLAN TYPES">
+		<![CDATA[
+     Select CLASS_CODE Plan_type,CLASS_DESC 
+  from [Syd].[dbo].[SYD_BM_INS_CLASS] 
+    ]]>
+	</sql>
+	<sql sqlid="87" help="GET PLAN Id">
+		<![CDATA[
+    Select distinct Plan_id from [dbo].[SYD_BM_PLAN_INFO]
+    ]]>
+	</sql>
+
+	<sql sqlid="88" help="CLIENT DETAIL">
+		<![CDATA[
+   SELECT CD.[U2_ID]
+,[CLIENT_ADDR_CITY]
+,[CLIENT_ADDR_LINE_1]
+,[CLIENT_ADDR_LINE_2]
+,[CLIENT_ADDR_STATE]
+,[CLIENT_ADDR_ZIP_CODE]
+,[CLIENT_ADDR_ZIP_SUFFIX]
+,[CLIENT_DBA_NAME]
+,[CLIENT_EMAIL]
+,[CLIENT_FAX_NO]
+,CD.CLIENT_ID
+,[CLIENT_LEGAL_NAME]
+,[CLIENT_PHONE_NO]
+,CSC.CLIENT_STATUS_CLASS_DESC as STATUS
+,'' [CLIENT_TERM_DESC]
+,[CLIENT_TERM_REASON_CODE]
+,CONVERT(VARCHAR,CONTRACT_DATE,101) CONTRACT_DATE
+,'' [CONTRACT_DETAIL_CODE]
+, '' [CONTRACT_END_DATE]
+,'' [CONTRACT_RENEWAL_TERM]
+
+,[EMAIL_ADDRESS]
+,'' [OWNER_NAME]
+,'' [OWNER_PHONE_NO]
+, '' [OWNER_TITLE]
+
+,[WC_POLICY_CODE]
+,[WC_POLICY_EFF_DATE]
+,BC.CLIENT_GROUP_ID
+,BC.OnBoarding_Responsibility
+,BC.Cobra_Administrator
+,CN.Client_Note
+FROM [PRISM].[EXPORT].[CLIENT_DETAILS] CD
+INNER JOIN PRISM.[EXPORT].[CLIENT_STATUS_CODES] CSC ON CSC.U2_ID=CD.CLIENT_STATUS_CODE
+LEFT JOIN PRISM.EXPORT.CLIENT_DETAILS_NOTES CN ON CN.u2_id=CD.u2_id and CN.CLIENT_DETAILS_NOTES_ID like '%-1'
+LEFT JOIN prism.export.HRP_CONTACTS HRC ON HRC.CLIENT_ID=CD.U2_ID AND CONTACT_TYPE ='BENEFITS'
+LEFT JOIN syd.[dbo].[SYD_BM_CLIENT_INFO] BC ON BC.Client_Id=CD.Client_Id
+where CD.U2_ID='@clientId'
+    ]]>
+	</sql>
+	<sql sqlid="89" help="UPSERT CLIENT_INFO">
+		<![CDATA[
+      if not exists (select Client_Id from SYD_BM_CLIENT_INFO where Client_Id='@clientId')
+    INSERT INTO [dbo].[SYD_BM_CLIENT_INFO]
+  (Client_Id,Client_Group_Id,OnBoarding_Responsibility,Cobra_Administrator)
+  VALUES('@clientId','@groupId','@onBoardResp','@cobraAdmin'); 
+else
+    UPDATE dbo.SYD_BM_CLIENT_INFO
+  SET 
+  Client_Group_Id='@groupId',
+  OnBoarding_Responsibility='@onBoardResp',
+  Cobra_Administrator='@cobraAdmin'
+  where Client_Id='@clientId' 
+  ]]>
+	</sql>
+	<sql sqlid="90" help="GET CLIENT PLAN INFO">
+		<![CDATA[
+  SELECT [Plan_id]
+      ,[Plan_name]
+	  ,case when plan_status='A' then 'Active' else 'Terminated' end as planStatus
+      ,CLASS_DESC Plan_type
+      ,BPI.Carrier_id
+	  ,''Carrier_Name
+      ,case when isnull(renewal_month,0)=0 then
+'To be updated' else
+datename(month,cast(renewal_month as varchar)+'/'+'01'+'/'+'1900') end as Renewal_month
+      ,[Enroll_month]
+      ,[Enroll_day]
+      ,[Broker_id]
+      ,[TPA_id]
+      ,[Carrier_contact_id]
+      ,[EDI_Active]
+      ,case when Ben_Enroll_Act='Y' then 'Yes' else 'No' end as Ben_Enroll_Act
+      ,[Plan_Notes]
+      ,[Client_ID]
+  FROM [dbo].[SYD_BM_PLAN_INFO] BPI
+  inner join [dbo].[SYD_BM_INS_CLASS] IC on IC.CLASS_CODE=BPI.PLAN_TYPE
+  where Client_ID = '@clientId'
+    ]]>
+	</sql>
+	<sql sqlid="91" help="GET CLINET PLAN INFO BY PLAN ID AND CLIENT ID">
+		<![CDATA[
+    SELECT [Plan_id]
+      ,[Plan_name]
+      ,[Plan_type]
+      ,[Carrier_id]
+	  ,case when isnull(renewal_month,0)=0 then
+'To be updated' else
+datename(month,cast(renewal_month as varchar)+'/'+'01'+'/'+'1900') end as Renewal_monthDesc
+      ,Renewal_month
+      ,[Enroll_month]
+      ,[Enroll_day]
+      ,[Broker_id]
+      ,[TPA_id]
+      ,[Carrier_contact_id]
+      ,case when EDI_Active='0' then 'N' else 'Y' end as EDI_Active 
+      ,[Ben_Enroll_Act]
+      ,[Plan_Notes]
+      ,BPI.Client_ID
+	  ,Client_DBA_NAME
+      ,[Plan_Status]
+      ,[ESC_Master_Plan]
+      ,[Agent_Id]
+      ,CONVERT(VARCHAR,[Plan_Effective_Date],101) Plan_Effective_Date
+      ,CONVERT(VARCHAR,[Plan_End_Date],101) Plan_End_Date
+	  ,Policy_No
+	  ,Passback
+	  ,IC.CLASS_DESC
+	  ,[Record_Keeper_Id]
+      ,[Financial_Advisor_Id]
+      ,[EB_Recon]
+  FROM [Syd].[dbo].[SYD_BM_PLAN_INFO] BPI
+  inner join prism.export.Client_Details CD on CD.u2_id=BPI.Client_ID
+  inner join [Syd].dbo.SYD_BM_INS_CLASS IC on IC.CLASS_CODE=BPI.Plan_Type
+   where BPI.Client_ID='@clientId' and Plan_id='@planId'
+    ]]>
+	</sql>
+	<sql sqlid="92" help="UPDATE PLAN INFO">
+		<![CDATA[
+      UPDATE [dbo].[SYD_BM_PLAN_INFO]
+   SET
+		[Plan_id]='@planId'
+      ,[Plan_name]='@planName'
+      ,[Plan_type]='@planType'
+      ,[Carrier_id]=@carrierId
+      ,[Renewal_month]='@renewalDate'
+	  ,Enroll_month='@enrollMonth'
+	  ,Enroll_day='@enrollDay'
+      ,[Broker_id]=@brokerId
+      ,[TPA_id]=@tpaId
+      ,[Record_Keeper_Id]=@rkId
+      ,[Financial_Advisor_Id]=@finId
+      ,[Carrier_contact_id]=@carrierContactId
+      ,[Plan_Notes]='@planNotes'
+      ,[Client_ID]='@clientId'
+      ,[Plan_Status]='@planStatus'
+      ,[Agent_Id]='@agentId'
+	  ,[Policy_No]='@policyNo'
+	  ,[Passback]='@passBack'
+   WHERE Client_ID='@clientId' and Plan_id='@planId'
+    ]]>
+	</sql>
+	<sql sqlid="93" help="GET BM CARRIERS">
+		<![CDATA[
+         SELECT [Id]
+      ,[Carrier_Id]
+      ,[Carrier_Name]
+	  ,[REC_TYPE]
+  FROM [dbo].[SYD_BM_CARRIERS]
+    ]]>
+	</sql>
+	<sql sqlid="94" help="INSERT CLIENT PLAN INFO MISC">
+		<![CDATA[
+		  if not exists (select Client_Id,Plan_Id from [Syd].[dbo].SYD_BM_PLAN_MISC where Client_Id='@sClient_Id' and Plan_Id='@sPlan_Id')
+    INSERT INTO [Syd].[dbo].[SYD_BM_PLAN_MISC]
+  (
+  [Offered]
+      ,[Cafeteria_Plan]
+      ,[Med_Allowed]
+      ,[Den_Allowed]
+      ,[Vis_Allowed]
+      ,[Non_Full_Time_Allowed]
+      ,[Benefit_Amt]
+      ,[Benefit_Max]
+      ,[Benefit_Frequency]
+      ,[Plan_Details]
+      ,[ESC_Role_Activity]
+      ,[Active_Plan]
+      ,[Client_Id]
+      ,[Plan_Id]
+	  ,[No_of_Loans]
+	  ,[Has_Roth]
+	  ,[Plan_Year]
+	  ,[Elimination_Period]
+	  ,[Wage_Based_On_W2]
+	  ,[Group_Number]
+  )
+  VALUES(
+  @bOffered
+      ,@bCafeteria_Plan
+      ,@bMed_Allowed
+      ,@bDen_Allowed
+      ,@bVis_Allowed
+      ,@bNon_Full_Time_Allowed
+      ,'@sBenefit_Amt'
+      ,'@sBenefit_Max'
+      ,'@sBenefit_Frequency'
+      ,'@sPlan_Details'
+      ,'@sESC_Role_Activity'
+      ,@bActive_Plan
+      ,'@sClient_Id'
+      ,'@sPlan_Id'
+	  ,'@iNoOfLoans'
+	  ,@bHasRoth
+	  ,'@sPlanYear'
+	  ,'@sEliminationPeriod'
+	  ,@bwageBasedOnW2
+	  ,'@sGroup_Number'
+  ); 
+else
+    UPDATE [Syd].[dbo].[SYD_BM_PLAN_MISC]
+  SET 
+  [Offered]=@bOffered
+      ,[Cafeteria_Plan]=@bCafeteria_Plan
+      ,[Med_Allowed]=@bMed_Allowed
+      ,[Den_Allowed]=@bDen_Allowed
+      ,[Vis_Allowed]=@bVis_Allowed
+      ,[Non_Full_Time_Allowed]=@bNon_Full_Time_Allowed
+      ,[Benefit_Amt]='@sBenefit_Amt'
+      ,[Benefit_Max]='@sBenefit_Max'
+      ,[Benefit_Frequency]='@sBenefit_Frequency'
+      ,[Plan_Details]='@sPlan_Details'
+      ,[ESC_Role_Activity]='@sESC_Role_Activity'
+      ,[Active_Plan]=@bActive_Plan
+      ,[Client_Id]='@sClient_Id'
+      ,[Plan_Id]='@sPlan_Id'
+	  ,[No_of_Loans]='@iNoOfLoans'
+	  ,[Has_Roth]=@bHasRoth
+	  ,[Plan_Year]='@sPlanYear'
+	  ,[Elimination_Period]='@sEliminationPeriod'
+	  ,[Wage_Based_On_W2]=@bwageBasedOnW2
+	  ,[Group_Number]='@sGroup_Number'	  
+  where Client_Id='@sClient_Id' and Plan_Id='@sPlan_Id' 
+		]]>
+	</sql>
+	<sql sqlid="95" help="INSERT BM PLAN INFO">
+		<![CDATA[
+		INSERT INTO [Syd].[dbo].[SYD_BM_PLAN_INFO]
+    (
+       [Plan_id]
+      ,[Plan_name]
+      ,[Plan_type]
+      ,[Carrier_id]
+      ,[Client_ID]
+      ,[Plan_Status]
+      ,[Policy_No]
+	  ,[Plan_Effective_Date]
+      ,[Plan_End_Date]
+  )
+  VALUES(
+	   '@sPlan_id'
+      ,'@sPlan_name'
+      ,'@sPlan_type'
+	  ,@iCarrier_id
+      ,'@sClient_ID'
+      ,'@sPlan_Status'
+      ,'@sPolicy_No'
+	  ,'@sPlanEffDt'
+	  ,'@sPlanEndDt'
+  )
+		]]>
+	</sql>
+
+	<sql sqlid="96" help="GET CLIENT BEN PLANS">
+		<![CDATA[
+		 Select BEN_GROUP_ID, Ben_Group_Name from prism.export.BENEFIT_GROUPS BG
+ inner join prism.export.BENEFIT_RULES BR on BR.Client_ID=BG.CLIENT_ID and BG.BEN_GROUP_ID=BR.EE_ID
+ where BG.Client_ID='@clientId' and Ben_Plan_ID='@planId'
+		]]>
+	</sql>
+
+	<sql sqlid="97" help="GET ALL ABBRVIATIONS">
+		<![CDATA[
+		SELECT [PlanType]
+      ,[FiledName]
+      ,[Abbreviation]
+      ,[Abbr_Desc]
+  FROM [Syd].[dbo].[SYD_BM_ABBREVIATIONS]
+		]]>
+	</sql>
+
+	<sql sqlid="98" help="GET PLAN MISC">
+		<![CDATA[
+SELECT [Offered]
+      ,[Cafeteria_Plan]
+      ,[Med_Allowed]
+      ,[Den_Allowed]
+      ,[Vis_Allowed]
+      ,[Non_Full_Time_Allowed]
+      ,[Benefit_Amt]
+      ,[Benefit_Max]
+      ,[Benefit_Frequency]
+      ,[Plan_Details]
+      ,[ESC_Role_Activity]
+      ,[Active_Plan]
+      ,[Client_Id]
+      ,[Plan_Id]
+      ,[No_of_Loans]
+      ,[Has_Roth]
+	  ,[Plan_Year]
+      ,[Elimination_Period]
+      ,[Wage_Based_On_W2]
+	  ,[Group_Number]
+
+  FROM [Syd].[dbo].[SYD_BM_PLAN_MISC]
+  where Client_Id='@clientId' and Plan_Id='@planId'
+		]]>
+	</sql>
+
+	<sql sqlid="99" help="UPDATE PLAN INFO">
+		<![CDATA[
+      UPDATE [dbo].[SYD_BM_PLAN_INFO]
+   SET
+	   [Plan_id]='@planId'
+	  ,Enroll_month='@enrollMonth'
+	  ,Enroll_day='@enrollDay'
+      ,[Client_ID]='@clientId'
+   WHERE Client_ID='@clientId' and Plan_id='@planId'
+    ]]>
+	</sql>
+
+	<sql sqlid="100" help="GET CONTACT QA LIST">
+		<![CDATA[
+	SELECT [Id]
+      ,[Contact_Id]
+      ,[Question_Desc]
+      ,[Answer_Desc]
+  FROM [Syd].[dbo].[SYD_BM_CONTACTS_QA]	where Contact_Id=@cId
+	]]>
+	</sql>
+
+	<sql sqlid="101" help="INSERT CONTACT QA">
+		<![CDATA[
+	INSERT INTO [Syd].[dbo].[SYD_BM_CONTACTS_QA]
+  ([Contact_Id]
+      ,[Question_Desc]
+      ,[Answer_Desc])
+	  VALUES(@cId,'@qDesc','@aDesc')
+	]]>
+	</sql>
+  <sql sqlid="102" help="UPDATE CONTACT QA">
+    <![CDATA[
+	UPDATE [Syd].[dbo].[SYD_BM_CONTACTS_QA]
+    SET
+       [Contact_Id]=@cId
+      ,[Question_Desc]='@qDesc'
+      ,[Answer_Desc]='@aDesc'
+    WHERE Id=@id	
+	]]>
+  </sql>
+  <sql sqlid ="103" help="GET CLIENT NOTES FOR BENEFIT MANAGER">
+    <![CDATA[
+  select Client_Note from prism.export.client_details_notes
+where  u2_id like '@clientId'  and LEN(Client_Note)>0
+
+  ]]>
+  </sql>
+
+  <sql sqlid="104" help="GET STANDARD TABLE COLS">
+    <![CDATA[
+    
+    SELECT COLUMN_NAME
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = N'INV_STD_DATA_TBL'
+    ]]>
+  </sql>
+  <sql sqlid="105" help="INSERT INV COMPANY MASTER">
+      <![CDATA[
+      
+      INSERT INTO [Syd].[dbo].[INV_COMPANY_MASTER]
+  (Company_Name,Updated_On)
+  VALUES('@CompanyName',GETDATE());
+  Select SCOPE_IDENTITY()
+                                                  ]]>
+  </sql>
+
+  <sql sqlid="106" help="INSERT INV MAPPING">
+    <![CDATA[
+          INSERT INTO [Syd].[dbo].[INV_MAPPING_TBL]
+  (Company_Id,Inv_Column_Name,Sql_Column_Name,Table_Index,Inv_Column_Index,Table_Cols_Count)
+  VALUES(@CompanyId,'@invCol','@sqlCol',@tabIndex,@colIndex,@colCount)
+    ]]>
+  </sql>
+
+  <sql sqlid="107" help="GET COMPANY INV MAPPING INFO">
+    <![CDATA[
+     SELECT  [Id]
+      ,[Company_Id]
+      ,[Inv_Column_Name]
+      ,[Sql_Column_Name]
+	  ,Table_Index,
+    Inv_Column_Index,
+    Table_Cols_Count
+  FROM [Syd].[dbo].[INV_MAPPING_TBL]
+  where Company_Id=@CompanyId
+    ]]>
+  </sql>
+
+  <sql sqlid="108" help="GET COMPANY MASTER">
+    <![CDATA[
+        SELECT 
+		Id
+      ,[Company_name]
+      
+  FROM [dbo].[SYD_BM_CONTACTS] SBC where Contact_type=3
+    ]]>
+  </sql>
+  <sql sqlid="109" help="INSERT INVOICE DATA">
+    <![CDATA[
+      INSERT INTO [Syd].dbo.INV_STD_DATA_TBL
+  (INVOICE_NO
+      ,MEMBER_ID
+      ,MEMBER_NAME
+      ,FIRST_NAME
+      ,LAST_NAME
+      ,MIDDLE_INITIAL
+      ,MEMBER_SSN
+      ,SUBCRIBER_ID
+      ,INVOICE_AMOUNT
+      ,PLAN_CLASS
+      ,TIER
+      ,PLAN_DESC
+      ,IYEAR
+      ,IMONTH
+      ,ICLIENT_ID
+      ,FLAG
+      ,CARRIER_ID)
+	  VALUES(
+	   '@INVOICE_NO'
+      ,'@MEMBER_ID'
+      ,'@MEMBER_NAME'
+      ,'@FIRST_NAME'
+      ,'@LAST_NAME'
+      ,'@MIDDLE_INITIAL'
+      ,'@MEMBER_SSN'
+      ,'@SUBCRIBER_ID'
+      ,'@INVOICE_AMOUNT'
+      ,'@PLAN_CLASS'
+      ,'@TIER'
+      ,'@PLAN'
+      ,@IYEAR
+      ,@IMONTH
+      ,'@ICLIENT_ID'
+      ,'@FLAG'
+      ,'@CARRIER_ID'
+	  )
+    ]]>
+  </sql>
+
+  <sql sqlid="110" help="INSERT APPROVED RESULTS">
+    <![CDATA[
+             INSERT INTO [Syd].[dbo].[INV_DIFFERENCE_TBL]
+  (
+  [Insurance_Class_Id]
+      ,[IMonth]
+      ,[IYear]
+      ,[IClient_Id]
+      ,[EE_ID]
+      ,[EE_SORT_NAME]
+      ,[INVOICE_AMOUNT]
+      ,[INVOICE_TIER]
+      ,[PRISM_AMOUNT]
+      ,[PRISM_TIER]
+      ,[BEN_PLAN_DESC]
+      ,[DISCREPANCY_AMOUNT]
+      ,[STATUS]
+      ,[COMMENTS]
+  )
+  VALUES(
+	   '@Insurance_Class_Id'
+      ,@IMonth
+      ,@IYear
+      ,@IClient_Id
+      ,'@EE_ID'
+      ,'@EE_SORT_NAME'
+      ,@INVOICE_AMOUNT
+      ,'@INVOICE_TIER'
+      ,@PRISM_AMOUNT
+      ,'@PRISM_TIER'
+      ,'@BEN_PLAN_DESC'
+      ,@DISCREPANCY_AMOUNT
+      ,'@STATUS'
+      ,'@COMMENTS'
+  )
+    ]]>
+  </sql>
+  <sql sqlid="111" help="GET INVOICE MAPPING CLIENTs">
+    <![CDATA[
+    Select distinct Company_Id,Company_name from 
+INV_MAPPING_TBL IM
+inner join SYD_BM_CONTACTS BC ON BC.Id=IM.Company_Id
+    ]]>
+  </sql>
+  <sql sqlid="112" help="GET ACTIVE CLIENTS">
+    <![CDATA[
+    Select u2_id,Client_DBA_Name from prism.export.CLIENT_DETAILS 
+where Client_Status_Code='A'
+    ]]>
+  </sql>
+
+  <sql sqlid="113" help="INSERT TO SWIPECLOCK">
+     <![CDATA[
+        INSERT INTO [dbo].[SWIPE_CLOCK_TB]
+           ([LineItem]
+           ,[ItemDate]
+           ,[Description]
+           ,[Quantity]
+           ,[Rate]
+           ,[TaxRate]
+           ,[TotalAmount]
+           ,[ExtDescription]
+           ,[Client]
+           ,[ClientTag]
+           ,[Employees]
+           ,[Clocks],[Created_Date])
+     VALUES
+           (@LineItem
+           ,'@ItemDate'
+           ,'@Description'
+           ,@Quantity
+           ,@Rate
+           ,@TaxRate
+           ,@TotalAmount
+           ,'@ExtDescription'
+           ,'@Client'
+           ,'@Tag'
+           ,@Employees
+           ,@Clocks,'@createDt')
+    ]]>
+  </sql>
+  <sql sqlid="114" help="INSERT TO SWIPECLOCK CROSSWALK">
+    <![CDATA[
+        INSERT [dbo].[Swipe_clock_crosswalk_tb] ([Prism_Client_ID], [SwipeClock_Client_ID])
+     VALUES
+           (
+           '@prismclientid',
+           '@swipeclockclient_id'
+           )
+    ]]>
+  </sql>
+  <sql sqlid="115" help="INSERT TO SWIPECLOCK CROSSWALK">
+    <![CDATA[
+        delete from Swipe_clock_crosswalk_tb;
+
+    ]]>
+  </sql>
+
+  <sql sqlid="116" help="GET SWIPECLOCK CROSSWALK">
+    <![CDATA[
+        Select * from Swipe_clock_crosswalk_tb order by 1;
+
+    ]]>
+  </sql>
+
+
+
+</Statements>
