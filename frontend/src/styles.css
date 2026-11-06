@@ -964,3 +964,13 @@ html, body, #root { height: 100%; }
 .jobs-table tbody tr.selected-row td:first-child { background: #dce9ff; }
 .file-name-link { max-width: 100%; overflow: hidden; padding: 0; border: 0; color: var(--primary-dark); background: transparent; font: inherit; text-align: left; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .file-name-link:hover { color: #163fa8; }
+.jobs-table th.jobs-select-column input:checked,
+.jobs-table td.jobs-select-cell input:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3 8 3 3 7-7' fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 15px 15px;
+  box-shadow: none;
+}
