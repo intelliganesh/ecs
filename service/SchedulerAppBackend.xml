@@ -1,0 +1,25 @@
+<service>
+  <id>SchedulerAppBackend</id>
+  <name>Scheduler App Backend</name>
+  <description>FastAPI backend and report scheduler for Scheduler App</description>
+
+  <executable>C:\projects\scheduler_app\backend\.venv\Scripts\python.exe</executable>
+  <arguments>-m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1</arguments>
+  <workingdirectory>C:\projects\scheduler_app\backend</workingdirectory>
+
+  <env name="PYTHONUNBUFFERED" value="1" />
+
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>false</delayedAutoStart>
+
+  <stoptimeout>30 sec</stoptimeout>
+
+  <onfailure action="restart" delay="10 sec" />
+  <resetfailure>1 hour</resetfailure>
+
+  <logpath>C:\projects\scheduler_app\logs\service</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+</service>
