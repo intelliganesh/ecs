@@ -10,6 +10,7 @@ router = APIRouter(prefix="/retirement-builder", tags=["retirement-builder"])
 
 
 class GeneralForm(BaseModel):
+    testfileName: str = ""
     fileName: str = ""
     fileFormat: str = ""
     description: str = ""

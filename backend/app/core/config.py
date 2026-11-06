@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     db_dialect: str = "mssql"
     db_host: str = "127.0.0.1"
     db_port: int = 1433
-    db_name: str = "generate_report"
+    db_name: str = "ecs"
     db_user: str = "sa"
     db_password: str = "change-me"
     mssql_driver: str = "ODBC Driver 18 for SQL Server"

@@ -964,6 +964,19 @@ html, body, #root { height: 100%; }
 .jobs-table tbody tr.selected-row td:first-child { background: #dce9ff; }
 .file-name-link { max-width: 100%; overflow: hidden; padding: 0; border: 0; color: var(--primary-dark); background: transparent; font: inherit; text-align: left; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .file-name-link:hover { color: #163fa8; }
+.mapping-table-wrap {
+  height: 420px;
+  max-height: 420px;
+  overflow: auto;
+}
+.mapping-table th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #f8fafc;
+}
+.button { text-decoration: none; }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .jobs-table th.jobs-select-column input:checked,
 .jobs-table td.jobs-select-cell input:checked {
   border-color: var(--primary);
