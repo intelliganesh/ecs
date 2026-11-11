@@ -3,4 +3,5 @@ uvicorn[standard]==0.34.0
 pydantic-settings==2.7.1
 SQLAlchemy==2.0.37
 pyodbc==5.2.0
+APScheduler==3.11.3
 

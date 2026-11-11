@@ -6,5 +6,7 @@ __pycache__/
 *.tsbuildinfo
 .pytest_cache/
 .env
+/backend/report-input/
+/backend/report-output/
 .DS_Store
 

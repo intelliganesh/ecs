@@ -211,6 +211,7 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
 .jobs-select-column input:checked, .jobs-select-cell input:checked { border-color: var(--primary); background: var(--primary); box-shadow: inset 0 0 0 4px #fff; }
 .button:disabled { border-color: #d6dee9; color: #9aa6b7; background: #eef2f7; cursor: not-allowed; opacity: .8; }
 .dashboard-action-message { margin: -4px 24px 8px; color: var(--primary-dark); font-size: .9rem; font-weight: 650; text-align: right; }
+.report-downloads { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px 14px; margin-top: 6px; overflow-wrap: anywhere; }
 .card-heading-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 @media (max-width: 767px) {
   .mapping-add-dataset { justify-content: stretch; }
@@ -719,7 +720,8 @@ html, body, #root { height: 100%; }
 
 /* Modals must sit above sticky wizard navigation and card headers. */
 .modal-backdrop { z-index: 100; }
-.settings-table input {
+.settings-table input,
+.settings-table select {
   width: 100%;
   min-height: 42px;
   padding: 8px 10px;
@@ -728,7 +730,8 @@ html, body, #root { height: 100%; }
   color: var(--ink);
   background: #fff;
 }
-.settings-table input:focus {
+.settings-table input:focus,
+.settings-table select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px #2563eb1c;
   outline: 0;
@@ -903,7 +906,8 @@ html, body, #root { height: 100%; }
 }
 .settings-table td { height: 64px; padding: 10px 14px; color: #46566d; font-size: 1rem; }
 .settings-table td:not(:last-child) { vertical-align: middle; }
-.settings-table input { min-height: 46px; }
+.settings-table input,
+.settings-table select { min-height: 46px; }
 .settings-table input::placeholder { color: #8a98ac; }
 .settings-table th:last-child,
 .settings-table td:last-child { width: 92px; text-align: center; }
@@ -986,4 +990,28 @@ html, body, #root { height: 100%; }
   background-repeat: no-repeat;
   background-size: 15px 15px;
   box-shadow: none;
+}
+
+.dashboard-scope {
+  margin: 0 auto 0 0;
+  color: var(--muted);
+  font-size: .875rem;
+}
+
+.field-error {
+  display: block;
+  margin-top: 4px;
+  color: #b42318;
+  font-size: .875rem;
+  font-weight: 500;
+  white-space: normal;
+}
+
+.wizard-card [aria-invalid="true"]:not(.email-tags-list input) {
+  border-color: #b42318;
+}
+
+.mapping-actions .icon-button svg {
+  width: 18px;
+  height: 18px;
 }

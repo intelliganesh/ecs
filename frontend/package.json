@@ -10,6 +10,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@noble/hashes": "2.4.0",
     "lucide-react": "^1.69.0",
     "react": "latest",
     "react-dom": "latest",
