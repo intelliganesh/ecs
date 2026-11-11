@@ -10,6 +10,7 @@ import {
 } from './retirementBuilder'
 
 type Screen = 'dashboard' | 'general' | 'schedule' | 'mapping' | 'subscriptions' | 'placeholder'
+type ReportSource = 'csv' | 'companyPayroll'
 type SideIcon = 'edit' | 'file' | 'copy'
 type MappingRow = { id: number; field: string; startPosition: string; length: string; recordType: string; defaultValue: string; mapping: string; format: string }
 type ApiMappingRow = { field?: string; startPosition?: string; length?: string; recordType?: string; defaultValue?: string; mappingColumn?: string; format?: string }
@@ -24,8 +25,8 @@ type TableFilters = Record<number, string>
 type DashboardJob = { id: number; values: string[] }
 type JobRunFile = { fileName: string; csv: string }
 type JobRun = JobRunFile & { runId: string; rowCount: number; storedRows: number; files?: JobRunFile[] }
-type RetirementBuilderApiJob = { id: number; general?: { fileName?: string; fileFormat?: string; description?: string; outputFileNameFormat?: string; enable?: boolean; storeResultsToTable?: boolean; selectedFile?: string }; schedule?: { startDate?: string | null; week?: string; hour?: string; minute?: string; meridiem?: string; buildFrequency?: string }; mapping?: { includeHeader?: boolean; rows?: ApiMappingRow[] }; subscriptions?: { mergeFiles?: boolean; rows?: Array<{ client?: string; email?: string }> }; fileSettings?: { sortingOrder?: Partial<SortingRow>[]; conditionalStatements?: Partial<ConditionalRow>[] }; jobid?: number; jobfilename?: string; jobdesc?: string; filetype?: string; isEnabled?: boolean | number; ismerge?: boolean; runday?: string; runtime?: string; ScheduleType?: string; joblastmodified?: string | null; joblastrun?: string | null; Job_Last_Status?: string | null }
-type RetirementBuilderOptions = { fileFormats: string[]; outputFileNameFormats: string[]; buildFrequencies: string[]; hours: string[]; minutes: string[]; meridiems: string[]; weekDays: string[]; recordTypes: string[]; sortDirections: SortDirection[]; mappingColumns: string[]; mappingColumnTypes: Record<string, string>; mappingFormatsByType: Record<string, string[]> }
+type RetirementBuilderApiJob = { id: number; general?: { fileName?: string; fileFormat?: string; description?: string; outputFileNameFormat?: string; enable?: boolean; storeResultsToTable?: boolean; selectedFile?: string; reportSource?: ReportSource }; schedule?: { startDate?: string | null; week?: string; hour?: string; minute?: string; meridiem?: string; buildFrequency?: string }; mapping?: { includeHeader?: boolean; rows?: ApiMappingRow[] }; subscriptions?: { mergeFiles?: boolean; rows?: Array<{ client?: string; email?: string }> }; fileSettings?: { sortingOrder?: Partial<SortingRow>[]; conditionalStatements?: Partial<ConditionalRow>[] }; jobid?: number; jobfilename?: string; jobdesc?: string; filetype?: string; isEnabled?: boolean | number; ismerge?: boolean; runday?: string; runtime?: string; ScheduleType?: string; joblastmodified?: string | null; joblastrun?: string | null; Job_Last_Status?: string | null }
+type RetirementBuilderOptions = { fileFormats: string[]; outputFileNameFormats: string[]; buildFrequencies: string[]; hours: string[]; minutes: string[]; meridiems: string[]; weekDays: string[]; recordTypes: string[]; sortDirections: SortDirection[]; mappingColumns: string[]; payrollMappingColumns: string[]; mappingColumnTypes: Record<string, string>; mappingFormatsByType: Record<string, string[]> }
 
 const navigation: [SideIcon, string][] = [['edit', 'Benefits'], ['file', 'Mass Mutual Files'], ['copy', 'Process Validator'], ['copy', 'Retirement Builder'], ['edit', 'Prism'], ['copy', 'Services'], ['copy', 'Swipe Clock'], ['copy', 'Payroll Builder'], ['copy', 'NYS-45'], ['copy', 'Reports']]
 const menuPaths: Record<string, string> = { Benefits: '/benefits', 'Mass Mutual Files': '/mass-mutual-files', 'Process Validator': '/process-validator', Prism: '/prism', Services: '/services', 'Swipe Clock': '/swipe-clock', 'Payroll Builder': '/payroll-builder', 'NYS-45': '/nys-45', Reports: '/reports' }
@@ -37,7 +38,7 @@ async function fetchRetirementJobs(signal?: AbortSignal): Promise<RetirementBuil
   const jobs = await response.json() as RetirementBuilderApiJob[]
   return jobs.map(normalizeApiJob)
 }
-const emptyOptions: RetirementBuilderOptions = { fileFormats: [], outputFileNameFormats: [], buildFrequencies: [], hours: [], minutes: [], meridiems: [], weekDays: [], recordTypes: [], sortDirections: [], mappingColumns: [], mappingColumnTypes: {}, mappingFormatsByType: {} }
+const emptyOptions: RetirementBuilderOptions = { fileFormats: [], outputFileNameFormats: [], buildFrequencies: [], hours: [], minutes: [], meridiems: [], weekDays: [], recordTypes: [], sortDirections: [], mappingColumns: [], payrollMappingColumns: [], mappingColumnTypes: {}, mappingFormatsByType: {} }
 const OptionsContext = createContext({ values: emptyOptions, loading: true, error: '' })
 function normalizeApiJob(raw: RetirementBuilderApiJob): RetirementBuilderApiJob { const id = Number(raw.id ?? raw.jobid); const runTime = raw.runtime?.match(/^(\d{1,2}):(\d{1,2})(?:\s+(AM|PM))?$/i); const scheduleType = ({ D: 'Daily', W: 'Weekly', B: 'Bi-Weekly', M: 'Monthly', MD: 'Monthly' } as Record<string, string>)[raw.ScheduleType ?? ''] ?? raw.ScheduleType; return { ...raw, id, general: { ...raw.general, fileName: raw.general?.fileName ?? raw.jobfilename, description: raw.general?.description ?? raw.jobdesc ?? '', fileFormat: raw.general?.fileFormat ?? raw.filetype, enable: raw.general?.enable ?? (raw.isEnabled === true || raw.isEnabled === 1), storeResultsToTable: raw.general?.storeResultsToTable ?? false }, schedule: raw.schedule ?? { week: raw.runday, buildFrequency: scheduleType, hour: runTime?.[1], minute: runTime?.[2], meridiem: runTime?.[3]?.toUpperCase() }, subscriptions: raw.subscriptions ?? { mergeFiles: raw.ismerge } } }
 function toDashboardJob(rawJob: RetirementBuilderApiJob): DashboardJob {
@@ -76,7 +77,7 @@ function createDefaultSchedule(): ScheduleValues {
   return { ...scheduleDefaults, startDate: `${today.getFullYear()}-${month}-${day}` }
 }
 const emptyFileSettings: FileSettingsValues = { sortingOrder: [], conditionalStatements: [] }
-const outputNameFormats = ['File Name', 'Client ID', 'Payday', 'File Name + Client ID', 'File Name + Payday', 'Client ID + Payday', 'File Name + Client ID + Payday']
+const reportSourceLabels: Record<ReportSource, string> = { csv: 'CSV file', companyPayroll: 'Company Payroll Report' }
 const addPaths: Record<Screen, string> = { dashboard: '/retirement-builder', general: '/jobs/new', schedule: '/jobs/new/schedule', mapping: '/jobs/new/mapping', subscriptions: '/jobs/new/subscriptions', placeholder: '/placeholder' }
 const editPaths: Record<Screen, string> = { dashboard: '/retirement-builder', general: '/jobs/edit/general', schedule: '/jobs/edit/schedule', mapping: '/jobs/edit/mapping', subscriptions: '/jobs/edit/subscriptions', placeholder: '/placeholder' }
 
@@ -98,7 +99,7 @@ function SearchableSelect({
 }) {
   const root = useRef<HTMLSpanElement>(null); const menu = useRef<HTMLDivElement>(null); const trigger = useRef<HTMLButtonElement>(null); const listId = useId(); const [internalValue, setInternalValue] = useState(defaultValue); const value = controlledValue ?? internalValue; const [query, setQuery] = useState(''); const [open, setOpen] = useState(false); const [activeIndex, setActiveIndex] = useState(0); const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({})
   const { values: runtimeOptions, loading: runtimeOptionsLoading, error: runtimeOptionsError } = useContext(OptionsContext)
-  const apiOptions = ariaLabel === 'File format' ? runtimeOptions.fileFormats : ariaLabel === 'Output file name format' ? runtimeOptions.outputFileNameFormats : ariaLabel === 'Build frequency' ? runtimeOptions.buildFrequencies : ariaLabel === 'Hour' ? runtimeOptions.hours : ariaLabel === 'Minute' ? runtimeOptions.minutes : ariaLabel === 'AM or PM' ? runtimeOptions.meridiems : ariaLabel === 'Week' ? runtimeOptions.weekDays : ariaLabel.endsWith('record type') ? runtimeOptions.recordTypes : options
+  const apiOptions = ariaLabel === 'File format' ? runtimeOptions.fileFormats : ariaLabel === 'Build frequency' ? runtimeOptions.buildFrequencies : ariaLabel === 'Hour' ? runtimeOptions.hours : ariaLabel === 'Minute' ? runtimeOptions.minutes : ariaLabel === 'AM or PM' ? runtimeOptions.meridiems : ariaLabel === 'Week' ? runtimeOptions.weekDays : ariaLabel.endsWith('record type') ? runtimeOptions.recordTypes : options
   const effectiveOptions = [...new Set([
     ...(clearLabel ? [''] : []),
     ...(includeSavedOption && controlledValue ? [controlledValue] : []),
@@ -184,7 +185,7 @@ function EmailTagsInput({ value, draft, onChange, ariaLabel, validate }: {
 const wizardSteps: Screen[] = ['general', 'schedule', 'mapping', 'subscriptions']
 const earliestStartDate = '1753-01-01'
 const draftKey = 'ecs-retirement-builder-draft'
-type Draft = { mode: 'add' | 'edit'; jobId: number | null; enable: boolean; fileName: string; fileFormat: string; description: string; outputFileNameFormat: string; storeResultsToTable: boolean; selectedFile: string; schedule: ScheduleValues; includeHeader: boolean; mappingRows: MappingRow[]; mergeFiles: boolean; subscriptions: Subscription[]; fileSettings: FileSettingsValues }
+type Draft = { mode: 'add' | 'edit'; jobId: number | null; enable: boolean; fileName: string; fileFormat: string; description: string; outputFileNameFormat: string; storeResultsToTable: boolean; selectedFile: string; reportSource: ReportSource; schedule: ScheduleValues; includeHeader: boolean; mappingRows: MappingRow[]; mergeFiles: boolean; subscriptions: Subscription[]; fileSettings: FileSettingsValues }
 function readDraft(mode: 'add' | 'edit'): Draft | null { try { const raw = sessionStorage.getItem(draftKey); if (!raw) return null; const draft = JSON.parse(raw) as Draft; if (draft.mode !== mode || (mode === 'edit' && typeof draft.jobId !== 'number')) return null; rowSequence = Math.max(rowSequence, ...draft.mappingRows.map((row) => row.id), ...draft.subscriptions.map((row) => row.id)); return draft } catch { return null } }
 async function readSaveError(response: Response, fallback = 'Unable to save Retirement Builder job') {
   if (response.status === 404) return 'This Retirement Builder job no longer exists. Return to the dashboard and select it again.'
@@ -215,6 +216,7 @@ export default function App({ userEmail }: { userEmail: string }) {
   const [initialDraft] = useState(() => isWizard ? readDraft(isEditFlow ? 'edit' : 'add') : null)
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 767); const [showSettings, setShowSettings] = useState(false); const [saveError, setSaveError] = useState(''); const [saving, setSaving] = useState(false); const savingRef = useRef(false)
   const [enable, setEnable] = useState(initialDraft?.enable ?? true); const [fileName, setFileName] = useState(initialDraft?.fileName ?? ''); const [fileFormat, setFileFormat] = useState(initialDraft?.fileFormat ?? ''); const [description, setDescription] = useState(initialDraft?.description ?? ''); const [outputFileNameFormat, setOutputFileNameFormat] = useState(initialDraft?.outputFileNameFormat ?? ''); const [storeResultsToTable, setStoreResultsToTable] = useState(initialDraft?.storeResultsToTable ?? false); const [selectedFile, setSelectedFile] = useState(initialDraft?.selectedFile ?? '')
+  const [reportSource, setReportSource] = useState<ReportSource>(initialDraft?.reportSource ?? 'csv')
   const [schedule, setSchedule] = useState<ScheduleValues>(() => initialDraft?.schedule ?? createDefaultSchedule()); const [includeHeader, setIncludeHeader] = useState(initialDraft?.includeHeader ?? true); const [mappingRows, setMappingRows] = useState<MappingRow[]>(() => initialDraft?.mappingRows ?? makeInitialMappings()); const [fileSettings, setFileSettings] = useState<FileSettingsValues>(initialDraft?.fileSettings ?? emptyFileSettings)
   const [mergeFiles, setMergeFiles] = useState(initialDraft?.mergeFiles ?? false); const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => initialDraft?.subscriptions ?? [newSubscription()])
   const [retirementJobs, setRetirementJobs] = useState<RetirementBuilderApiJob[]>([]); const [jobsStatus, setJobsStatus] = useState<JobsStatus>('loading'); const [selectedJobId, setSelectedJobId] = useState<number | null>(initialDraft?.jobId ?? null); const [filters, setFilters] = useState<TableFilters>({}); const [options, setOptions] = useState({ values: emptyOptions, loading: true, error: '' })
@@ -264,7 +266,7 @@ export default function App({ userEmail }: { userEmail: string }) {
   }, [screen])
   useEffect(() => { setSaveError(''); setShowSettings(false) }, [location.pathname])
   useEffect(() => { if (awaitingJob) routerNavigate('/retirement-builder', { replace: true }) }, [awaitingJob, routerNavigate])
-  useEffect(() => { try { if (!isWizard) { sessionStorage.removeItem(draftKey); return } if (awaitingJob) return; const draft: Draft = { mode: isEditFlow ? 'edit' : 'add', jobId: selectedJobId, enable, fileName, fileFormat, description, outputFileNameFormat, storeResultsToTable, selectedFile, schedule, includeHeader, mappingRows, mergeFiles, subscriptions, fileSettings }; sessionStorage.setItem(draftKey, JSON.stringify(draft)) } catch { /* session storage unavailable: draft is simply not kept across refresh */ } }, [awaitingJob, description, enable, fileFormat, fileName, fileSettings, includeHeader, isEditFlow, isWizard, mappingRows, mergeFiles, outputFileNameFormat, schedule, selectedFile, selectedJobId, storeResultsToTable, subscriptions])
+  useEffect(() => { try { if (!isWizard) { sessionStorage.removeItem(draftKey); return } if (awaitingJob) return; const draft: Draft = { mode: isEditFlow ? 'edit' : 'add', jobId: selectedJobId, enable, fileName, fileFormat, description, outputFileNameFormat, storeResultsToTable, selectedFile, reportSource, schedule, includeHeader, mappingRows, mergeFiles, subscriptions, fileSettings }; sessionStorage.setItem(draftKey, JSON.stringify(draft)) } catch { /* session storage unavailable: draft is simply not kept across refresh */ } }, [awaitingJob, description, enable, fileFormat, fileName, fileSettings, includeHeader, isEditFlow, isWizard, mappingRows, mergeFiles, outputFileNameFormat, reportSource, schedule, selectedFile, selectedJobId, storeResultsToTable, subscriptions])
   useEffect(() => {
     if (isWizard && !awaitingJob && screen !== 'general' && invalidGeneral) {
       setValidatedSteps((current) => ({ ...current, general: true }))
@@ -325,8 +327,8 @@ export default function App({ userEmail }: { userEmail: string }) {
       if (request === uploadRequest.current) setImporting(false)
     }
   }
-  const resetForm = () => { setSelectedJobId(null); setSaveError(''); setEnable(true); setFileName(''); setFileFormat(''); setDescription(''); setOutputFileNameFormat(''); setStoreResultsToTable(false); setSelectedFile(''); setSchedule(createDefaultSchedule()); setIncludeHeader(true); setMergeFiles(false); setSubscriptions([newSubscription()]); setMappingRows(makeInitialMappings()); setFileSettings(emptyFileSettings) }
-  const loadJob = (job: RetirementBuilderApiJob) => { const general = job.general ?? {}; const jobSchedule = job.schedule ?? {}; setSelectedJobId(job.id); setSaveError(''); setEnable(general.enable !== false); setFileName(general.fileName ?? ''); setFileFormat(general.fileFormat ?? ''); setDescription(general.description ?? ''); setOutputFileNameFormat(general.outputFileNameFormat ?? ''); setStoreResultsToTable(Boolean(general.storeResultsToTable)); setSelectedFile(general.selectedFile ?? ''); setSchedule({ startDate: jobSchedule.startDate ?? '', buildFrequency: jobSchedule.buildFrequency ?? scheduleDefaults.buildFrequency, hour: jobSchedule.hour ?? scheduleDefaults.hour, minute: jobSchedule.minute ?? scheduleDefaults.minute, meridiem: jobSchedule.meridiem ?? scheduleDefaults.meridiem, week: jobSchedule.week ?? scheduleDefaults.week }); setIncludeHeader(job.mapping?.includeHeader ?? true); setMappingRows(normalizeMappingRows(job.mapping?.rows ?? [])); setMergeFiles(Boolean(job.subscriptions?.mergeFiles)); setSubscriptions((job.subscriptions?.rows ?? []).map(toSubscription)); setFileSettings({ sortingOrder: (job.fileSettings?.sortingOrder ?? []).map((row) => ({ orderBy: row.orderBy ?? '', mappingColumn: row.mappingColumn ?? '', direction: row.direction ?? 'ASC' })), conditionalStatements: (job.fileSettings?.conditionalStatements ?? []).map((row) => ({ mappingColumn: row.mappingColumn ?? '', condition: row.condition ?? '', value: row.value ?? '' })) }) }
+  const resetForm = () => { setSelectedJobId(null); setSaveError(''); setEnable(true); setFileName(''); setFileFormat(''); setDescription(''); setOutputFileNameFormat(''); setStoreResultsToTable(false); setSelectedFile(''); setReportSource('csv'); setSchedule(createDefaultSchedule()); setIncludeHeader(true); setMergeFiles(false); setSubscriptions([newSubscription()]); setMappingRows(makeInitialMappings()); setFileSettings(emptyFileSettings) }
+  const loadJob = (job: RetirementBuilderApiJob) => { const general = job.general ?? {}; const jobSchedule = job.schedule ?? {}; setSelectedJobId(job.id); setSaveError(''); setEnable(general.enable !== false); setFileName(general.fileName ?? ''); setFileFormat(general.fileFormat ?? ''); setDescription(general.description ?? ''); setOutputFileNameFormat(general.outputFileNameFormat ?? ''); setStoreResultsToTable(Boolean(general.storeResultsToTable)); setSelectedFile(general.selectedFile ?? ''); setReportSource(general.reportSource ?? 'csv'); setSchedule({ startDate: jobSchedule.startDate ?? '', buildFrequency: jobSchedule.buildFrequency ?? scheduleDefaults.buildFrequency, hour: jobSchedule.hour ?? scheduleDefaults.hour, minute: jobSchedule.minute ?? scheduleDefaults.minute, meridiem: jobSchedule.meridiem ?? scheduleDefaults.meridiem, week: jobSchedule.week ?? scheduleDefaults.week }); setIncludeHeader(job.mapping?.includeHeader ?? true); setMappingRows(normalizeMappingRows(job.mapping?.rows ?? [])); setMergeFiles(Boolean(job.subscriptions?.mergeFiles)); setSubscriptions((job.subscriptions?.rows ?? []).map(toSubscription)); setFileSettings({ sortingOrder: (job.fileSettings?.sortingOrder ?? []).map((row) => ({ orderBy: row.orderBy ?? '', mappingColumn: row.mappingColumn ?? '', direction: row.direction ?? 'ASC' })), conditionalStatements: (job.fileSettings?.conditionalStatements ?? []).map((row) => ({ mappingColumn: row.mappingColumn ?? '', condition: row.condition ?? '', value: row.value ?? '' })) }) }
   const startAdd = () => {
     clearCreateAttempt()
     setValidatedSteps({})
@@ -343,16 +345,19 @@ export default function App({ userEmail }: { userEmail: string }) {
     }
     setValidatedSteps((current) => ({ ...current, subscriptions: true }))
     setSaveError('')
-    const clientIds = subscriptions.map((row) => parseClientId(row.client))
+    const subscriptionRows = reportSource === 'companyPayroll'
+      ? subscriptions.filter((row) => row.client || row.email || row.emailDraft?.trim())
+      : subscriptions
+    const clientIds = subscriptionRows.map((row) => parseClientId(row.client))
     if (clientIds.some((id) => id === null)) {
       setSaveError('Select a valid numeric client ID for every subscription row.')
       return
     }
-    const emails = subscriptions.map(subscriptionEmails)
+    const emails = subscriptionRows.map(subscriptionEmails)
     if (emails.some((row) => row.some((email) => !validEmail(email)))) return
 
     const body = JSON.stringify({
-      general: { fileName, fileFormat: toApiFileType(fileFormat), description, outputFileNameFormat, enable, storeResultsToTable },
+      general: { fileName, fileFormat: toApiFileType(fileFormat), description, outputFileNameFormat, enable, storeResultsToTable, reportSource },
       schedule: { ...schedule, startDate: schedule.startDate || null },
       mapping: { includeHeader, rows: mappingRows.map(({ field, startPosition, length, recordType, defaultValue, mapping, format }) => ({
         field, startPosition, length, recordType, defaultValue, mappingColumn: mapping, format,
@@ -406,6 +411,10 @@ export default function App({ userEmail }: { userEmail: string }) {
     if (awaitingJob) return null
     if (screen === 'general') return <GeneralStep
       fileName={fileName} fileFormat={fileFormat} description={description} outputFileNameFormat={outputFileNameFormat}
+      reportSource={reportSource} onReportSourceChange={(source) => {
+        setReportSource(source)
+        if (source === 'companyPayroll' && outputFileNameFormat.includes('Client ID')) setOutputFileNameFormat('')
+      }}
       enable={isEditFlow ? enable : undefined} onEnableChange={setEnable}
       storeResultsToTable={storeResultsToTable} selectedFile={selectedFile} importing={importing} uploadError={uploadError}
       errors={validatedSteps.general ? generalErrors : undefined}
@@ -419,7 +428,7 @@ export default function App({ userEmail }: { userEmail: string }) {
       onChange={(patch) => setSchedule((current) => ({ ...current, ...patch }))}
       onBack={() => navigate('general')} onNext={() => navigate('mapping')}
     />
-    if (screen === 'mapping') return <MappingStep includeHeader={includeHeader} rows={mappingRows}
+    if (screen === 'mapping') return <MappingStep reportSource={reportSource} includeHeader={includeHeader} rows={mappingRows}
       validate={!!validatedSteps.mapping} onHeaderChange={setIncludeHeader} onRowChange={updateMappingRow}
       onDelete={(id) => setMappingRows((rows) => rows.filter((row) => row.id !== id))}
       onOpenSettings={() => setShowSettings(true)} onBack={() => navigate('schedule')} onNext={() => navigate('subscriptions')}
@@ -433,7 +442,7 @@ export default function App({ userEmail }: { userEmail: string }) {
       onBack={() => navigate('mapping')} onFinish={saveJob}
     />
   })()
-  return <OptionsContext.Provider value={options}><div className={`app-shell ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}><header className="topbar"><div className="brand">ESC</div><button className="menu-button" onClick={() => setSidebarOpen((open) => !open)} aria-label="Toggle navigation">☰</button><div className="user-name">{userName}</div></header><div className="workspace"><Sidebar active={screen} onNavigate={navigate} onNavigatePath={routerNavigate} /><main className="main-content"><div className="page-heading"><h1>{pageTitle}</h1><div className="breadcrumb"><CircleDot className="breadcrumb-icon" aria-hidden="true" /><button type="button" className="breadcrumb-link" onClick={() => navigate('dashboard')}>SYD</button><ChevronRight className="breadcrumb-chevron" aria-hidden="true" /><span>{title}</span></div></div>{screen === 'dashboard' || screen === 'placeholder' ? content : <WizardCard title={title} activeStep={screen} onCancel={() => navigate('dashboard')} onNavigate={navigate} headerActions={screen === 'mapping' ? <button type="button" className="button button-primary" onClick={addMappingRow}><span className="button-icon"><ToolIcon name="plus" /></span>Add Dataset</button> : screen === 'general' && isEditFlow ? <button type="button" className="button button-light" onClick={() => navigate('dashboard')}>Cancel</button> : undefined}>{content}</WizardCard>}<footer><span>Copyright © 2026</span><strong>Employer Services Corporation.</strong><span>All rights reserved.</span></footer></main></div>{showSettings && <FileSettingsModal mappingRows={mappingRows} initialSorting={fileSettings.sortingOrder} initialConditional={fileSettings.conditionalStatements} onSave={(sortingOrder, conditionalStatements) => { setFileSettings({ sortingOrder, conditionalStatements }); setShowSettings(false) }} onClose={() => setShowSettings(false)} />}</div></OptionsContext.Provider>
+  return <OptionsContext.Provider value={options}><div className={`app-shell ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}><header className="topbar"><div className="brand">ESC</div><button className="menu-button" onClick={() => setSidebarOpen((open) => !open)} aria-label="Toggle navigation">☰</button><div className="user-name">{userName}</div></header><div className="workspace"><Sidebar active={screen} onNavigate={navigate} onNavigatePath={routerNavigate} /><main className="main-content"><div className="page-heading"><h1>{pageTitle}</h1><div className="breadcrumb"><CircleDot className="breadcrumb-icon" aria-hidden="true" /><button type="button" className="breadcrumb-link" onClick={() => navigate('dashboard')}>SYD</button><ChevronRight className="breadcrumb-chevron" aria-hidden="true" /><span>{title}</span></div></div>{screen === 'dashboard' || screen === 'placeholder' ? content : <WizardCard title={title} activeStep={screen} onCancel={() => navigate('dashboard')} onNavigate={navigate} headerActions={screen === 'mapping' ? <button type="button" className="button button-primary" onClick={addMappingRow}><span className="button-icon"><ToolIcon name="plus" /></span>Add Dataset</button> : screen === 'general' && isEditFlow ? <button type="button" className="button button-light" onClick={() => navigate('dashboard')}>Cancel</button> : undefined}>{content}</WizardCard>}<footer><span>Copyright © 2026</span><strong>Employer Services Corporation.</strong><span>All rights reserved.</span></footer></main></div>{showSettings && <FileSettingsModal reportSource={reportSource} mappingRows={mappingRows} initialSorting={fileSettings.sortingOrder} initialConditional={fileSettings.conditionalStatements} onSave={(sortingOrder, conditionalStatements) => { setFileSettings({ sortingOrder, conditionalStatements }); setShowSettings(false) }} onClose={() => setShowSettings(false)} />}</div></OptionsContext.Provider>
 }
 
 function MenuIcon({ name }: { name: SideIcon }) { if (name === 'file') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.5h9l5 5V20.5H5z" /><path d="M14 3.5v5h5" /></svg>; if (name === 'copy') return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6.5" width="11" height="13" rx="1.5" /><path d="M8 6.5V4.8A1.8 1.8 0 0 1 9.8 3h9a1.8 1.8 0 0 1 1.8 1.8v9A1.8 1.8 0 0 1 18.8 15H15" /></svg>; return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.7 3.2 3.2-.7L18.8 6.7a2.2 2.2 0 0 0-3.1-3.1z" /><path d="m14.7 5.3 4 4" /></svg> }
@@ -558,7 +567,8 @@ function FieldError({ id, message }: { id: string; message?: string }) {
 }
 
 function GeneralStep({
-  fileName, fileFormat, description, outputFileNameFormat, enable, onEnableChange, storeResultsToTable, selectedFile,
+  fileName, fileFormat, description, outputFileNameFormat, reportSource, onReportSourceChange,
+  enable, onEnableChange, storeResultsToTable, selectedFile,
   importing, uploadError, errors, onFileNameChange, onFileFormatChange, onDescriptionChange,
   onOutputFileNameFormatChange, onStoreResultsChange, onFileChange, onCancel, onSubmit,
 }: {
@@ -566,6 +576,8 @@ function GeneralStep({
   fileFormat: string
   description: string
   outputFileNameFormat: string
+  reportSource: ReportSource
+  onReportSourceChange: (source: ReportSource) => void
   enable?: boolean
   onEnableChange: (value: boolean) => void
   storeResultsToTable: boolean
@@ -583,6 +595,10 @@ function GeneralStep({
   onSubmit: (event: FormEvent) => void
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { values } = useContext(OptionsContext)
+  const outputFormats = reportSource === 'companyPayroll'
+    ? values.outputFileNameFormats.filter((format) => !format.includes('Client ID'))
+    : values.outputFileNameFormats
   return <form className="form-step general-step" onSubmit={onSubmit} noValidate>
     <div className="general-form-content">
       <div className="general-fields">
@@ -600,7 +616,13 @@ function GeneralStep({
           <FieldError id="retirement-file-format-error" message={errors?.fileFormat} />
         </div>
         <label className="general-field general-field-full">Description<textarea value={description} onChange={(event) => onDescriptionChange(event.target.value)} /></label>
-        <label className="general-field general-field-full">Output File Name Format<SearchableSelect options={outputNameFormats} value={outputFileNameFormat} onValueChange={onOutputFileNameFormatChange} ariaLabel="Output file name format" /></label>
+        <div className="general-field">
+          <span>Report Source</span>
+          <SearchableSelect options={Object.values(reportSourceLabels)} value={reportSourceLabels[reportSource]}
+            onValueChange={(value) => onReportSourceChange(value === reportSourceLabels.companyPayroll ? 'companyPayroll' : 'csv')}
+            ariaLabel="Report source" />
+        </div>
+        <label className="general-field">Output File Name Format<SearchableSelect options={outputFormats} value={outputFileNameFormat} onValueChange={onOutputFileNameFormatChange} ariaLabel="Output file name format" /></label>
       </div>
       <section className="general-option-section">
         <div className="general-options">
@@ -680,7 +702,8 @@ function MappingNumber({ label, value, onChange, validate }: {
     <FieldError id={errorId} message={invalid ? 'Enter a whole number from 0 to 2147483647.' : undefined} /></>
 }
 
-function MappingStep({ includeHeader, rows, validate, onHeaderChange, onRowChange, onDelete, onOpenSettings, onBack, onNext }: {
+function MappingStep({ reportSource, includeHeader, rows, validate, onHeaderChange, onRowChange, onDelete, onOpenSettings, onBack, onNext }: {
+  reportSource: ReportSource
   includeHeader: boolean
   rows: MappingRow[]
   validate: boolean
@@ -692,11 +715,7 @@ function MappingStep({ includeHeader, rows, validate, onHeaderChange, onRowChang
   onNext: () => void
 }) {
   const { values } = useContext(OptionsContext)
-  const columnNames = new Map<string, string>()
-  for (const name of [...values.mappingColumns, ...rows.map((row) => row.field.trim())]) {
-    if (name && !columnNames.has(name.toLowerCase())) columnNames.set(name.toLowerCase(), name)
-  }
-  const columns = Array.from(columnNames.values())
+  const columns = reportSource === 'companyPayroll' ? values.payrollMappingColumns : values.mappingColumns
   const formatsFor = (column: string) => values.mappingFormatsByType[mappingColumnType(column, values.mappingColumnTypes)] ?? []
 
   return <div className="form-step mapping-step">
@@ -732,7 +751,7 @@ function MappingStep({ includeHeader, rows, validate, onHeaderChange, onRowChang
             <td><SearchableSelect options={['Header', 'Detail', 'Trailer']} value={row.recordType} onValueChange={(recordType) => onRowChange(row.id, { recordType })} ariaLabel={`${label} record type`} /></td>
             <td><input aria-label={`${row.field} default value`} value={row.defaultValue} onChange={(event) => onRowChange(row.id, { defaultValue: event.target.value })} /></td>
             <td><SearchableSelect options={columns} value={row.mapping} onValueChange={(mapping) => changeSource({ mapping })}
-              ariaLabel={`${label} mapping column`} clearLabel="Same as Field Name" allowCustom /></td>
+              ariaLabel={`${label} mapping column`} clearLabel="Same as Field Name" includeSavedOption={false} /></td>
             <td><SearchableSelect options={formats} value={row.format} onValueChange={(format) => onRowChange(row.id, { format })}
               ariaLabel={`${label} format`} clearLabel="No format" includeSavedOption={false} /></td>
             <td><button className="icon-button trash" onClick={() => onDelete(row.id)} aria-label={`Delete ${row.field} mapping`} title={`Delete ${row.field} mapping`}><ToolIcon name="trash" /></button></td>
@@ -745,7 +764,8 @@ function MappingStep({ includeHeader, rows, validate, onHeaderChange, onRowChang
 }
 
 function SubscriptionsStep({ mergeFiles, subscriptions, error, saving, validate, onMergeChange, onClientChange, onEmailChange, onAdd, onDelete, onBack, onFinish }: { mergeFiles: boolean; subscriptions: Subscription[]; error: string; saving: boolean; validate: boolean; onMergeChange: (checked: boolean) => void; onClientChange: (id: number, client: string) => void; onEmailChange: (id: number, email: string, draft: string) => void; onAdd: () => void; onDelete: (id: number) => void; onBack: () => void; onFinish: () => void }) { return <div className="form-step subscriptions-step"><div className="subscription-toolbar"><label className="check-label"><input type="checkbox" checked={mergeFiles} onChange={(event) => onMergeChange(event.target.checked)} />Merge Files</label><button className="button button-primary" onClick={onAdd}><span className="button-icon"><ToolIcon name="plus" /></span>Add Row</button></div>{error && <p className="dashboard-action-message" role="alert">{error}</p>}<div className="subscription-table-wrap"><table className="subscription-table"><thead><tr><th scope="col">Clients</th><th scope="col">Mail</th><th scope="col">Action</th></tr></thead><tbody>{subscriptions.map((subscription, index) => <tr key={subscription.id}><td><SearchableSelect options={[subscription.baseClient, '000720 - UBMD Pediatrics'].filter(Boolean)} value={subscription.client} onValueChange={(client) => onClientChange(subscription.id, client)} ariaLabel={`Client ${index + 1}`} /></td><td><EmailTagsInput value={subscription.email} draft={subscription.emailDraft ?? ''} validate={validate} onChange={(email, draft) => onEmailChange(subscription.id, email, draft)} ariaLabel={`Email ${index + 1}`} /></td><td><button className="icon-button trash" onClick={() => onDelete(subscription.id)} aria-label={`Delete subscription ${index + 1}`} title={`Delete subscription ${index + 1}`}><ToolIcon name="trash" /></button></td></tr>)}</tbody></table></div><div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onFinish} disabled={saving}>Finish</button></div></div> }
-function FileSettingsModal({ mappingRows, initialSorting, initialConditional, onSave, onClose }: {
+function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialConditional, onSave, onClose }: {
+  reportSource: ReportSource
   mappingRows: MappingRow[]
   initialSorting: SortingRow[]
   initialConditional: ConditionalRow[]
@@ -757,7 +777,7 @@ function FileSettingsModal({ mappingRows, initialSorting, initialConditional, on
   for (const name of [...mappingRows.map((row) => row.mapping.trim() || row.field.trim()), ...values.mappingColumns]) {
     if (name && !columnNames.has(name.toLowerCase())) columnNames.set(name.toLowerCase(), name)
   }
-  const mappingColumns = Array.from(columnNames.values())
+  const mappingColumns = reportSource === 'companyPayroll' ? values.payrollMappingColumns : Array.from(columnNames.values())
   const [sortingRows, setSortingRows] = useState(() => initialSorting.map((row) => [row.direction ?? 'ASC', row.mappingColumn, row.orderBy]))
   const [conditionalRows, setConditionalRows] = useState(() => initialConditional.map((row) => [row.mappingColumn, row.condition, row.value]))
   const [sortError, setSortError] = useState('')

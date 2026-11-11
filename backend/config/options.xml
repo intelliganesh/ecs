@@ -39,28 +39,4 @@
   </weekDays>
   <recordTypes><option>Header</option><option>Detail</option><option>Trailer</option></recordTypes>
   <sortDirections><option>ASC</option><option>DESC</option></sortDirections>
-  <mappingColumns>
-    <option type="text">Client ID</option>
-    <option type="text">Company Name</option>
-    <option type="date">Date</option>
-    <option type="date">Date of Birth</option>
-    <option type="number">Employee Count</option>
-    <option type="text">Employee ID</option>
-    <option type="text">Employee Name</option>
-    <option type="email">Employee Work Email</option>
-    <option type="text">First Name</option>
-    <option type="number">Gross Pay</option>
-    <option type="date">Hire Date</option>
-    <option type="number">Hours Worked</option>
-    <option type="text">Last Name</option>
-    <option type="number">Net Salary</option>
-    <option type="number">Net Salary Total</option>
-    <option type="date">Pay Date</option>
-    <option type="date">Pay End Date</option>
-    <option type="date">Pay Start Date</option>
-    <option type="phone">Phone</option>
-    <option type="text">Record Type</option>
-    <option type="ssn">SSN</option>
-    <option type="date">Termination Date</option>
-  </mappingColumns>
 </options>

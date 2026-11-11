@@ -21,6 +21,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
 from app.db import engine
+from app.payroll_source import PAYROLL_COLUMN_KEYS, PAYROLL_QUERY_TYPE, load_payroll_source, payroll_report_query
 from app.report_files import load_report_source, publish_report, report_directory
 from app.retirement_results import MAPPING_FORMATS_BY_TYPE, MAX_SOURCE_BYTES, InvalidRun, ReportFile, build_report_files, store_results
 
@@ -37,6 +38,7 @@ class GeneralForm(BaseModel):
     enable: bool = True
     storeResultsToTable: bool = False
     selectedFile: str = ""
+    reportSource: Literal["csv", "companyPayroll"] = "csv"
 
 
 class ScheduleForm(BaseModel):
@@ -147,6 +149,7 @@ class RetirementBuilderOptions(BaseModel):
     recordTypes: list[str]
     sortDirections: list[Literal["ASC", "DESC"]]
     mappingColumns: list[str]
+    payrollMappingColumns: list[str]
     mappingFormats: list[str]
     mappingColumnTypes: dict[str, str]
     mappingFormatsByType: dict[str, list[str]]
@@ -250,47 +253,37 @@ VALUES (:jobid, GETDATE(), GETDATE(), :run_status, :message, GETDATE())
 """)
 
 
-def _mapping_column_types(root: ET.Element) -> dict[str, str]:
-    columns = {
-        option.text.strip(): option.attrib["type"]
-        for option in root.findall("mappingColumns/option")
-        if option.text and option.text.strip()
-    }
+def _mapping_column_types() -> dict[str, str]:
     try:
         with engine.connect() as connection:
             configured = connection.execute(text(QUERY_30)).mappings().all()
     except SQLAlchemyError:
-        return columns
+        return {}
 
-    fallback_names = {column.casefold(): column for column in columns}
+    columns: dict[str, str] = {}
+    seen_names: set[str] = set()
     for row in configured:
         name = str(row["mapping_column"] or "").strip()
-        if not name:
+        if not name or name.casefold() in seen_names:
             continue
-        fallback_name = fallback_names.get(name.casefold(), name)
         declared = str(row["mapping_column_dt"] or "").strip().casefold().split("(", 1)[0].strip()
-        fallback_type = columns.get(fallback_name, "text")
-        if declared in ("phone", "email", "ssn"):
+        if declared in MAPPING_FORMATS_BY_TYPE:
             column_type = declared
-        elif fallback_type in ("phone", "email", "ssn"):
-            column_type = fallback_type
-        elif declared in ("d", "date", "datetime", "datetime2", "smalldatetime", "datetimeoffset"):
+        elif declared in ("d", "datetime", "datetime2", "smalldatetime", "datetimeoffset"):
             column_type = "date"
-        elif declared in ("n", "number", "numeric", "decimal", "money", "smallmoney",
+        elif declared in ("n", "numeric", "decimal", "money", "smallmoney",
                           "int", "integer", "bigint", "smallint", "tinyint", "float", "real"):
             column_type = "number"
         else:
-            column_type = fallback_type
-        if fallback_name != name:
-            columns.pop(fallback_name, None)
+            column_type = "text"
         columns[name] = column_type
-        fallback_names[name.casefold()] = name
+        seen_names.add(name.casefold())
     return columns
 
 
 def _options_from_xml() -> RetirementBuilderOptions:
     root = ET.parse(OPTIONS_FILE).getroot()
-    column_types = _mapping_column_types(root)
+    column_types = _mapping_column_types()
 
     def values(name: str) -> list[str]:
         section = root.find(name)
@@ -307,6 +300,10 @@ def _options_from_xml() -> RetirementBuilderOptions:
         recordTypes=values("recordTypes"),
         sortDirections=values("sortDirections"),
         mappingColumns=sorted(column_types, key=str.casefold),
+        payrollMappingColumns=sorted(
+            (column for column in column_types if column.casefold() in PAYROLL_COLUMN_KEYS),
+            key=str.casefold,
+        ),
         mappingFormats=list(dict.fromkeys(item for formats in MAPPING_FORMATS_BY_TYPE.values() for item in formats)),
         mappingColumnTypes=column_types,
         mappingFormatsByType=MAPPING_FORMATS_BY_TYPE,
@@ -530,6 +527,7 @@ def _read_full_job(connection: Any, job_id: int) -> RetirementBuilderJob | None:
             "outputFileNameFormat": main.get("FileNameFormat"),
             "enable": main.get("isEnabled"),
             "storeResultsToTable": main.get("StoreResults"),
+            "reportSource": "companyPayroll" if any(row.get("recttype") == PAYROLL_QUERY_TYPE for row in query_configuration) else "csv",
         },
         "schedule": {
             "startDate": (
@@ -590,7 +588,7 @@ def _merge_missing_fields(current: BaseModel, original: BaseModel, fields: tuple
 
 def _complete_update_payload(payload: RetirementBuilderJobInput, original: RetirementBuilderJob) -> RetirementBuilderJobInput:
     sections = {
-        "general": _merge_missing_fields(payload.general, original.general, ("testfileName", "fileName", "fileFormat", "description", "outputFileNameFormat", "enable", "storeResultsToTable", "selectedFile")),
+        "general": _merge_missing_fields(payload.general, original.general, ("testfileName", "fileName", "fileFormat", "description", "outputFileNameFormat", "enable", "storeResultsToTable", "selectedFile", "reportSource")),
         "schedule": _merge_missing_fields(payload.schedule, original.schedule, ("startDate", "buildFrequency", "hour", "minute", "meridiem", "week")),
         "mapping": _merge_missing_fields(payload.mapping, original.mapping, ("includeHeader", "rows")),
         "subscriptions": _merge_missing_fields(payload.subscriptions, original.subscriptions, ("mergeFiles", "rows")),
@@ -605,7 +603,14 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
     subscriptions = payload.subscriptions
     file_settings = payload.fileSettings
     general = payload.general
-    for row in payload.queryConfiguration:
+    queries = [row for row in payload.queryConfiguration if row.recttype.strip().upper() != PAYROLL_QUERY_TYPE]
+    if general.reportSource == "companyPayroll":
+        try:
+            query = payroll_report_query(payload)
+        except InvalidRun as exc:
+            _field_error(["mapping"], str(exc))
+        queries.append(QueryConfigurationRow(recttype=PAYROLL_QUERY_TYPE, query=query))
+    for row in queries:
         connection.execute(*_prepared_query(QUERY_31, {
             "jobid": job_id,
             "recttype": row.recttype,
@@ -859,6 +864,12 @@ def _execute_report_run(
     return run, reports
 
 
+def _read_report_source(connection, job: RetirementBuilderJob, input_dir: Path) -> bytes:
+    if job.general.reportSource == "companyPayroll":
+        return load_payroll_source(connection, job)
+    return load_report_source(input_dir, job.id)
+
+
 def _run_job(job_id: int, source: bytes | None) -> RetirementBuilderRun:
     settings = get_settings()
     output = report_directory(settings.report_output_dir)
@@ -872,7 +883,7 @@ def _run_job(job_id: int, source: bytes | None) -> RetirementBuilderRun:
             if not job.general.enable:
                 raise HTTPException(status_code=409, detail="Enable the job before running it.")
             def read_source() -> bytes:
-                return source if source is not None else load_report_source(settings.report_input_dir, job_id)
+                return source if source is not None else _read_report_source(connection, job, settings.report_input_dir)
 
             run, _ = _execute_report_run(connection, job, read_source, output / "manual" / str(job_id), resources)
     except InvalidRun as exc:
@@ -888,7 +899,7 @@ def _run_job(job_id: int, source: bytes | None) -> RetirementBuilderRun:
     "/jobs/{job_id}/run",
     response_model=RetirementBuilderRun,
     openapi_extra={"requestBody": {
-        "description": "Omit the body to use the job's configured source CSV.",
+        "description": "Omit the body to use the job's saved report source.",
         "content": {"text/csv": {"schema": {"type": "string", "format": "binary"}}},
     }},
 )

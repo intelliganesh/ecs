@@ -43,11 +43,15 @@ The backend expects Microsoft ODBC Driver 18 for SQL Server to be installed loca
 
 Apply `backend/migrations/001_retirement_builder_results.sql` once to the ECS database using a SQL Server client. The migration creates `dbo.rjob_result`.
 
+Apply `backend/migrations/002_retirement_builder_mapping_columns.sql` to populate the Mapping Column dropdown. It adds missing defaults to the existing `dbo.rjob_mapping_column` table.
+
 In File Settings, choose **ASC** or **DESC** and a mapping column. Sort rules apply from top to bottom.
 
 Save the job's mappings and place a UTF-8, comma-delimited source CSV named `<job-id>.csv` in `REPORT_INPUT_DIR`. Select the job on the dashboard and click **Run**. The source header should contain each mapping's source column (or the output field name when the mapping column is blank). For jobs with header or trailer mappings, include a `Record Type` column with `H`, `D`, or `T` and provide those rows in the CSV.
 
 The manual run uses the saved mappings and delimiter and offers the output for download. If **Store Results to Table** is enabled, it also saves each generated data row in `dbo.rjob_result` with the job ID, run ID, row number, record type, and mapped values as JSON. The column heading line is part of the CSV only. API clients may also send a source CSV in the run request with `Content-Type: text/csv`.
+
+To use SQL Server data, set **Report Source** to **Company Payroll Report** in General. Saving creates a mapping-based query in `dbo.rjob_query` using SQL ID `31`. Manual and scheduled runs execute that saved query, which calls `dbo.usp_CompanyPayrollReport` and selects the required fields. **Pay Date** uses the payroll month returned by the procedure. The procedure returns company totals and has no Client ID, so this source supports file name or payday grouping and produces files without client email routing.
 
 **Output File Name Format** controls how manual and scheduled runs split the output. **File Name** creates one CSV. **Client ID** and **Payday** group the included detail rows by their respective source values. A combination groups by all selected fields and adds the entered file name when **File Name** is selected. For example, **File Name + Client ID + Payday** can produce `Retirement_000720_2026-11-11.csv`. Include `Client ID` and `Pay Date` in the source when the selected format uses them. Blank grouping values on header or trailer rows apply to every matching output file.
 

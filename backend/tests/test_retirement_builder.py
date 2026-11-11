@@ -1,16 +1,34 @@
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 from fastapi import HTTPException
 
+from app.payroll_source import PAYROLL_QUERY_TYPE, load_payroll_source
+from app.retirement_results import InvalidRun
 from app.routers import retirement_builder as rb
 
 
 def input_job(**sections):
     return rb.RetirementBuilderJobInput.model_validate(sections)
+
+
+class PayrollQueryTests(TestCase):
+    def test_run_rejects_a_saved_query_that_does_not_match_the_mappings(self):
+        job = rb.RetirementBuilderJob.model_validate({
+            "id": 31,
+            "general": {"reportSource": "companyPayroll"},
+            "mapping": {"rows": [{"field": "Company Name"}]},
+            "queryConfiguration": [{"recttype": PAYROLL_QUERY_TYPE, "query": "SELECT 1"}],
+        })
+        connection = Mock()
+
+        with self.assertRaisesRegex(InvalidRun, "saved payroll query does not match"):
+            load_payroll_source(connection, job)
+
+        connection.connection.cursor.assert_not_called()
 
 
 class JobValidationTests(TestCase):

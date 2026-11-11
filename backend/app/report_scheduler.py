@@ -12,11 +12,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings
 from app.db import engine
-from app.report_files import load_report_source, report_directory
+from app.report_files import report_directory
 from app.report_mail import send_report_email
 from app.retirement_results import InvalidRun, ReportFile
 from app.routers.retirement_builder import (
-    EMAIL_PATTERN, LOCK_RUN_JOB, READ_SCHEDULE, SubscriptionsForm, _execute_report_run, _read_full_job,
+    EMAIL_PATTERN, LOCK_RUN_JOB, READ_SCHEDULE, SubscriptionsForm, _execute_report_run, _read_full_job, _read_report_source,
 )
 
 
@@ -112,7 +112,7 @@ def _run_scheduled_job(settings: Settings, job_id: int, slot: datetime, now: dat
         if job is None or not job.general.enable:
             return
         run, reports = _execute_report_run(
-            connection, job, lambda: load_report_source(settings.report_input_dir, job_id),
+            connection, job, lambda: _read_report_source(connection, job, settings.report_input_dir),
             run_dir, resources, scheduled=True,
         )
     if settings.mail_enabled and reports and job.subscriptions.rows:
