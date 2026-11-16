@@ -1,12 +1,14 @@
 from functools import lru_cache
 from pathlib import Path
+import re
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
+SQL_IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_]{0,127}"
 
 
 class Settings(BaseSettings):
@@ -26,6 +28,7 @@ class Settings(BaseSettings):
     scheduler_timezone: str = "UTC"
     report_input_dir: Path = Path("report-input")
     report_output_dir: Path = Path("report-output")
+    payroll_report_procedure: str = "dbo.usp_CompanyPayrollReport"
     mail_enabled: bool = False
     mail_mailer: Literal["smtp"] = "smtp"
     mail_host: str = "smtp.gmail.com"
@@ -37,6 +40,14 @@ class Settings(BaseSettings):
     mail_from_name: str = "ECS Retirement Builder"
 
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", case_sensitive=False, extra="ignore")
+
+    @field_validator("payroll_report_procedure")
+    @classmethod
+    def validate_payroll_report_procedure(cls, value: str) -> str:
+        name = value.strip()
+        if not re.fullmatch(rf"{SQL_IDENTIFIER}(?:\.{SQL_IDENTIFIER})?", name):
+            raise ValueError("PAYROLL_REPORT_PROCEDURE must be a procedure name or schema.procedure.")
+        return name if "." in name else f"dbo.{name}"
 
     @model_validator(mode="after")
     def validate_mail_settings(self):

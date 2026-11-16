@@ -1,11 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <options>
-  <fileFormats>
-    <option>CSV (Comma Delimited)</option>
-    <option>CSV (Pipe Delimited)</option>
-    <option>CSV (Tab Delimited)</option>
-    <option>CSV (Semicolon Delimited)</option>
-  </fileFormats>
   <outputFileNameFormats>
     <option>File Name</option>
     <option>Client ID</option>

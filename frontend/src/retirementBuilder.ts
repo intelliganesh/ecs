@@ -1,10 +1,14 @@
 import * as XLSX from 'xlsx'
 
 const fileFormatLabels: Record<string, string> = {
-  CSV: 'CSV (Comma Delimited)',
-  CSV_PIPE: 'CSV (Pipe Delimited)',
-  CSV_TAB: 'CSV (Tab Delimited)',
-  CSV_SEMI: 'CSV (Semicolon Delimited)',
+  CSV: 'Comma',
+  'CSV (COMMA DELIMITED)': 'Comma',
+  CSV_PIPE: 'Pipe',
+  'CSV (PIPE DELIMITED)': 'Pipe',
+  CSV_TAB: 'Tab',
+  'CSV (TAB DELIMITED)': 'Tab',
+  CSV_SEMI: 'Semicolon',
+  'CSV (SEMICOLON DELIMITED)': 'Semicolon',
 }
 
 export function displayFileFormat(format = '') {

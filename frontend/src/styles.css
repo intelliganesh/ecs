@@ -253,6 +253,7 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
   line-height: 1.35;
 }
 .general-field-full { grid-column: 1 / -1; }
+.general-field-help { color: var(--muted-dark); font-size: 0.875rem; font-weight: 400; }
 .general-field textarea { min-height: 112px; resize: vertical; }
 .general-field > input,
 .general-field > textarea,
@@ -407,16 +408,15 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
 
 /* Mapping tab: structured controls above a calmer, more readable data grid. */
 .mapping-step {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-height: 0;
   padding: 28px 30px 0;
 }
-.mapping-sticky-toolbar {
-  position: sticky;
-  top: 68px;
-  z-index: 4;
+.mapping-controls {
+  flex: 0 0 auto;
   padding-top: 16px;
-  overflow: hidden;
-  background: #fff;
 }
 .mapping-header {
   display: flex;
@@ -478,10 +478,11 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
   background: #f5f8fc;
 }
 .mapping-table-wrap {
-  height: 420px;
+  flex: 1 1 420px;
+  min-height: 140px;
+  max-height: 420px;
   margin-top: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: auto;
   border: 1px solid #dbe4f0;
   border-radius: 8px;
   background: #fff;
@@ -510,16 +511,16 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
 .mapping-table .searchable-select-trigger,
 .mapping-table input { min-height: 42px; padding: 8px 10px; font-size: 0.9rem; }
 .mapping-step .step-footer {
+  flex: 0 0 auto;
   justify-content: flex-end;
   margin-top: 22px;
   padding: 18px 0 24px;
 }
 @media (max-width: 767px) {
   .mapping-step { padding: 22px 18px 0; }
-  .mapping-sticky-toolbar { top: 64px; }
   .mapping-header { align-items: flex-start; flex-direction: column; gap: 16px; }
   .mapping-header-actions { align-items: flex-start; justify-content: flex-start; flex-direction: column; gap: 12px; }
-  .mapping-table-wrap { height: 360px; }
+  .mapping-table-wrap { max-height: 360px; }
   .mapping-step .step-footer { padding-bottom: 20px; }
 }
 
@@ -706,16 +707,13 @@ html, body, #root { height: 100%; }
   background: #fff;
 }
 
-/* Let the wizard card own vertical scrolling instead of nesting a scroll area
-   inside the mapping table. */
-.mapping-table-wrap {
-  height: auto;
-  max-height: none;
-  overflow-x: auto;
-  overflow-y: hidden;
+.main-content:has(.wizard-steps-shell) .wizard-card:has(.mapping-step) {
+  display: flex;
+  flex-direction: column;
 }
-@media (max-width: 767px) {
-  .mapping-table-wrap { overflow-x: auto; }
+.wizard-card:has(.mapping-step) > .card-heading {
+  position: static;
+  flex: 0 0 auto;
 }
 
 /* Modals must sit above sticky wizard navigation and card headers. */
@@ -968,11 +966,6 @@ html, body, #root { height: 100%; }
 .jobs-table tbody tr.selected-row td:first-child { background: #dce9ff; }
 .file-name-link { max-width: 100%; overflow: hidden; padding: 0; border: 0; color: var(--primary-dark); background: transparent; font: inherit; text-align: left; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .file-name-link:hover { color: #163fa8; }
-.mapping-table-wrap {
-  height: 420px;
-  max-height: 420px;
-  overflow: auto;
-}
 .mapping-table th {
   position: sticky;
   top: 0;

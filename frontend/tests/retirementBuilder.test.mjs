@@ -51,10 +51,10 @@ test('multiple emails replace the selected draft and are validated individually'
 })
 
 test('dashboard preserves delimiters, minutes, and actual history status', () => {
-  assert.equal(displayFileFormat('CSV_PIPE'), 'CSV (Pipe Delimited)')
-  assert.equal(displayFileFormat('CSV (Pipe Delimited)'), 'CSV (Pipe Delimited)')
-  assert.equal(displayFileFormat('CSV_TAB'), 'CSV (Tab Delimited)')
-  assert.equal(displayFileFormat('CSV_SEMI'), 'CSV (Semicolon Delimited)')
+  assert.equal(displayFileFormat('CSV_PIPE'), 'Pipe')
+  assert.equal(displayFileFormat('CSV (Pipe Delimited)'), 'Pipe')
+  assert.equal(displayFileFormat('CSV_TAB'), 'Tab')
+  assert.equal(displayFileFormat('CSV_SEMI'), 'Semicolon')
   assert.equal(displayRunTime('1', '5', 'AM'), '1:05 AM')
   assert.equal(displayJobStatus(null), 'Pending')
   assert.equal(displayJobStatus('Unknown'), 'Pending')

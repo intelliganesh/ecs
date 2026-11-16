@@ -14,9 +14,9 @@ from app.core.config import Settings
 from app.db import engine
 from app.report_files import report_directory
 from app.report_mail import send_report_email
-from app.retirement_results import InvalidRun, ReportFile
+from app.retirement_results import InvalidRun, ReportFile, merge_report_files
 from app.routers.retirement_builder import (
-    EMAIL_PATTERN, LOCK_RUN_JOB, READ_SCHEDULE, SubscriptionsForm, _execute_report_run, _read_full_job, _read_report_source,
+    EMAIL_PATTERN, LOCK_RUN_JOB, READ_SCHEDULE, SubscriptionsForm, _attempt_report_run, _read_full_job, _read_report_source,
 )
 
 
@@ -76,20 +76,26 @@ def _client_id(value: str) -> str | None:
 
 
 def _subscription_attachments(subscriptions: SubscriptionsForm, reports: list[ReportFile]) -> dict[str, list[ReportFile]]:
-    clients_by_recipient: dict[str, set[str]] = {}
+    clients_by_recipient: dict[str, set[tuple[str, str]]] = {}
     for subscription in subscriptions.rows:
-        client = _client_id(subscription.client)
-        if client is None:
-            continue
+        if subscription.companyId is not None:
+            target = ("company", str(subscription.companyId))
+        else:
+            client = _client_id(subscription.client)
+            if client is None:
+                continue
+            target = ("client", client)
         for address in re.split(r"[,;\n]", subscription.email):
             address = address.strip().lower()
             if EMAIL_PATTERN.fullmatch(address):
-                clients_by_recipient.setdefault(address, set()).add(client)
+                clients_by_recipient.setdefault(address, set()).add(target)
 
-    report_clients = [
-        (report, {_client_id(client) for client in report.client_ids})
-        for report in reports if report.client_ids
-    ]
+    report_clients = []
+    for report in reports:
+        if report.payroll_company_ids:
+            report_clients.append((report, {("company", company) for company in report.payroll_company_ids}))
+        elif report.client_ids:
+            report_clients.append((report, {("client", _client_id(client)) for client in report.client_ids}))
     attachments = {}
     for address, clients in clients_by_recipient.items():
         eligible = [report for report, required in report_clients if required <= clients]
@@ -111,13 +117,22 @@ def _run_scheduled_job(settings: Settings, job_id: int, slot: datetime, now: dat
         job = _read_full_job(connection, job_id)
         if job is None or not job.general.enable:
             return
-        run, reports = _execute_report_run(
+        result = _attempt_report_run(
             connection, job, lambda: _read_report_source(connection, job, settings.report_input_dir),
             run_dir, resources, scheduled=True,
+            from_payroll_procedure=job.general.reportSource == "companyPayroll",
         )
+    if isinstance(result, Exception):
+        raise result
+    run, reports = result
     if settings.mail_enabled and reports and job.subscriptions.rows:
         attachments = _subscription_attachments(job.subscriptions, reports)
         if attachments:
+            if job.subscriptions.mergeFiles:
+                attachments = {
+                    recipient: [merge_report_files(job, files)] if len(files) > 1 else files
+                    for recipient, files in attachments.items()
+                }
             send_report_email(settings, attachments, job_id)
         else:
             logger.warning("No generated files matched the subscriptions for retirement job %s.", job_id)

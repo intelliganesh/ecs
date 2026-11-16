@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from app.retirement_results import InvalidRun, build_report_files
+from app.retirement_results import InvalidRun, build_report_files, merge_report_files
 from app.routers.retirement_builder import RetirementBuilderJob
 
 
@@ -10,6 +10,40 @@ def build_report(job, source):
 
 
 class RetirementResultsTests(TestCase):
+    def test_payroll_filter_keeps_only_trailers_with_a_retained_detail(self):
+        job = RetirementBuilderJob.model_validate({
+            "id": 1, "general": {"fileFormat": "CSV", "reportSource": "companyPayroll"},
+            "mapping": {"rows": [
+                {"field": "Net Salary Total"},
+                {"field": "Net Salary Total", "recordType": "Trailer"},
+            ]},
+            "fileSettings": {"conditionalStatements": [
+                {"mappingColumn": "Net Salary Total", "condition": ">", "value": "100"},
+            ]},
+        })
+        source = b"Record Type,Net Salary Total\nD,100\nD,200\nT,100\nT,200\n"
+        report, = build_report_files(job, source, from_payroll_procedure=True)
+        self.assertEqual(
+            [(row.record_type, row.values["Net Salary Total"]) for row in report.rows],
+            [("D", "200"), ("T", "200")],
+        )
+        job.fileSettings.conditionalStatements[0].value = "200"
+        self.assertEqual(build_report_files(job, source, from_payroll_procedure=True), [])
+
+    def test_merge_preserves_records_and_removes_repeated_csv_headings(self):
+        job = RetirementBuilderJob.model_validate({
+            "id": 1, "general": {"fileName": "Payroll", "fileFormat": "CSV_PIPE", "outputFileNameFormat": "Payday"},
+            "mapping": {"rows": [{"field": "Full\nName", "mappingColumn": "Name"}]},
+        })
+        source = b'Payday,Name\n2026-11-11,"A\nB"\n2026-11-12,C\n'
+        reports = build_report_files(job, source)
+        merged = merge_report_files(job, reports)
+        self.assertEqual(merged.file_name, "Payroll_merged.csv")
+        self.assertEqual(merged.csv, '"Full\nName"\r\n"A\nB"\r\nC\r\n')
+        job.mapping.includeHeader = False
+        merged = merge_report_files(job, build_report_files(job, source))
+        self.assertEqual(merged.csv, '"A\nB"\r\nC\r\n')
+
     def test_output_formats_group_by_each_selected_field(self):
         job = RetirementBuilderJob.model_validate({
             "id": 1, "general": {"fileName": "Payroll.csv", "fileFormat": "CSV"},

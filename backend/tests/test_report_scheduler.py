@@ -67,7 +67,9 @@ class ScheduledReportTests(TestCase):
                 locked_job.scalar_one_or_none.return_value = job.id
                 schedule = MagicMock()
                 schedule.mappings.return_value.first.return_value = saved_schedule
-                connection.execute.side_effect = [locked_job, schedule, MagicMock(), locked_job]
+                formats = MagicMock()
+                formats.mappings.return_value = [{"filetyp": "Comma", "delimiter": ","}]
+                connection.execute.side_effect = [locked_job, schedule, formats, MagicMock(), locked_job]
 
                 _run_scheduled_job(settings, job.id, now, now)
                 _run_scheduled_job(settings, job.id, now, now)
@@ -101,6 +103,28 @@ class ScheduledReportTests(TestCase):
         self.assertEqual(_subscription_attachments(job.subscriptions, reports), {"both@example.invalid": reports})
         unknown_client = build_report_files(job, b"Client ID,Name\n01,Test Person\n,Unknown Person\n")
         self.assertEqual(_subscription_attachments(job.subscriptions, unknown_client), {})
+
+    def test_payroll_files_require_company_subscriptions_even_when_client_ids_overlap(self):
+        job = RetirementBuilderJob.model_validate({
+            "id": 31,
+            "general": {"fileName": "Payroll", "fileFormat": "CSV", "reportSource": "companyPayroll"},
+            "mapping": {"rows": [{"field": "Company Name"}]},
+            "subscriptions": {"rows": [
+                {"companyId": 1, "email": "single@example.invalid; both@example.invalid"},
+                {"companyId": 2, "email": "both@example.invalid"},
+                {"client": "1", "email": "legacy@example.invalid"},
+                {"client": "2", "email": "legacy@example.invalid"},
+            ]},
+        })
+        source = b"Record Type,Company Name,Client ID\nD,Company A,1\nD,Company B,2\n"
+        combined = build_report_files(job, source, from_payroll_procedure=True)
+        self.assertEqual(_subscription_attachments(job.subscriptions, combined), {"both@example.invalid": combined})
+
+        job.general.outputFileNameFormat = "Client ID"
+        individual = build_report_files(job, source, from_payroll_procedure=True)
+        self.assertEqual(_subscription_attachments(job.subscriptions, individual), {
+            "single@example.invalid": individual[:1], "both@example.invalid": individual,
+        })
 
 
 class ReportEmailTests(TestCase):

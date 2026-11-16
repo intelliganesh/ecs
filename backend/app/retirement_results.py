@@ -53,15 +53,21 @@ MAPPING_FORMATS_BY_TYPE = {
     "email": ["Trim Whitespace", "Lowercase"],
     "ssn": ["XXXXXXXXX - SSN", "XXX-XX-XXXX - SSN"],
 }
-DELIMITERS = {
-    "CSV": ",",
-    "CSV (Comma Delimited)": ",",
-    "CSV_PIPE": "|",
-    "CSV (Pipe Delimited)": "|",
-    "CSV_TAB": "\t",
-    "CSV (Tab Delimited)": "\t",
-    "CSV_SEMI": ";",
-    "CSV (Semicolon Delimited)": ";",
+_LEGACY_DELIMITERS = {
+    "Comma": ",",
+    "Pipe": "|",
+    "Tab": "\t",
+    "Semicolon": ";",
+}
+_LEGACY_FILE_FORMAT_NAMES = {
+    "CSV": "Comma",
+    "CSV (COMMA DELIMITED)": "Comma",
+    "CSV_PIPE": "Pipe",
+    "CSV (PIPE DELIMITED)": "Pipe",
+    "CSV_TAB": "Tab",
+    "CSV (TAB DELIMITED)": "Tab",
+    "CSV_SEMI": "Semicolon",
+    "CSV (SEMICOLON DELIMITED)": "Semicolon",
 }
 COMPARISONS = {
     "=": operator.eq, "==": operator.eq, "!=": operator.ne, "<>": operator.ne,
@@ -89,6 +95,8 @@ class ReportFile:
     rows: list[ResultRow]
     csv: str
     client_ids: frozenset[str] | None
+    payroll_company_ids: frozenset[str] | None = None
+    delimiter: str = ","
 
 
 GROUP_COLUMNS = {"client id": ("clientid",), "payday": ("paydate", "payday")}
@@ -287,8 +295,16 @@ def _format_value(value: str, mapping: "MappingRow") -> str:
     raise InvalidRun(f'Column "{mapping.field}" uses an unsupported format.')
 
 
-def build_report_files(job: "RetirementBuilderJob", source: bytes) -> list[ReportFile]:
-    delimiter = DELIMITERS.get(job.general.fileFormat)
+def file_format_name(value: str) -> str:
+    name = value.strip()
+    return _LEGACY_FILE_FORMAT_NAMES.get(name.upper(), name)
+
+
+def build_report_files(
+    job: "RetirementBuilderJob", source: bytes, *, from_payroll_procedure: bool = False, delimiter: str | None = None,
+) -> list[ReportFile]:
+    if delimiter is None:
+        delimiter = _LEGACY_DELIMITERS.get(file_format_name(job.general.fileFormat))
     if delimiter is None:
         raise InvalidRun("Select a supported CSV file format for this job.")
     layouts: dict[str, list[MappingRow]] = {}
@@ -319,7 +335,11 @@ def build_report_files(job: "RetirementBuilderJob", source: bytes) -> list[Repor
                 if _source_key(mapping) not in headings and not mapping.defaultValue:
                     raise InvalidRun(f'Source column "{source_column}" is missing.')
         group_sources = _group_source_columns(dimensions, headings, layouts.get("D", []))
-        client_source, _ = _find_group_source("client id", headings, layouts.get("D", []))
+        if from_payroll_procedure:
+            # The payroll source adds this column after resolving the company IDs.
+            client_source = "client id" if "client id" in headings else None
+        else:
+            client_source, _ = _find_group_source("client id", headings, layouts.get("D", []))
 
         conditions = []
         for rule in job.fileSettings.conditionalStatements:
@@ -338,6 +358,7 @@ def build_report_files(job: "RetirementBuilderJob", source: bytes) -> list[Repor
 
         source_rows: dict[str, list[dict[str, str]]] = {"H": [], "D": [], "T": []}
         seen_kinds: set[str] = set()
+        retained_details: list[bool] = []
         for number, values in enumerate(reader, start=2):
             if number > MAX_ROWS + 1:
                 raise InvalidRun(f"The source CSV can contain up to {MAX_ROWS:,} data rows.")
@@ -350,7 +371,10 @@ def build_report_files(job: "RetirementBuilderJob", source: bytes) -> list[Repor
             if kind not in layouts:
                 raise InvalidRun(f"Source row {number} has a record type with no matching layout.")
             seen_kinds.add(kind)
-            if kind != "D" or all(compare(_decimal(row[key]), threshold) for key, compare, threshold in conditions):
+            retained = kind != "D" or all(compare(_decimal(row[key]), threshold) for key, compare, threshold in conditions)
+            if kind == "D":
+                retained_details.append(retained)
+            if retained:
                 source_rows[kind].append(row)
         if layouts.keys() - seen_kinds:
             raise InvalidRun("Include source rows for each record type configured in Mapping.")
@@ -358,6 +382,16 @@ def build_report_files(job: "RetirementBuilderJob", source: bytes) -> list[Repor
         raise InvalidRun("Upload a valid UTF-8, comma-delimited CSV.") from exc
 
     details = source_rows["D"]
+    if from_payroll_procedure and not all(retained_details):
+        if not details:
+            return []
+        trailers = source_rows["T"]
+        if trailers:
+            # The procedure returns one detail and trailer per company and month.
+            # The saved query orders both sets by the same company and month keys.
+            if len(trailers) != len(retained_details):
+                raise InvalidRun("Payroll detail and trailer records could not be matched.")
+            source_rows["T"] = [row for row, keep in zip(trailers, retained_details, strict=True) if keep]
     for key, descending in reversed(sort_rules):
         try:
             numbers = {row[key]: _decimal(row[key]) for row in details if row[key].strip()}
@@ -384,7 +418,13 @@ def build_report_files(job: "RetirementBuilderJob", source: bytes) -> list[Repor
         filenames.add(filename.casefold())
         results, output = _render_csv(rows, layouts, delimiter, job.mapping.includeHeader, remaining_bytes)
         remaining_bytes -= len(output.encode("utf-8"))
-        files.append(ReportFile(filename, results, output, _report_clients(rows, client_source)))
+        source_ids = _report_clients(rows, client_source)
+        files.append(ReportFile(
+            filename, results, output,
+            client_ids=None if from_payroll_procedure else source_ids,
+            payroll_company_ids=source_ids if from_payroll_procedure else None,
+            delimiter=delimiter,
+        ))
     return files
 
 
@@ -411,6 +451,25 @@ def _render_csv(
     if len(output.encode("utf-8")) > remaining_bytes:
         raise InvalidRun("The generated report exceeds the 10 MB limit.")
     return results, output
+
+
+def merge_report_files(job: "RetirementBuilderJob", reports: list[ReportFile]) -> ReportFile:
+    contents = [reports[0].csv]
+    for report in reports[1:]:
+        if not job.mapping.includeHeader:
+            contents.append(report.csv)
+            continue
+        stream = StringIO(report.csv, newline="")
+        next(csv.reader(stream, delimiter=report.delimiter))
+        contents.append(stream.read())
+    return ReportFile(
+        _output_name(job, ("file name",), {}).removesuffix(".csv") + "_merged.csv",
+        [row for report in reports for row in report.rows],
+        "".join(contents),
+        frozenset(client for report in reports for client in report.client_ids or ()),
+        frozenset(company for report in reports for company in report.payroll_company_ids or ()),
+        delimiter=reports[0].delimiter,
+    )
 
 
 def store_results(connection: Connection, job_id: int, run_id: UUID, rows: list[ResultRow]) -> int:
