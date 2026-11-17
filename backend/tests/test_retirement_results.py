@@ -1,3 +1,5 @@
+import csv
+from io import StringIO
 from unittest import TestCase
 
 from app.retirement_results import InvalidRun, build_report_files, file_name_format_code, merge_report_files
@@ -10,6 +12,43 @@ def build_report(job, source):
 
 
 class RetirementResultsTests(TestCase):
+    def test_catalog_keys_use_exact_headings_and_fall_back_to_old_display_labels(self):
+        job = RetirementBuilderJob.model_validate({
+            "id": 1,
+            "general": {"fileFormat": "Comma", "outputFileNameFormat": "CLIENT_PAYDAY"},
+            "mapping": {"rows": [
+                {"field": "Company", "mappingColumn": "company_name", "recordType": "D"},
+                {"field": "Date", "mappingColumn": "payroll_month", "recordType": "D"},
+            ]},
+        })
+        aliases = {"company_name": "Company Name", "company_id": "Client ID", "payroll_month": "Pay Date"}
+        for source in (
+            b"company_name,Company Name,company_id,payroll_month\nExact Company,Other Column,008,2026-11-17\n",
+            b"Company Name,Client ID,Pay Date\nExact Company,008,2026-11-17\n",
+        ):
+            with self.subTest(source=source):
+                report, = build_report_files(job, source, source_labels=aliases)
+                self.assertEqual(report.file_name, "008_2026-11-17.csv")
+                self.assertEqual(report.rows[0].values, {"Company": "Exact Company", "Date": "2026-11-17"})
+
+    def test_column_headings_and_record_types_use_the_configured_output_delimiter(self):
+        job = RetirementBuilderJob.model_validate({
+            "id": 1,
+            "mapping": {"includeHeader": True, "rows": [
+                {"field": "Mapped Header", "mappingColumn": "Company", "recordType": "Header"},
+                {"field": "Company, Name", "mappingColumn": "Company"},
+                {"field": "Client Code", "mappingColumn": "Client"},
+                {"field": "Amount", "recordType": "Trailer"},
+            ]},
+        })
+        source = b'Record Type,Company,Client,Amount\nH,"Audit, Alpha",,\nD,"Audit, Alpha",0007,\nT,,,123\n'
+        expected = [["Company, Name", "Client Code"], ["Audit, Alpha"], ["Audit, Alpha", "0007"], ["123"]]
+        for delimiter in (",", "\t", " ", ";", "|"):
+            with self.subTest(delimiter=delimiter):
+                report, = build_report_files(job, source, delimiter=delimiter)
+                self.assertEqual(report.delimiter, delimiter)
+                self.assertEqual(list(csv.reader(StringIO(report.csv), delimiter=delimiter)), expected)
+
     def test_payroll_filter_keeps_only_trailers_with_a_retained_detail(self):
         job = RetirementBuilderJob.model_validate({
             "id": 1, "general": {"fileFormat": "CSV", "reportSource": "companyPayroll"},

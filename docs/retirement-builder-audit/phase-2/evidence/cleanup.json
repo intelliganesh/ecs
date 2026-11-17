@@ -1,0 +1,14 @@
+{
+  "temporaryDatabaseRemoved": true,
+  "temporaryServicesStopped": true,
+  "originalRouteHTTP": 200,
+  "localEcsCountsAfter": {
+    "jobs": 1,
+    "results": 5,
+    "history": 1,
+    "payroll": 10,
+    "companies": 1,
+    "employees": 4
+  },
+  "referenceCountsMatch": true
+}

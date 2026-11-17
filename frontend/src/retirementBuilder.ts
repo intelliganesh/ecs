@@ -31,6 +31,16 @@ export function displayRunTime(hour?: string, minute?: string, meridiem?: string
     : ''
 }
 
+export type ReportEmailDelivery = { enabled: boolean; matched: number; accepted: number }
+
+export function reportEmailMessage({ enabled, matched, accepted }: ReportEmailDelivery) {
+  if (!enabled) return 'Email delivery is disabled.'
+  if (!matched) return 'No subscribers matched the generated files.'
+  if (!accepted) return 'Email delivery failed. The files are available below.'
+  if (accepted < matched) return `Mail server accepted delivery for ${accepted} of ${matched} recipients.`
+  return `Mail server accepted delivery for ${accepted} ${accepted === 1 ? 'recipient' : 'recipients'}.`
+}
+
 export function generalFieldErrors(fileName: string, fileFormat: string) {
   return {
     fileName: !fileName.trim() ? 'Enter a file name.' : fileName.length > 255 ? 'Use at most 255 characters.' : '',
@@ -43,6 +53,18 @@ export function pasteEmailText(value: string, pasted: string, start: number | nu
 }
 
 export function isExcelFile(file: File): boolean { const name = file.name.toLowerCase(); return name.endsWith('.xlsx') || name.endsWith('.xls') }
+
+export function reportWorkbook(csv: string, delimiter: string) {
+  // A neutral first line keeps the reader from interpreting report data as a format directive.
+  const firstLine = delimiter === '0' ? '1' : '0'
+  const parsed = XLSX.read(`${firstLine}\r\n${csv}`, { type: 'string', FS: delimiter, raw: true })
+  const rows = XLSX.utils.sheet_to_json<string[]>(parsed.Sheets[parsed.SheetNames[0]], {
+    header: 1, range: 1, blankrows: true,
+  })
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), 'Report')
+  return workbook
+}
 
 function normalizeExcelRecordType(value: unknown): string {
   const type = String(value ?? '').trim().toUpperCase()
@@ -84,6 +106,13 @@ export const validEmail = (email: string) => email.length <= 254 && email.indexO
 
 export function validWholeNumber(value: string, minimum = 0, maximum = 2147483647) {
   return /^[0-9]+$/.test(value.trim()) && Number(value) >= minimum && Number(value) <= maximum
+}
+
+export function validIsoDate(value: string) {
+  const iso = value.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || iso.startsWith('0000-')) return false
+  const date = new Date(`${iso}T00:00:00Z`)
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === iso
 }
 
 export function mappingColumnType(column: string, knownTypes: Record<string, string>) {

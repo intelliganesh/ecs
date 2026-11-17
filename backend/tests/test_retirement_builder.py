@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from decimal import Decimal
 from threading import Event
 from unittest import TestCase
 from unittest.mock import MagicMock, Mock, patch
@@ -13,6 +14,7 @@ from app.payroll_source import (
     PAYROLL_QUERY_TYPE, load_payroll_source, payroll_job_with_saved_rules, payroll_record_queries, payroll_report_query,
 )
 from app.retirement_results import InvalidRun, build_report_files
+from app.report_mail import ReportEmailDelivery
 from app.routers import retirement_builder as rb
 
 
@@ -27,10 +29,35 @@ class MappingColumnOptionsTests(TestCase):
             {"mapping_column": "payroll_month", "mapping_column_desc": "Pay Date", "mapping_column_dt": "datetime"},
             {"mapping_column": "hours_worked", "mapping_column_desc": "Hours Worked", "mapping_column_dt": "decimal(6, 2)"},
         ]
-        with patch.object(rb.engine, "connect") as connect:
-            connection = connect.return_value.__enter__.return_value
-            connection.execute.return_value.mappings.return_value.all.return_value = rows
-            self.assertEqual(rb._mapping_column_types(), {"Company Name": "text", "Pay Date": "date", "Hours Worked": "number"})
+        connection = Mock()
+        connection.execute.return_value.mappings.return_value = rows
+        self.assertEqual(rb._mapping_catalog(connection), {
+            "company_name": ("Company Name", "text"),
+            "payroll_month": ("Pay Date", "date"),
+            "hours_worked": ("Hours Worked", "number"),
+        })
+
+    def test_mapping_writes_catalog_keys_and_record_type_codes(self):
+        payload = input_job(mapping={"rows": [
+            {"field": "Header Company", "mappingColumn": "Company Name", "recordType": "Header"},
+            {"field": "Pay Date"},
+            {"field": "Footer Company", "mappingColumn": "COMPANY_NAME", "recordType": " t "},
+            {"field": "CSV Column With Spaces", "recordType": "Detail"},
+        ]})
+        connection = Mock()
+        connection.execute.return_value.mappings.return_value = [
+            {"mapping_column": "company_name", "mapping_column_desc": "Company Name", "mapping_column_dt": "text"},
+            {"mapping_column": "payroll_month", "mapping_column_desc": "Pay Date", "mapping_column_dt": "date"},
+        ]
+        rb._write_job_details(connection, 31, payload)
+        mappings = [
+            (call.args[1]["jobrectype"], call.args[1]["jobfieldmapping"])
+            for call in connection.execute.call_args_list
+            if len(call.args) == 2 and "jobfieldmapping" in call.args[1]
+        ]
+        self.assertEqual(mappings, [
+            ("H", "company_name"), ("D", "payroll_month"), ("T", "company_name"), ("D", "CSV Column With Spaces"),
+        ])
 
 
 class FileFormatTests(TestCase):
@@ -132,6 +159,44 @@ class SortingStorageTests(TestCase):
 
 
 class PayrollQueryTests(TestCase):
+    def test_pay_date_condition_survives_storage_and_filters_at_the_calendar_boundary(self):
+        payload = input_job(
+            general={"fileName": "Payroll", "fileFormat": "Comma", "reportSource": "companyPayroll"},
+            mapping={"rows": [{"field": "Pay Date"}]},
+            fileSettings={"conditionalStatements": [
+                {"mappingColumn": "Pay Date", "condition": ">=", "value": "2026-11-01"},
+            ]},
+        )
+        rb._validate_payload(payload, creating=True)
+        connection = Mock()
+        connection.execute.return_value.mappings.return_value = []
+        connection.execute.return_value.tuples.return_value.all.return_value = [
+            (kind, f"/* company payroll */ SELECT '{kind}'") for kind in ("H", "D", "T")
+        ]
+        rb._write_job_details(connection, 31, payload)
+        condition = next(
+            call.args[1] for call in connection.execute.call_args_list
+            if len(call.args) == 2 and "Symbol" in call.args[1]
+        )
+        self.assertEqual((condition["Symbol"], condition["val"]), ("date:>=", "20261101"))
+        decoded = rb._condition_from_db({
+            "mapping_column": "Pay Date", "condition_symbol": condition["Symbol"],
+            "condition_value": Decimal(condition["val"]),
+        })
+        self.assertEqual(decoded, payload.fileSettings.conditionalStatements[0].model_dump())
+        queries = payroll_record_queries(connection, payload)
+        self.assertEqual(queries[1]["conditions"], "[Pay Date] >= '2026-11-01'")
+        job = rb.RetirementBuilderJob.model_validate({
+            "id": 31, **payload.model_dump(), "fileSettings": {}, "queryConfiguration": queries,
+        })
+        report, = build_report_files(
+            payroll_job_with_saved_rules(job),
+            b"Pay Date\n2026-10-31\n11/1/2026\n2026-11-02\n",
+        )
+        self.assertEqual(report.csv.splitlines(), ["Pay Date", "11/1/2026", "2026-11-02"])
+        with self.assertRaises(HTTPException):
+            rb._condition_value("2026-02-30", ["value"])
+
     def test_payroll_uses_saved_record_queries_and_rules_for_the_job(self):
         payload = input_job(
             general={"fileName": "Payroll", "fileFormat": "CSV", "reportSource": "companyPayroll"},
@@ -240,6 +305,75 @@ class PayrollQueryTests(TestCase):
             load_payroll_source(connection, job)
 
         connection.connection.cursor.assert_not_called()
+
+
+class SubscriptionStorageTests(TestCase):
+    def test_company_subscriptions_read_legacy_and_current_ids(self):
+        for saved_id in (-2, 1):
+            with self.subTest(saved_id=saved_id):
+                self.assertEqual(
+                    rb._subscription_from_db(saved_id, "qa@example.invalid", uses_payroll=True),
+                    rb.SubscriptionRow(companyId=1, email="qa@example.invalid"),
+                )
+        self.assertEqual(rb._subscription_from_db(1, None, uses_payroll=False), rb.SubscriptionRow(client="1"))
+
+    def test_subscriptions_store_the_positive_id_for_each_report_source(self):
+        for source, row in (("companyPayroll", {"companyId": 1}), ("csv", {"client": "0001"})):
+            with (
+                self.subTest(source=source),
+                patch.object(rb, "payroll_company_ids", return_value={"QA Company": 1}),
+                patch.object(rb, "payroll_record_queries", return_value=[]),
+            ):
+                connection = Mock()
+                payload = input_job(general={"reportSource": source}, subscriptions={"rows": [row]})
+                rb._write_job_details(connection, 31, payload)
+                ids = [call.args[1]["jobclientid"] for call in connection.execute.call_args_list
+                       if len(call.args) == 2 and "jobclientid" in call.args[1]]
+                self.assertEqual(ids, [1])
+
+    def test_subscriptions_reject_zero_ids(self):
+        for source, row in (("companyPayroll", {"companyId": 0}), ("csv", {"client": "0"})):
+            with self.subTest(source=source), patch.object(rb, "payroll_company_ids", return_value={"QA Company": 0}):
+                payload = input_job(general={"reportSource": source}, subscriptions={"rows": [row]})
+                with self.assertRaises(HTTPException) as error:
+                    rb._write_job_details(Mock(), 31, payload)
+                self.assertEqual(error.exception.status_code, 422)
+
+
+class ManualRunMailTests(TestCase):
+    def test_saved_source_run_emails_after_commit_and_csv_override_skips_delivery(self):
+        settings = Settings(_env_file=None)
+        job = rb.RetirementBuilderJob.model_validate({
+            "id": 31, "general": {"fileFormat": "Comma"}, "mapping": {"rows": [{"field": "Name"}]},
+        })
+        report, = build_report_files(job, b"Client ID,Name\n1,Example\n")
+        run = rb.RetirementBuilderRun(
+            runId="00000000-0000-0000-0000-000000000001", rowCount=1, storedRows=0,
+            fileName=report.file_name, csv=report.csv, delimiter=",", files=[],
+        )
+        with (
+            patch.object(rb, "get_settings", return_value=settings),
+            patch.object(rb.engine, "begin") as begin,
+            patch.object(rb, "_read_full_job", return_value=job),
+            patch.object(rb, "_attempt_report_run", side_effect=lambda *_, **__: (run.model_copy(), [report])),
+            patch.object(rb, "send_subscribed_reports") as send,
+        ):
+            transaction = begin.return_value
+            transaction.__enter__.return_value.execute.return_value.scalar_one_or_none.return_value = job.id
+
+            def deliver(*args):
+                transaction.__exit__.assert_called_once_with(None, None, None)
+                return ReportEmailDelivery(enabled=True, matched=1, accepted=1)
+
+            send.side_effect = deliver
+            result = rb._run_job(job.id, None)
+            self.assertEqual(result.emailDelivery, ReportEmailDelivery(enabled=True, matched=1, accepted=1))
+            send.assert_called_once_with(settings, job, [report])
+
+            send.reset_mock()
+            result = rb._run_job(job.id, b"Name\nOther input\n")
+            self.assertIsNone(result.emailDelivery)
+            send.assert_not_called()
 
 
 class JobValidationTests(TestCase):

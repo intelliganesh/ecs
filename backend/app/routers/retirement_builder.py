@@ -23,13 +23,14 @@ from starlette.concurrency import run_in_threadpool
 from app.core.config import get_settings
 from app.db import engine
 from app.payroll_source import (
-    PAYROLL_COLUMN_KEYS, PAYROLL_QUERY_TYPE, PAYROLL_RECORD_TYPES, is_payroll_record_query,
+    PAYROLL_COLUMNS, PAYROLL_MAPPING_FIELDS, PAYROLL_QUERY_TYPE, PAYROLL_RECORD_TYPES, is_payroll_record_query,
     load_payroll_source, payroll_company_ids, payroll_job_with_saved_rules, payroll_record_queries,
 )
 from app.report_files import load_report_source, publish_report, report_directory
+from app.report_mail import EMAIL_PATTERN, ReportEmailDelivery, send_subscribed_reports
 from app.retirement_results import (
-    COMPARISONS, FILE_NAME_FORMAT_CODES, FILE_NAME_FORMAT_PARTS, MAPPING_FORMATS_BY_TYPE, MAX_SOURCE_BYTES,
-    InvalidRun, ReportFile, build_report_files, file_format_name, file_name_format_code, format_sort_order,
+    COMPARISONS, FILE_NAME_FORMAT_CODES, FILE_NAME_FORMAT_PARTS, MAPPING_FORMATS_BY_TYPE, MAX_SOURCE_BYTES, RECORD_TYPES,
+    InvalidRun, ReportFile, build_report_files, condition_date, file_format_name, file_name_format_code, format_sort_order,
     parse_file_name_format, parse_sort_order, store_results,
 )
 
@@ -145,7 +146,9 @@ class RetirementBuilderRun(RetirementBuilderOutput):
     runId: UUID
     rowCount: int
     storedRows: int
+    delimiter: str
     files: list[RetirementBuilderOutput]
+    emailDelivery: ReportEmailDelivery | None = None
 
 
 class OutputFileNameFormatOption(BaseModel):
@@ -166,6 +169,8 @@ class RetirementBuilderOptions(BaseModel):
     comparisonOperators: list[str]
     mappingColumns: list[str]
     payrollMappingColumns: list[str]
+    payrollMappingColumnKeys: list[str]
+    mappingColumnLabels: dict[str, str]
     payrollCompanies: dict[int, str]
     mappingFormats: list[str]
     mappingColumnTypes: dict[str, str]
@@ -175,13 +180,9 @@ class RetirementBuilderOptions(BaseModel):
 SQL_INT_MAX = 2_147_483_647
 SQL_DATETIME_MIN = date(1753, 1, 1)
 CONDITION_MAX = Decimal("9999999999999999.99")
+DATE_CONDITION_PREFIX = "date:"
+RECORD_TYPE_LABELS = {"H": "Header", "D": "Detail", "T": "Trailer"}
 CSV_SORT_QUERY_TYPE = "CSV_SORT"
-EMAIL_PATTERN = re.compile(
-    r"[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
-    r"@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
-    r"(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*",
-    re.IGNORECASE | re.ASCII,
-)
 IDEMPOTENCY_TTL = 3600
 IDEMPOTENCY_LIMIT = 1024
 _idempotency_lock = Lock()
@@ -280,19 +281,13 @@ VALUES (:jobid, GETDATE(), GETDATE(), :run_status, :message, GETDATE())
 """)
 
 
-def _mapping_column_types() -> dict[str, str]:
-    try:
-        with engine.connect() as connection:
-            configured = connection.execute(text(QUERY_30)).mappings().all()
-    except SQLAlchemyError:
-        return {}
-
-    columns: dict[str, str] = {}
-    seen_names: set[str] = set()
+def _mapping_catalog(connection: Any) -> dict[str, tuple[str, str]]:
+    configured = connection.execute(text(QUERY_30)).mappings()
+    columns: dict[str, tuple[str, str]] = {}
     for row in configured:
         key = str(row["mapping_column"] or "").strip()
         name = str(row["mapping_column_desc"] or "").strip() or key
-        if not key or name.casefold() in seen_names:
+        if not key:
             continue
         declared = str(row["mapping_column_dt"] or "").strip().casefold().split("(", 1)[0].strip()
         if declared in MAPPING_FORMATS_BY_TYPE:
@@ -304,8 +299,7 @@ def _mapping_column_types() -> dict[str, str]:
             column_type = "number"
         else:
             column_type = "text"
-        columns[name] = column_type
-        seen_names.add(name.casefold())
+        columns[key] = (name, column_type)
     return columns
 
 
@@ -345,14 +339,27 @@ def _output_file_name_formats(connection: Any) -> list[OutputFileNameFormatOptio
 
 def _options_from_xml() -> RetirementBuilderOptions:
     root = ET.parse(OPTIONS_FILE).getroot()
-    column_types = _mapping_column_types()
+    try:
+        with engine.connect() as connection:
+            catalog = _mapping_catalog(connection)
+    except SQLAlchemyError:
+        catalog = {}
+    column_types = {}
+    seen_names = set()
+    for name, kind in catalog.values():
+        if name.casefold() not in seen_names:
+            column_types[name] = kind
+            seen_names.add(name.casefold())
     file_formats: list[str] = []
     output_file_name_formats: list[OutputFileNameFormatOption] = []
     try:
         with engine.connect() as connection:
             file_formats = sorted(_file_formats(connection), key=str.casefold)
             output_file_name_formats = _output_file_name_formats(connection)
-            companies = {company_id: name for name, company_id in payroll_company_ids(connection).items() if company_id is not None}
+            companies = {
+                company_id: name for name, company_id in payroll_company_ids(connection).items()
+                if company_id is not None and company_id > 0
+            }
     except SQLAlchemyError:
         companies = {}
 
@@ -372,10 +379,9 @@ def _options_from_xml() -> RetirementBuilderOptions:
         sortDirections=values("sortDirections"),
         comparisonOperators=list(COMPARISONS),
         mappingColumns=sorted(column_types, key=str.casefold),
-        payrollMappingColumns=sorted(
-            (column for column in column_types if column.casefold() in PAYROLL_COLUMN_KEYS),
-            key=str.casefold,
-        ),
+        payrollMappingColumns=sorted(PAYROLL_COLUMNS, key=str.casefold),
+        payrollMappingColumnKeys=list(PAYROLL_MAPPING_FIELDS),
+        mappingColumnLabels={key: name for key, (name, _) in catalog.items()},
         payrollCompanies=companies,
         mappingFormats=list(dict.fromkeys(item for formats in MAPPING_FORMATS_BY_TYPE.values() for item in formats)),
         mappingColumnTypes=column_types,
@@ -432,6 +438,12 @@ def _check_integer(value: str, minimum: int, maximum: int, path: list[str | int]
 
 def _condition_value(value: str, path: list[str | int]) -> str:
     try:
+        date_value = condition_date(value)
+    except InvalidRun as exc:
+        _field_error(path, str(exc))
+    if date_value is not None:
+        return date_value.isoformat()
+    try:
         decimal = Decimal(value.strip())
         if not decimal.is_finite() or decimal.copy_abs() >= CONDITION_MAX + 1:
             raise InvalidOperation
@@ -476,9 +488,7 @@ def _validate_payload(payload: RetirementBuilderJobInput, *, creating: bool = Fa
 
     for index, row in enumerate(payload.subscriptions.rows):
         path = ["subscriptions", "rows", index]
-        if row.companyId is None:
-            _check_integer(row.client, 0, SQL_INT_MAX, [*path, "client"])
-        elif row.client.strip():
+        if row.companyId is not None and row.client.strip():
             _field_error([*path, "client"], "Choose one client or payroll company for the subscription.")
         addresses = [part.strip() for part in re.split(r"[,;\n]", row.email) if part.strip()]
         if any(len(address) > 254 or len(address.partition("@")[0]) > 64 or not EMAIL_PATTERN.fullmatch(address) for address in addresses):
@@ -597,10 +607,25 @@ def _sort_priority(stored_order: int) -> int:
     return stored_order if stored_order >= 0 else -stored_order - 1
 
 
-def _subscription_from_db(client_id: int | None, email: str | None) -> SubscriptionRow:
+def _subscription_from_db(client_id: int | None, email: str | None, *, uses_payroll: bool) -> SubscriptionRow:
+    # Keep reading the old negative encoding until each existing job is saved again.
     if client_id is not None and client_id < 0:
         return SubscriptionRow(companyId=-client_id - 1, email=email or "")
+    if uses_payroll:
+        return SubscriptionRow(companyId=client_id, email=email or "")
     return SubscriptionRow(client="" if client_id is None else str(client_id), email=email or "")
+
+
+def _condition_from_db(row: dict[str, Any]) -> dict[str, str]:
+    symbol = row.get("condition_symbol") or ""
+    stored = row.get("condition_value")
+    value = "" if stored is None else str(stored)
+    if symbol.startswith(DATE_CONDITION_PREFIX):
+        symbol = symbol.removeprefix(DATE_CONDITION_PREFIX)
+        if stored is not None:
+            compact = f"{stored:08.0f}"
+            value = f"{compact[:4]}-{compact[4:6]}-{compact[6:]}"
+    return {"mappingColumn": row["mapping_column"], "condition": symbol, "value": value}
 
 
 def _read_full_job(connection: Any, job_id: int, *, file_formats: dict[str, str] | None = None) -> RetirementBuilderJob | None:
@@ -652,7 +677,9 @@ def _read_full_job(connection: Any, job_id: int, *, file_formats: dict[str, str]
                 "field": row.get("jobclientcolumn"),
                 "startPosition": "" if row.get("startposition") is None else str(row.get("startposition")),
                 "length": "" if row.get("field_len") is None else str(row.get("field_len")),
-                "recordType": row.get("jobrectype"),
+                "recordType": RECORD_TYPE_LABELS.get(
+                    str(row.get("jobrectype") or "").strip().upper(), row.get("jobrectype"),
+                ),
                 "defaultValue": row.get("jobdefaultvalue"),
                 "mappingColumn": row.get("jobfieldmapping"),
                 "format": row.get("jobformat"),
@@ -660,7 +687,10 @@ def _read_full_job(connection: Any, job_id: int, *, file_formats: dict[str, str]
         },
         "subscriptions": {
             "mergeFiles": main.get("ismerge"),
-            "rows": [_subscription_from_db(row.get("jobclientid"), row.get("jobemailind")) for row in subscriptions],
+            "rows": [
+                _subscription_from_db(row.get("jobclientid"), row.get("jobemailind"), uses_payroll=uses_payroll)
+                for row in subscriptions
+            ],
         },
         "fileSettings": {
             "sortingOrder": parse_sort_order(saved_sort) if saved_sort else [{
@@ -668,11 +698,7 @@ def _read_full_job(connection: Any, job_id: int, *, file_formats: dict[str, str]
                 "mappingColumn": row["mapping_column"],
                 "direction": "DESC" if row["sort_order"] < 0 else "ASC",
             } for row in sorted(sorting, key=lambda rule: _sort_priority(rule["sort_order"]))],
-            "conditionalStatements": [{
-                "mappingColumn": row.get("mapping_column"),
-                "condition": row.get("condition_symbol"),
-                "value": "" if row.get("condition_value") is None else str(row.get("condition_value")),
-            } for row in conditions],
+            "conditionalStatements": [_condition_from_db(row) for row in conditions],
         },
         "queryConfiguration": [{
             "recttype": row.get("recttype"),
@@ -705,23 +731,44 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
     subscriptions = payload.subscriptions
     file_settings = payload.fileSettings
     general = payload.general
+    uses_payroll = general.reportSource == "companyPayroll"
+    catalog = _mapping_catalog(connection) if payload.mapping.rows else {}
+    keys = {key.casefold(): key for key in catalog}
+    for key, (label, _) in catalog.items():
+        keys.setdefault(label.casefold(), key)
+    mappings = []
+    for index, row in enumerate(payload.mapping.rows):
+        record_type = RECORD_TYPES.get(row.recordType.strip().casefold() or "d")
+        if record_type is None:
+            _field_error(["mapping", "rows", index, "recordType"], "Choose Header, Detail, or Trailer.")
+        source = row.mappingColumn.strip() or row.field.strip()
+        mappings.append(row.model_copy(update={
+            "recordType": record_type, "mappingColumn": keys.get(source.casefold(), source),
+        }))
     sorting = sorted(file_settings.sortingOrder, key=lambda row: _integer(row.orderBy))
-    if any(row.companyId is not None for row in subscriptions.rows):
-        if general.reportSource != "companyPayroll":
-            _field_error(["subscriptions", "rows"], "Payroll company subscriptions require the Company Payroll Report source.")
-        company_ids = set(payroll_company_ids(connection).values())
-        for index, row in enumerate(subscriptions.rows):
-            if row.companyId is not None and row.companyId not in company_ids:
-                _field_error(["subscriptions", "rows", index, "companyId"], "Choose a payroll company from the list.")
+    company_ids = set(payroll_company_ids(connection).values()) if uses_payroll and subscriptions.rows else set()
+    subscription_ids = []
+    for index, row in enumerate(subscriptions.rows):
+        path = ["subscriptions", "rows", index]
+        if uses_payroll:
+            if row.companyId is None or row.companyId < 1 or row.companyId not in company_ids:
+                _field_error([*path, "companyId"], "Choose a payroll company from the list.")
+            subscription_ids.append(row.companyId)
+        else:
+            if row.companyId is not None:
+                _field_error([*path, "companyId"], "Payroll company subscriptions require the Company Payroll Report source.")
+            _check_integer(row.client, 1, SQL_INT_MAX, [*path, "client"])
+            subscription_ids.append(_integer(row.client))
     queries = [
         row for row in payload.queryConfiguration
         if row.recttype.strip().upper() not in (PAYROLL_QUERY_TYPE, CSV_SORT_QUERY_TYPE)
         and not is_payroll_record_query(row.recttype, row.query)
     ]
-    if general.reportSource == "companyPayroll":
+    if uses_payroll:
         queries = [row for row in queries if row.recttype.strip().upper() not in PAYROLL_RECORD_TYPES]
         try:
-            queries.extend(QueryConfigurationRow(**row) for row in payroll_record_queries(connection, payload))
+            payroll_payload = payload.model_copy(update={"mapping": payload.mapping.model_copy(update={"rows": mappings})})
+            queries.extend(QueryConfigurationRow(**row) for row in payroll_record_queries(connection, payroll_payload))
         except InvalidRun as exc:
             _field_error(["mapping"], str(exc))
     elif sorting:
@@ -752,7 +799,7 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
         "schedule_min": _integer(schedule.minute),
         "schedule_session": schedule.meridiem,
     }))
-    for index, row in enumerate(payload.mapping.rows, start=1):
+    for index, row in enumerate(mappings, start=1):
         connection.execute(*_prepared_query(QUERY_35, {
             "jobid": job_id,
             "jobclientcolumn": row.field,
@@ -765,11 +812,10 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
             "datasetNo": 1,
             "colSeqNo": index,
         }))
-    for row in subscriptions.rows:
+    for row, client_id in zip(subscriptions.rows, subscription_ids, strict=True):
         connection.execute(*_prepared_query(QUERY_37, {
             "jobid": job_id,
-            # Negative values distinguish payroll companies from existing client subscriptions.
-            "jobclientid": -(row.companyId + 1) if row.companyId is not None else _integer(row.client),
+            "jobclientid": client_id,
             "jobemailind": row.email,
         }))
     for priority, row in enumerate(sorting, start=1):
@@ -779,11 +825,13 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
             "mapping": row.mappingColumn.strip(),
         }))
     for row in file_settings.conditionalStatements:
+        date_value = condition_date(row.value)
         connection.execute(*_prepared_query(QUERY_55, {
             "jobid": job_id,
             "mapping": row.mappingColumn,
-            "Symbol": row.condition,
-            "val": row.value,
+            # Keep the numeric storage contract and distinguish dates from numeric thresholds.
+            "Symbol": f"{DATE_CONDITION_PREFIX}{row.condition}" if date_value else row.condition,
+            "val": date_value.isoformat().replace("-", "") if date_value else row.value,
         }))
 
 
@@ -972,7 +1020,13 @@ def _execute_report_run(
         raise InvalidRun("Select a configured file format for this job.")
     if from_payroll_procedure:
         job = payroll_job_with_saved_rules(job)
-    reports = build_report_files(job, read_source(job), from_payroll_procedure=from_payroll_procedure, delimiter=delimiter)
+    source_labels = {key: label for key, (label, _) in _mapping_catalog(connection).items()}
+    if from_payroll_procedure:
+        source_labels.update(PAYROLL_MAPPING_FIELDS)
+    reports = build_report_files(
+        job, read_source(job), from_payroll_procedure=from_payroll_procedure, delimiter=delimiter,
+        source_labels=source_labels,
+    )
     for report in reports:
         resources.enter_context(publish_report(run_dir / report.file_name, report.csv))
     if scheduled and not reports:
@@ -984,7 +1038,7 @@ def _execute_report_run(
     message = f"Generated {len(rows)} rows. Stored {stored_rows} rows." if reports else "No matching records. No files generated."
     _record_run(connection, job.id, "Success", message)
     run = RetirementBuilderRun(
-        runId=run_id, rowCount=len(rows), storedRows=stored_rows,
+        runId=run_id, rowCount=len(rows), storedRows=stored_rows, delimiter=delimiter,
         fileName=outputs[0].fileName if outputs else "", csv=outputs[0].csv if outputs else "", files=outputs,
     )
     return run, reports
@@ -1043,13 +1097,15 @@ def _run_job(job_id: int, source: bytes | None) -> RetirementBuilderRun:
             )
         if isinstance(result, Exception):
             raise result
-        run, _ = result
+        run, reports = result
     except InvalidRun as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail="The job could not be completed. No results were saved.") from exc
     except OSError as exc:
         raise HTTPException(status_code=500, detail="The generated file could not be saved. Check REPORT_OUTPUT_DIR.") from exc
+    if source is None and reports:
+        run.emailDelivery = send_subscribed_reports(settings, job, reports)
     return run
 
 

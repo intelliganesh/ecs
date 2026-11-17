@@ -74,6 +74,7 @@ COMPARISONS = {
     "=": operator.eq, "==": operator.eq, "!=": operator.ne, "<>": operator.ne,
     "<": operator.lt, "<=": operator.le, ">": operator.gt, ">=": operator.ge,
 }
+ISO_DATE_PATTERN = r"[0-9]{4}-[0-9]{2}-[0-9]{2}"
 INSERT_RESULT = text("""
     INSERT INTO dbo.rjob_result (run_id, job_id, row_number, record_type, row_values)
     VALUES (:run_id, :job_id, :row_number, :record_type, :row_values)
@@ -166,11 +167,16 @@ def _source_key(mapping: "MappingRow") -> str:
     return (mapping.mappingColumn.strip() or mapping.field.strip()).casefold()
 
 
-def _find_group_source(dimension: str, headings: list[str], detail_layout: list["MappingRow"]) -> tuple[str | None, str]:
+def _find_group_source(
+    dimension: str, headings: list[str], detail_layout: list["MappingRow"], source_aliases: dict[str, str],
+) -> tuple[str | None, str]:
     def key(name: str) -> str:
         return re.sub(r"[^a-z0-9]", "", name.casefold())
 
     columns = {key(heading): heading for heading in headings}
+    for heading in headings:
+        if heading in source_aliases:
+            columns.setdefault(key(source_aliases[heading]), heading)
     aliases = GROUP_COLUMNS[dimension]
     source = next((columns[alias] for alias in aliases if alias in columns), None)
     if source is None:
@@ -180,11 +186,11 @@ def _find_group_source(dimension: str, headings: list[str], detail_layout: list[
 
 
 def _group_source_columns(
-    dimensions: tuple[str, ...], headings: list[str], detail_layout: list["MappingRow"],
+    dimensions: tuple[str, ...], headings: list[str], detail_layout: list["MappingRow"], source_aliases: dict[str, str],
 ) -> list[tuple[str, str, str]]:
     sources = []
     for dimension in dimensions:
-        source, default = _find_group_source(dimension, headings, detail_layout)
+        source, default = _find_group_source(dimension, headings, detail_layout, source_aliases)
         if source is None or (source not in headings and not default):
             label = "Client ID" if dimension == "client id" else "Pay Date"
             raise InvalidRun(f'Add a "{label}" source column for the selected output file name format.')
@@ -248,6 +254,15 @@ def _decimal(value: str) -> Decimal:
     if not number.is_finite():
         raise InvalidRun("A condition uses a value that is not a finite number.")
     return number
+
+
+def condition_date(value: str) -> date | None:
+    if not re.fullmatch(ISO_DATE_PATTERN, value.strip()):
+        return None
+    try:
+        return date.fromisoformat(value.strip())
+    except ValueError as exc:
+        raise InvalidRun("Enter a valid date in YYYY-MM-DD format.") from exc
 
 
 def _parse_date(value: str, field: str) -> date:
@@ -339,6 +354,7 @@ def file_format_name(value: str) -> str:
 
 def build_report_files(
     job: "RetirementBuilderJob", source: bytes, *, from_payroll_procedure: bool = False, delimiter: str | None = None,
+    source_labels: dict[str, str] | None = None,
 ) -> list[ReportFile]:
     if delimiter is None:
         delimiter = _LEGACY_DELIMITERS.get(file_format_name(job.general.fileFormat))
@@ -363,31 +379,48 @@ def build_report_files(
         headings = [heading.strip().casefold() for heading in next(reader, [])]
         if not headings or not all(headings) or len(set(headings)) != len(headings) or len(headings) > MAX_COLUMNS:
             raise InvalidRun("Use a CSV header with distinct, nonempty column names.")
-        typed_source = "record type" in headings
+        heading_set = set(headings)
+        source_aliases = {key.casefold(): label.casefold() for key, label in (source_labels or {}).items()}
+        for key, label in tuple(source_aliases.items()):
+            source_aliases.setdefault(label, key)
+
+        def resolve_heading(key: str) -> str:
+            alias = source_aliases.get(key)
+            return alias if key not in heading_set and alias in heading_set else key
+
+        record_type_heading = resolve_heading("record type")
+        typed_source = record_type_heading in heading_set
         if not typed_source and layouts.keys() != {"D"}:
             raise InvalidRun("Add a Record Type column with H, D, or T values for jobs with header or trailer mappings.")
-        for layout in layouts.values():
+        for kind, layout in layouts.items():
+            resolved = []
             for mapping in layout:
-                source_column = mapping.mappingColumn.strip() or mapping.field.strip()
-                if _source_key(mapping) not in headings and not mapping.defaultValue:
-                    raise InvalidRun(f'Source column "{source_column}" is missing.')
-        group_sources = _group_source_columns(dimensions, headings, layouts.get("D", []))
+                source_key = resolve_heading(_source_key(mapping))
+                if source_key not in heading_set and not mapping.defaultValue:
+                    raise InvalidRun(f'Source column "{mapping.mappingColumn.strip() or mapping.field.strip()}" is missing.')
+                resolved.append(mapping.model_copy(update={"mappingColumn": source_key}))
+            layouts[kind] = resolved
+        group_sources = _group_source_columns(dimensions, headings, layouts.get("D", []), source_aliases)
         if from_payroll_procedure:
             # The payroll source adds this column after resolving the company IDs.
             client_source = "client id" if "client id" in headings else None
         else:
-            client_source, _ = _find_group_source("client id", headings, layouts.get("D", []))
+            client_source, _ = _find_group_source("client id", headings, layouts.get("D", []), source_aliases)
 
         conditions = []
         for rule in job.fileSettings.conditionalStatements:
-            key = rule.mappingColumn.strip().casefold()
+            key = resolve_heading(rule.mappingColumn.strip().casefold())
             compare = COMPARISONS.get(rule.condition.strip())
             if key not in headings or compare is None:
                 raise InvalidRun("Check the source column and comparison operator in File Settings.")
-            conditions.append((key, compare, _decimal(rule.value)))
+            threshold = condition_date(rule.value)
+            if threshold is None:
+                conditions.append((key, compare, _decimal(rule.value)))
+            else:
+                conditions.append((key, compare, threshold))
 
         sort_rules = [
-            (rule.mappingColumn.strip().casefold(), rule.direction == "DESC")
+            (resolve_heading(rule.mappingColumn.strip().casefold()), rule.direction == "DESC")
             for rule in sorted(job.fileSettings.sortingOrder, key=lambda rule: int(rule.orderBy))
         ]
         if any(key not in headings for key, _ in sort_rules):
@@ -404,11 +437,14 @@ def build_report_files(
             if len(values) != len(headings):
                 raise InvalidRun(f"Source row {number} does not match the CSV header.")
             row = dict(zip(headings, values))
-            kind = RECORD_TYPES.get(row["record type"].strip().casefold()) if typed_source else "D"
+            kind = RECORD_TYPES.get(row[record_type_heading].strip().casefold()) if typed_source else "D"
             if kind not in layouts:
                 raise InvalidRun(f"Source row {number} has a record type with no matching layout.")
             seen_kinds.add(kind)
-            retained = kind != "D" or all(compare(_decimal(row[key]), threshold) for key, compare, threshold in conditions)
+            retained = kind != "D" or all(
+                compare(_parse_date(row[key], key) if isinstance(threshold, date) else _decimal(row[key]), threshold)
+                for key, compare, threshold in conditions
+            )
             if kind == "D":
                 retained_details.append(retained)
             if retained:

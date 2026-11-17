@@ -72,11 +72,11 @@ Configure these settings in `backend/.env` and restart the backend. See `backend
 | `REPORT_INPUT_DIR` | Folder containing the source CSV for manual and scheduled runs. |
 | `REPORT_OUTPUT_DIR` | Folder where the API saves both manual and scheduled reports. |
 | `PAYROLL_REPORT_PROCEDURE` | SQL Server procedure used by every Company Payroll Report job. An unqualified name uses the `dbo` schema. |
-| `MAIL_ENABLED` | Emails generated CSVs to matching subscriptions when `true`. File generation and database storage work with mail disabled. |
+| `MAIL_ENABLED` | Emails generated CSVs to matching subscriptions when `true`, for scheduled runs and manual runs using the saved report source. File generation and database storage work with mail disabled. |
 
 Paths can be absolute or relative to `backend/`. Keep the backend running and place the source CSV for job `31` at `REPORT_INPUT_DIR/31.csv`. Update the CSV before the next run if the source data changes. The scheduler reads the enabled jobs every 30 seconds and can pick up a due run within five minutes of its scheduled time. Weekly and biweekly runs use the selected weekday. Monthly runs use the day of the Start Date, or the last day of shorter months.
 
 Manual files are saved under `manual/<job-id>/<run-id>/`. Scheduled files are saved under `scheduled/<job-id>/<scheduled-time-in-UTC>/`. Run one scheduler against a given ECS database and output folder. Keep the scheduled file in place during the five-minute window so a restart can recognize that the run already completed.
 
-When mail is enabled, enter each recipient under the appropriate **Payroll Company** in Subscriptions. For CSV-source jobs, include a `Client ID` in each detail row and subscribe the recipient to that client. A CSV containing multiple companies or clients is attached only if the recipient is subscribed to every one in the file. To email files to individual companies or clients, choose an Output File Name Format that includes **Client ID**. Delivery errors appear in the backend log and leave the generated file available.
+When mail is enabled, enter each recipient under the appropriate **Payroll Company** in Subscriptions. For CSV-source jobs, include a `Client ID` in each detail row and subscribe the recipient to that client. A CSV containing multiple companies or clients is attached only if the recipient is subscribed to every one in the file. To email files to individual companies or clients, choose an Output File Name Format that includes **Client ID**. The dashboard shows the mail server's response after **Run**, and generated files remain downloadable if delivery fails. API runs that upload an override CSV return the files for download.
 

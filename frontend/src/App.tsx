@@ -4,9 +4,11 @@ import { ChangeEvent, FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode,
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronRight, CircleDot, Layers, Plus, Settings, Trash2, X } from 'lucide-react'
+import { writeFile } from 'xlsx'
 import {
   displayFileFormat, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors,
-  isExcelFile, mappingColumnType, pasteEmailText, readExcelMappings, validEmail, validWholeNumber,
+  isExcelFile, mappingColumnType, pasteEmailText, readExcelMappings, reportEmailMessage, reportWorkbook,
+  validEmail, validIsoDate, validWholeNumber, type ReportEmailDelivery,
 } from './retirementBuilder'
 
 type Screen = 'dashboard' | 'general' | 'schedule' | 'mapping' | 'subscriptions' | 'placeholder'
@@ -25,9 +27,12 @@ type Subscription = { id: number; client: string; email: string; emailDraft?: st
 type TableFilters = Record<number, string>
 type DashboardJob = { id: number; values: string[] }
 type JobRunFile = { fileName: string; csv: string }
-type JobRun = JobRunFile & { runId: string; rowCount: number; storedRows: number; files?: JobRunFile[] }
+type JobRun = JobRunFile & {
+  runId: string; rowCount: number; storedRows: number; delimiter?: string; files?: JobRunFile[];
+  emailDelivery?: ReportEmailDelivery | null;
+}
 type RetirementBuilderApiJob = { id: number; general?: { fileName?: string; fileFormat?: string; description?: string; outputFileNameFormat?: string; enable?: boolean; storeResultsToTable?: boolean; selectedFile?: string; reportSource?: ReportSource }; schedule?: { startDate?: string | null; week?: string; hour?: string; minute?: string; meridiem?: string; buildFrequency?: string }; mapping?: { includeHeader?: boolean; rows?: ApiMappingRow[] }; subscriptions?: { mergeFiles?: boolean; rows?: ApiSubscription[] }; fileSettings?: { sortingOrder?: Partial<SortingRow>[]; conditionalStatements?: Partial<ConditionalRow>[] }; jobid?: number; jobfilename?: string; jobdesc?: string; filetype?: string; isEnabled?: boolean | number; ismerge?: boolean; runday?: string; runtime?: string; ScheduleType?: string; joblastmodified?: string | null; joblastrun?: string | null; Job_Last_Status?: string | null }
-type RetirementBuilderOptions = { fileFormats: string[]; outputFileNameFormats: Array<{ label: string; value: string }>; buildFrequencies: string[]; hours: string[]; minutes: string[]; meridiems: string[]; weekDays: string[]; recordTypes: string[]; sortDirections: SortDirection[]; comparisonOperators: string[]; mappingColumns: string[]; payrollMappingColumns: string[]; payrollCompanies: Record<string, string>; mappingColumnTypes: Record<string, string>; mappingFormatsByType: Record<string, string[]> }
+type RetirementBuilderOptions = { fileFormats: string[]; outputFileNameFormats: Array<{ label: string; value: string }>; buildFrequencies: string[]; hours: string[]; minutes: string[]; meridiems: string[]; weekDays: string[]; recordTypes: string[]; sortDirections: SortDirection[]; comparisonOperators: string[]; mappingColumns: string[]; payrollMappingColumns: string[]; payrollMappingColumnKeys: string[]; mappingColumnLabels: Record<string, string>; payrollCompanies: Record<string, string>; mappingColumnTypes: Record<string, string>; mappingFormatsByType: Record<string, string[]> }
 
 const navigation: [SideIcon, string][] = [['edit', 'Benefits'], ['file', 'Mass Mutual Files'], ['copy', 'Process Validator'], ['copy', 'Retirement Builder'], ['edit', 'Prism'], ['copy', 'Services'], ['copy', 'Swipe Clock'], ['copy', 'Payroll Builder'], ['copy', 'NYS-45'], ['copy', 'Reports']]
 const menuPaths: Record<string, string> = { Benefits: '/benefits', 'Mass Mutual Files': '/mass-mutual-files', 'Process Validator': '/process-validator', Prism: '/prism', Services: '/services', 'Swipe Clock': '/swipe-clock', 'Payroll Builder': '/payroll-builder', 'NYS-45': '/nys-45', Reports: '/reports' }
@@ -39,8 +44,10 @@ async function fetchRetirementJobs(signal?: AbortSignal): Promise<RetirementBuil
   const jobs = await response.json() as RetirementBuilderApiJob[]
   return jobs.map(normalizeApiJob)
 }
-const emptyOptions: RetirementBuilderOptions = { fileFormats: [], outputFileNameFormats: [], buildFrequencies: [], hours: [], minutes: [], meridiems: [], weekDays: [], recordTypes: [], sortDirections: [], comparisonOperators: [], mappingColumns: [], payrollMappingColumns: [], payrollCompanies: {}, mappingColumnTypes: {}, mappingFormatsByType: {} }
+const emptyOptions: RetirementBuilderOptions = { fileFormats: [], outputFileNameFormats: [], buildFrequencies: [], hours: [], minutes: [], meridiems: [], weekDays: [], recordTypes: [], sortDirections: [], comparisonOperators: [], mappingColumns: [], payrollMappingColumns: [], payrollMappingColumnKeys: [], mappingColumnLabels: {}, payrollCompanies: {}, mappingColumnTypes: {}, mappingFormatsByType: {} }
 const OptionsContext = createContext({ values: emptyOptions, loading: true, error: '' })
+const mappingLabel = (column: string, labels: Record<string, string>) =>
+  Object.prototype.hasOwnProperty.call(labels, column) ? labels[column] : column
 function normalizeApiJob(raw: RetirementBuilderApiJob): RetirementBuilderApiJob { const id = Number(raw.id ?? raw.jobid); const runTime = raw.runtime?.match(/^(\d{1,2}):(\d{1,2})(?:\s+(AM|PM))?$/i); const scheduleType = ({ D: 'Daily', W: 'Weekly', B: 'Bi-Weekly', M: 'Monthly', MD: 'Monthly' } as Record<string, string>)[raw.ScheduleType ?? ''] ?? raw.ScheduleType; return { ...raw, id, general: { ...raw.general, fileName: raw.general?.fileName ?? raw.jobfilename, description: raw.general?.description ?? raw.jobdesc ?? '', fileFormat: raw.general?.fileFormat ?? raw.filetype, enable: raw.general?.enable ?? (raw.isEnabled === true || raw.isEnabled === 1), storeResultsToTable: raw.general?.storeResultsToTable ?? false }, schedule: raw.schedule ?? { week: raw.runday, buildFrequency: scheduleType, hour: runTime?.[1], minute: runTime?.[2], meridiem: runTime?.[3]?.toUpperCase() }, subscriptions: raw.subscriptions ?? { mergeFiles: raw.ismerge } } }
 function toDashboardJob(rawJob: RetirementBuilderApiJob): DashboardJob {
   const job = normalizeApiJob(rawJob)
@@ -60,7 +67,7 @@ function parseClientId(value: string): number | null {
   const match = value.trim().match(/^(\d+)(?: - .+)?$/)
   if (!match) return null
   const id = Number(match[1])
-  return Number.isSafeInteger(id) && id <= 2147483647 ? id : null
+  return Number.isSafeInteger(id) && id > 0 && id <= 2147483647 ? id : null
 }
 let rowSequence = 0
 const nextRowId = () => (rowSequence += 1)
@@ -120,7 +127,29 @@ function SearchableSelect({
   const openMenu = () => { setQuery(''); setActiveIndex(Math.max(0, effectiveOptions.indexOf(value))); setOpen(true) }
   const onTriggerKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => { if (!open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) { event.preventDefault(); openMenu() } }
   const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => { if (event.key === 'Escape') { event.preventDefault(); closeMenu(true) } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); if (filteredOptions.length) setActiveIndex((index) => (index + (event.key === 'ArrowDown' ? 1 : -1) + filteredOptions.length) % filteredOptions.length) } else if (event.key === 'Enter' && (event.target as HTMLElement).tagName === 'INPUT') { event.preventDefault(); const option = filteredOptions[activeIndex]; if (option !== undefined) choose(option, true) } }
-  return <span className="searchable-select" ref={root}><button type="button" ref={trigger} className="searchable-select-trigger" aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined} aria-label={ariaLabel} aria-invalid={!!errorId} aria-describedby={errorId} onKeyDown={onTriggerKeyDown} onClick={() => { if (open) setOpen(false); else openMenu() }}><span className={value ? '' : 'placeholder'}>{optionLabel(value) || 'Select Format'}</span><span className="select-chevron" aria-hidden="true">⌄</span></button>{open && createPortal(<div className="searchable-select-menu" id={listId} ref={menu} style={menuStyle} role="listbox" onKeyDown={onMenuKeyDown}><input autoFocus className="searchable-select-search" value={query} onChange={(event) => { setQuery(event.target.value); setActiveIndex(0) }} placeholder={searchPlaceholder ?? (allowCustom ? "Search or enter a source column…" : "Search…")} maxLength={allowCustom ? 255 : undefined} aria-label={`Search ${ariaLabel}`} aria-controls={listId} aria-activedescendant={filteredOptions.length ? `${listId}-${activeIndex}` : undefined} />{filteredOptions.length ? filteredOptions.map((option, index) => <button type="button" role="option" id={`${listId}-${index}`} data-active={index === activeIndex} aria-selected={option === value} className={`searchable-select-option ${option === value ? 'selected' : ''} ${index === activeIndex ? 'active' : ''}`} key={option} onClick={() => choose(option, true)}>{option && option === customOption ? `Use “${option}”` : optionLabel(option)}</button>) : <span className="searchable-select-empty">{runtimeOptionsError || (runtimeOptionsLoading ? 'Loading options…' : 'No matches')}</span>}</div>, document.body)}</span>
+  return <span className="searchable-select" ref={root}>
+    <button type="button" ref={trigger} className="searchable-select-trigger" aria-haspopup="listbox" aria-expanded={open}
+      aria-controls={open ? listId : undefined} aria-label={ariaLabel} aria-invalid={!!errorId} aria-describedby={errorId}
+      onKeyDown={onTriggerKeyDown} onClick={() => { if (open) setOpen(false); else openMenu() }}>
+      <span className={value ? '' : 'placeholder'}>{optionLabel(value) || 'Select Format'}</span>
+      <span className="select-chevron" aria-hidden="true">⌄</span>
+    </button>
+    {open && createPortal(
+      <div className="searchable-select-menu" id={listId} ref={menu} style={menuStyle} role="listbox" onKeyDown={onMenuKeyDown}>
+        <input autoFocus className="searchable-select-search" value={query}
+          onChange={(event) => { setQuery(event.target.value); setActiveIndex(0) }}
+          placeholder={searchPlaceholder ?? (allowCustom ? 'Search or enter a source column…' : 'Search…')}
+          maxLength={allowCustom ? 255 : undefined} aria-label={`Search ${ariaLabel}`} aria-controls={listId}
+          aria-activedescendant={filteredOptions.length ? `${listId}-${activeIndex}` : undefined} />
+        {filteredOptions.length ? filteredOptions.map((option, index) =>
+          <button type="button" role="option" id={`${listId}-${index}`} data-active={index === activeIndex}
+            aria-selected={option === value} key={option} onClick={() => choose(option, true)}
+            className={`searchable-select-option ${option === value ? 'selected' : ''} ${index === activeIndex ? 'active' : ''}`}>
+            {option && option === customOption ? `Use “${option}”` : optionLabel(option)}
+          </button>
+        ) : <span className="searchable-select-empty">{runtimeOptionsError || (runtimeOptionsLoading ? 'Loading options…' : 'No matches')}</span>}
+      </div>, document.body)}
+  </span>
 }
 
 const subscriptionEmails = (row: Subscription) => [...new Set([...emailAddresses(row.email), ...emailAddresses(row.emailDraft ?? '')])]
@@ -239,8 +268,18 @@ export default function App({ userEmail }: { userEmail: string }) {
     meridiem: schedule.meridiem ? '' : 'Select AM or PM.',
     week: !schedule.week && ['Weekly', 'Bi-Weekly'].includes(schedule.buildFrequency) ? 'Select a day of the week.' : '',
   }
+  const payrollColumns = options.values.payrollMappingColumns
+  const requiresMappingDefault = (source: string) => {
+    if (reportSource !== 'companyPayroll' || !payrollColumns.length || !source) return false
+    const normalized = source.toLowerCase()
+    const { mappingColumnLabels, payrollMappingColumnKeys } = options.values
+    return !payrollColumns.some((label) => label.toLowerCase() === normalized)
+      && !payrollMappingColumnKeys.some((key) => key.toLowerCase() === normalized
+        || mappingColumnLabels[key]?.toLowerCase() === normalized)
+  }
   const invalidMapping = !mappingRows.length || mappingRows.some((row) =>
-    !row.field.trim() || [row.startPosition, row.length].some((value) => value.trim() && !validWholeNumber(value)))
+    !row.field.trim() || (requiresMappingDefault(row.mapping.trim() || row.field.trim()) && !row.defaultValue)
+    || [row.startPosition, row.length].some((value) => value.trim() && !validWholeNumber(value)))
   const awaitingJob = isWizard && isEditFlow && selectedJobId === null
   useEffect(() => {
     const controller = new AbortController()
@@ -364,7 +403,7 @@ export default function App({ userEmail }: { userEmail: string }) {
     )
     const clientIds = subscriptionRows.map((row) => row.companyId === undefined ? parseClientId(row.client) : '')
     if (clientIds.some((id) => id === null)) {
-      setSaveError(reportSource === 'companyPayroll' ? 'Select a payroll company for every subscription row.' : 'Select a valid numeric client ID for every subscription row.')
+      setSaveError(reportSource === 'companyPayroll' ? 'Select a payroll company for every subscription row.' : 'Select a positive client ID for every subscription row.')
       return
     }
     const emails = subscriptionRows.map(subscriptionEmails)
@@ -441,7 +480,7 @@ export default function App({ userEmail }: { userEmail: string }) {
       onChange={(patch) => setSchedule((current) => ({ ...current, ...patch }))}
       onBack={() => navigate('general')} onNext={() => navigate('mapping')}
     />
-    if (screen === 'mapping') return <MappingStep reportSource={reportSource} includeHeader={includeHeader} rows={mappingRows}
+    if (screen === 'mapping') return <MappingStep requiresDefault={requiresMappingDefault} includeHeader={includeHeader} rows={mappingRows}
       validate={!!validatedSteps.mapping} onHeaderChange={setIncludeHeader} onRowChange={updateMappingRow}
       onDelete={(id) => setMappingRows((rows) => rows.filter((row) => row.id !== id))}
       onOpenSettings={() => setShowSettings(true)} onBack={() => navigate('schedule')} onNext={() => navigate('subscriptions')}
@@ -478,7 +517,9 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
   const [running, setRunning] = useState(false)
   const [runError, setRunError] = useState('')
   const [runResult, setRunResult] = useState<JobRun | null>(null)
-  const [downloads, setDownloads] = useState<{ fileName: string; url: string }[]>([])
+  const [downloads, setDownloads] = useState<Array<JobRunFile & { url: string }>>([])
+  const [downloadError, setDownloadError] = useState('')
+  const delimiter = runResult?.delimiter
   const selected = selectedJobs.length === 1 ? jobs.find((job) => job.id === selectedJobs[0]) : undefined
   const valueFor = (job: DashboardJob, index: number) => running && job.id === selected?.id && headings[index] === 'Status'
     ? 'In Progress' : job.values[index] ?? ''
@@ -526,13 +567,23 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
     }
   }
   useEffect(() => {
+    setDownloadError('')
     const files = runResult?.files ?? (runResult?.fileName ? [runResult] : [])
     const links = files.map(({ fileName, csv }) => ({
-      fileName, url: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })),
+      fileName, csv, url: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })),
     }))
     setDownloads(links)
     return () => links.forEach(({ url }) => URL.revokeObjectURL(url))
   }, [runResult])
+
+  const downloadExcel = ({ fileName, csv }: JobRunFile, delimiter: string) => {
+    setDownloadError('')
+    try {
+      writeFile(reportWorkbook(csv, delimiter), fileName.replace(/\.csv$/i, '') + '.xlsx')
+    } catch {
+      setDownloadError('Unable to create the Excel download. You can still download the delimited file.')
+    }
+  }
 
   return <section className="dashboard-card">
     <div className="dashboard-actions">
@@ -549,11 +600,17 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
       {runResult.rowCount === 0 && !(runResult.files?.length ?? Number(Boolean(runResult.fileName)))
         ? 'No matching records. No files generated.'
         : `Generated ${runResult.rowCount} rows. Saved ${runResult.storedRows} rows to the database.`}
-      {downloads.length === 1 && <> <a href={downloads[0].url} download={downloads[0].fileName}>Download CSV</a></>}
-      {downloads.length > 1 && <div className="report-downloads">
-        {downloads.map(({ fileName, url }) => <a key={fileName} href={url} download={fileName}>{fileName}</a>)}
+      {runResult.emailDelivery && <div>{reportEmailMessage(runResult.emailDelivery)}</div>}
+      {downloads.length > 0 && <div className="report-downloads">
+        {downloads.map((file) => <div className="report-download" key={file.fileName}>
+          <a href={file.url} download={file.fileName}>{downloads.length === 1 ? 'Download CSV' : file.fileName}</a>
+          {delimiter?.length === 1 && <button type="button" className="report-excel-button"
+            aria-label={downloads.length === 1 ? undefined : `Download Excel for ${file.fileName}`}
+            onClick={() => downloadExcel(file, delimiter)}>Download Excel</button>}
+        </div>)}
       </div>}
     </div>}
+    {downloadError && <p className="dashboard-action-message" role="alert">{downloadError}</p>}
     <div className="jobs-table-wrap">
       <table className="jobs-table">
         <caption className="sr-only">Retirement Builder scheduled jobs</caption>
@@ -698,15 +755,15 @@ function ScheduleStep({ schedule, errors, onChange, onBack, onNext }: {
         <fieldset className="schedule-time-field">
           <legend>Time</legend>
           <div className="time-row">
-            <SearchableSelect options={[]} value={schedule.hour} onValueChange={(hour) => onChange({ hour })} ariaLabel="Hour" clearLabel="Select hour" errorId={errors?.hour ? 'retirement-hour-error' : undefined} />
-            <SearchableSelect options={[]} value={schedule.minute} onValueChange={(minute) => onChange({ minute })} ariaLabel="Minute" clearLabel="Select minute" errorId={errors?.minute ? 'retirement-minute-error' : undefined} />
-            <SearchableSelect options={[]} value={schedule.meridiem} onValueChange={(meridiem) => onChange({ meridiem })} ariaLabel="AM or PM" clearLabel="Select AM or PM" errorId={errors?.meridiem ? 'retirement-meridiem-error' : undefined} />
+            <SearchableSelect options={[]} value={schedule.hour} onValueChange={(hour) => onChange({ hour })} ariaLabel="Hour" clearLabel="Hour" errorId={errors?.hour ? 'retirement-hour-error' : undefined} />
+            <SearchableSelect options={[]} value={schedule.minute} onValueChange={(minute) => onChange({ minute })} ariaLabel="Minute" clearLabel="Minute" errorId={errors?.minute ? 'retirement-minute-error' : undefined} />
+            <SearchableSelect options={[]} value={schedule.meridiem} onValueChange={(meridiem) => onChange({ meridiem })} ariaLabel="AM or PM" clearLabel="AM/PM" errorId={errors?.meridiem ? 'retirement-meridiem-error' : undefined} />
           </div>
           <FieldError id="retirement-hour-error" message={errors?.hour} />
           <FieldError id="retirement-minute-error" message={errors?.minute} />
           <FieldError id="retirement-meridiem-error" message={errors?.meridiem} />
         </fieldset>
-        <label className="schedule-field schedule-field-full">Week
+        <label className="schedule-field">Week
           <SearchableSelect options={[]} value={schedule.week} onValueChange={(week) => onChange({ week })} ariaLabel="Week"
             clearLabel="Select day" errorId={errors?.week ? 'retirement-week-error' : undefined} />
           <FieldError id="retirement-week-error" message={errors?.week} />
@@ -727,8 +784,8 @@ function MappingNumber({ label, value, onChange, validate }: {
     <FieldError id={errorId} message={invalid ? 'Enter a whole number from 0 to 2147483647.' : undefined} /></>
 }
 
-function MappingStep({ reportSource, includeHeader, rows, validate, onHeaderChange, onRowChange, onDelete, onOpenSettings, onBack, onNext }: {
-  reportSource: ReportSource
+function MappingStep({ requiresDefault, includeHeader, rows, validate, onHeaderChange, onRowChange, onDelete, onOpenSettings, onBack, onNext }: {
+  requiresDefault: (source: string) => boolean
   includeHeader: boolean
   rows: MappingRow[]
   validate: boolean
@@ -740,57 +797,65 @@ function MappingStep({ reportSource, includeHeader, rows, validate, onHeaderChan
   onNext: () => void
 }) {
   const { values } = useContext(OptionsContext)
-  const columns = reportSource === 'companyPayroll' ? values.payrollMappingColumns : values.mappingColumns
-  const formatsFor = (column: string) => values.mappingFormatsByType[mappingColumnType(column, values.mappingColumnTypes)] ?? []
+  const columnLabel = (column: string) => mappingLabel(column, values.mappingColumnLabels)
+  const typeFor = (column: string) => mappingColumnType(columnLabel(column), values.mappingColumnTypes)
+  const formatsFor = (column: string) => values.mappingFormatsByType[typeFor(column)] ?? []
 
   return <div className="form-step mapping-step">
-    <div className="mapping-controls">
-      <div className="mapping-header">
-        <div><h3>Dataset Mapping</h3><p>Map source fields to the output columns used by this file.</p></div>
+    <div className="mapping-scroll" role="region" aria-label="Dataset mapping rows" tabIndex={0}>
+      <div className="mapping-controls">
+        <h3>Dataset Mapping</h3>
         <div className="mapping-header-actions">
-          <label className="check-label"><input type="checkbox" checked={includeHeader} onChange={(event) => onHeaderChange(event.target.checked)} />Include Header Row</label>
+          <label className="check-label" title="Adds the column names above the mapped records.">
+            <input type="checkbox" checked={includeHeader} onChange={(event) => onHeaderChange(event.target.checked)} />Include Header Row
+          </label>
+          <button type="button" className="icon-button" onClick={onOpenSettings} aria-label="Manage dataset settings" title="Manage dataset settings"><Settings aria-hidden="true" /></button>
+          <button className="icon-button" onClick={onOpenSettings} aria-label="Add mapping rule" title="Add mapping rule"><ToolIcon name="plus" /></button>
         </div>
       </div>
-      <div className="mapping-actions">
-        <button type="button" className="icon-button" onClick={onOpenSettings} aria-label="Manage dataset settings" title="Manage dataset settings"><Settings aria-hidden="true" /></button>
-        <button className="icon-button" onClick={onOpenSettings} aria-label="Add mapping rule" title="Add mapping rule"><ToolIcon name="plus" /></button>
+      <div className="mapping-table-wrap">
+        <table className="mapping-table">
+          <thead><tr>{['Field Name', 'Start Position', 'Length', 'Record Type', 'Default Value', 'Mapping Column', 'Format', 'Action'].map((heading) => <th scope="col" key={heading}>{heading}</th>)}</tr></thead>
+          <tbody>{rows.map((row, index) => {
+            const label = row.field || 'New'
+            const formats = formatsFor(row.mapping || row.field)
+            const needsDefault = requiresDefault(row.mapping.trim() || row.field.trim())
+            const defaultError = needsDefault && !row.defaultValue && (validate || !!row.mapping)
+            const defaultErrorId = `mapping-default-error-${row.id}`
+            const changeSource = (patch: Pick<MappingRow, 'field'> | Pick<MappingRow, 'mapping'>) => {
+              const next = { ...row, ...patch }
+              const typeChanged = typeFor(row.mapping || row.field) !== typeFor(next.mapping || next.field)
+              const format = typeChanged && !formatsFor(next.mapping || next.field).includes(row.format) ? '' : row.format
+              onRowChange(row.id, { ...patch, format })
+            }
+            return <tr key={row.id}>
+              <td>
+                <input aria-label={`Field Name ${index + 1}`} value={row.field}
+                  aria-invalid={validate && !row.field.trim()}
+                  aria-describedby={validate && !row.field.trim() ? `mapping-field-error-${row.id}` : undefined}
+                  onChange={(event) => changeSource({ field: event.target.value })} />
+                <FieldError id={`mapping-field-error-${row.id}`} message={validate && !row.field.trim() ? 'Enter a field name.' : undefined} />
+              </td>
+              <td><MappingNumber label={`${row.field} start position`} value={row.startPosition} validate={validate} onChange={(startPosition) => onRowChange(row.id, { startPosition })} /></td>
+              <td><MappingNumber label={`${row.field} length`} value={row.length} validate={validate} onChange={(length) => onRowChange(row.id, { length })} /></td>
+              <td><SearchableSelect options={['Header', 'Detail', 'Trailer']} value={row.recordType} onValueChange={(recordType) => onRowChange(row.id, { recordType })} ariaLabel={`${label} record type`} /></td>
+              <td>
+                <input aria-label={`${row.field} default value`} value={row.defaultValue} aria-required={needsDefault}
+                  aria-invalid={defaultError} aria-describedby={defaultError ? defaultErrorId : undefined}
+                  onChange={(event) => onRowChange(row.id, { defaultValue: event.target.value })} />
+                <FieldError id={defaultErrorId} message={defaultError ? 'Enter a default value for this payroll field.' : undefined} />
+              </td>
+              <td><SearchableSelect options={values.mappingColumns} value={columnLabel(row.mapping)} onValueChange={(mapping) => changeSource({ mapping })}
+                ariaLabel={`${label} mapping column`} clearLabel="Same as Field Name" includeSavedOption={false} /></td>
+              <td><SearchableSelect options={formats} value={row.format} onValueChange={(format) => onRowChange(row.id, { format })}
+                ariaLabel={`${label} format`} clearLabel="No format" includeSavedOption={false} /></td>
+              <td><button className="icon-button trash" onClick={() => onDelete(row.id)} aria-label={`Delete ${row.field} mapping`} title={`Delete ${row.field} mapping`}><ToolIcon name="trash" /></button></td>
+            </tr>
+          })}{!rows.length && <tr><td colSpan={8}>
+            {validate ? <span className="field-error" role="alert">Add at least one dataset mapping.</span> : 'No mappings added.'}
+          </td></tr>}</tbody>
+        </table>
       </div>
-    </div>
-    <div className="mapping-table-wrap">
-      <table className="mapping-table">
-        <thead><tr>{['Field Name', 'Start Position', 'Length', 'Record Type', 'Default Value', 'Mapping Column', 'Format', 'Action'].map((heading) => <th scope="col" key={heading}>{heading}</th>)}</tr></thead>
-        <tbody>{rows.map((row, index) => {
-          const label = row.field || 'New'
-          const formats = formatsFor(row.mapping || row.field)
-          const changeSource = (patch: Pick<MappingRow, 'field'> | Pick<MappingRow, 'mapping'>) => {
-            const next = { ...row, ...patch }
-            const typeChanged = mappingColumnType(row.mapping || row.field, values.mappingColumnTypes)
-              !== mappingColumnType(next.mapping || next.field, values.mappingColumnTypes)
-            const format = typeChanged && !formatsFor(next.mapping || next.field).includes(row.format) ? '' : row.format
-            onRowChange(row.id, { ...patch, format })
-          }
-          return <tr key={row.id}>
-            <td>
-              <input aria-label={`Field Name ${index + 1}`} value={row.field}
-                aria-invalid={validate && !row.field.trim()}
-                aria-describedby={validate && !row.field.trim() ? `mapping-field-error-${row.id}` : undefined}
-                onChange={(event) => changeSource({ field: event.target.value })} />
-              <FieldError id={`mapping-field-error-${row.id}`} message={validate && !row.field.trim() ? 'Enter a field name.' : undefined} />
-            </td>
-            <td><MappingNumber label={`${row.field} start position`} value={row.startPosition} validate={validate} onChange={(startPosition) => onRowChange(row.id, { startPosition })} /></td>
-            <td><MappingNumber label={`${row.field} length`} value={row.length} validate={validate} onChange={(length) => onRowChange(row.id, { length })} /></td>
-            <td><SearchableSelect options={['Header', 'Detail', 'Trailer']} value={row.recordType} onValueChange={(recordType) => onRowChange(row.id, { recordType })} ariaLabel={`${label} record type`} /></td>
-            <td><input aria-label={`${row.field} default value`} value={row.defaultValue} onChange={(event) => onRowChange(row.id, { defaultValue: event.target.value })} /></td>
-            <td><SearchableSelect options={columns} value={row.mapping} onValueChange={(mapping) => changeSource({ mapping })}
-              ariaLabel={`${label} mapping column`} clearLabel="Same as Field Name" includeSavedOption={false} /></td>
-            <td><SearchableSelect options={formats} value={row.format} onValueChange={(format) => onRowChange(row.id, { format })}
-              ariaLabel={`${label} format`} clearLabel="No format" includeSavedOption={false} /></td>
-            <td><button className="icon-button trash" onClick={() => onDelete(row.id)} aria-label={`Delete ${row.field} mapping`} title={`Delete ${row.field} mapping`}><ToolIcon name="trash" /></button></td>
-          </tr>
-        })}{!rows.length && <tr><td colSpan={8}>
-          {validate ? <span className="field-error" role="alert">Add at least one dataset mapping.</span> : 'No mappings added.'}
-        </td></tr>}</tbody>
-      </table>
     </div>
     <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onNext}>Next</button></div>
   </div>
@@ -867,10 +932,14 @@ function FileSettingsModal({ isEdit, reportSource, mappingRows, initialSorting, 
 }) {
   const { values } = useContext(OptionsContext)
   const columnNames = new Map<string, string>()
-  for (const name of [...mappingRows.map((row) => row.mapping.trim() || row.field.trim()), ...values.mappingColumns]) {
+  const mappedColumns = mappingRows.map((row) => mappingLabel(row.mapping.trim() || row.field.trim(), values.mappingColumnLabels))
+  for (const name of [...mappedColumns, ...values.mappingColumns]) {
     if (name && !columnNames.has(name.toLowerCase())) columnNames.set(name.toLowerCase(), name)
   }
   const mappingColumns = reportSource === 'companyPayroll' ? values.payrollMappingColumns : Array.from(columnNames.values())
+  const isDateColumn = (column: string) => reportSource === 'companyPayroll'
+    ? column.trim().toLowerCase() === 'pay date'
+    : mappingColumnType(column, values.mappingColumnTypes) === 'date'
   const [sortingRows, setSortingRows] = useState(() => initialSorting.map((row) => [row.direction ?? 'ASC', row.mappingColumn, row.orderBy]))
   const [conditionalRows, setConditionalRows] = useState(() => initialConditional.map((row) => [row.mappingColumn, row.condition, row.value]))
   const [sortError, setSortError] = useState('')
@@ -883,10 +952,18 @@ function FileSettingsModal({ isEdit, reportSource, mappingRows, initialSorting, 
       setSortError('Choose a sort direction and a mapping column for each sort rule.')
       return
     }
-    if (conditionalRows.some(([column, condition, value]) =>
-      !column.trim() || !values.comparisonOperators.includes(condition) ||
-      !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(value.trim()))) {
-      setSortError('Choose a mapping column and comparison operator, and enter a number for each condition.')
+    if (conditionalRows.some(([column, condition]) => !column.trim() || !values.comparisonOperators.includes(condition))) {
+      setSortError('Choose a mapping column and comparison operator for each condition.')
+      return
+    }
+    const invalidCondition = conditionalRows.find(([column, , value]) => {
+      const number = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(value.trim())
+      return isDateColumn(column) ? !validIsoDate(value) && (reportSource === 'companyPayroll' || !number) : !number
+    })
+    if (invalidCondition) {
+      setSortError(isDateColumn(invalidCondition[0])
+        ? 'Enter a valid date in YYYY-MM-DD format.'
+        : 'Enter a number for each numeric condition.')
       return
     }
     onSave(
@@ -956,6 +1033,7 @@ function FileSettingsModal({ isEdit, reportSource, mappingRows, initialSorting, 
         columns={['Mapping Column', 'Condition', 'Value', 'Action']}
         mappingColumns={mappingColumns}
         comparisonOperators={values.comparisonOperators}
+        isDateColumn={isDateColumn}
         rows={conditionalRows}
         onAdd={() => setConditionalRows((rows) => [...rows, ['', '', '']])}
         onDelete={(index) => setConditionalRows((rows) => rows.filter((_, rowIndex) => rowIndex !== index))}
@@ -965,12 +1043,13 @@ function FileSettingsModal({ isEdit, reportSource, mappingRows, initialSorting, 
   </div>
 }
 
-function SettingsTable({ title, description, columns, mappingColumns, sortDirections = [], comparisonOperators = [], rows, onAdd, onDelete, onChange }: {
+function SettingsTable({ title, description, columns, mappingColumns, sortDirections = [], comparisonOperators = [], isDateColumn, rows, onAdd, onDelete, onChange }: {
   title: string
   description: string
   columns: string[]
   mappingColumns: string[]
   comparisonOperators?: string[]
+  isDateColumn?: (column: string) => boolean
   sortDirections?: SortDirection[]
   rows: string[][]
   onAdd: () => void
@@ -1009,7 +1088,8 @@ function SettingsTable({ title, description, columns, mappingColumns, sortDirect
             </select>
           </td>
           return <td key={column}>
-            <input value={value} placeholder="Enter value" onChange={(event) => change(event.target.value)} aria-label={label} />
+            <input value={value} placeholder={isDateColumn?.(row[0]) ? 'YYYY-MM-DD' : 'Enter value'}
+              onChange={(event) => change(event.target.value)} aria-label={label} />
           </td>
         })}
       </tr>) : <tr><td colSpan={columns.length} className="settings-empty">No items added yet.</td></tr>}</tbody>

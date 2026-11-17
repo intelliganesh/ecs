@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
 
 from app.core.config import Settings
-from app.report_mail import send_report_email
-from app.report_scheduler import _run_scheduled_job, _scheduled_slot, _subscription_attachments
+from app.report_mail import _subscription_attachments, send_report_email
+from app.report_scheduler import _run_scheduled_job, _scheduled_slot
 from app.retirement_results import build_report_files
 from app.routers.retirement_builder import RetirementBuilderJob
 
@@ -54,7 +54,7 @@ class ScheduledReportTests(TestCase):
                 mail_password="example-password", mail_from_address="sender@example.invalid",
             )
             settings.report_input_dir.mkdir()
-            (settings.report_input_dir / "31.csv").write_text("Client ID,Name\n01,Test Person\n02,Another Person\n", encoding="utf-8")
+            (settings.report_input_dir / "31.csv").write_text("company_id,Name\n01,Test Person\n02,Another Person\n", encoding="utf-8")
 
             with (
                 patch("app.report_scheduler.engine") as engine,
@@ -69,7 +69,11 @@ class ScheduledReportTests(TestCase):
                 schedule.mappings.return_value.first.return_value = saved_schedule
                 formats = MagicMock()
                 formats.mappings.return_value = [{"filetyp": "Comma", "delimiter": ","}]
-                connection.execute.side_effect = [locked_job, schedule, formats, MagicMock(), locked_job]
+                catalog = MagicMock()
+                catalog.mappings.return_value = [
+                    {"mapping_column": "company_id", "mapping_column_desc": "Client ID", "mapping_column_dt": "text"},
+                ]
+                connection.execute.side_effect = [locked_job, schedule, formats, catalog, MagicMock(), locked_job]
 
                 _run_scheduled_job(settings, job.id, now, now)
                 _run_scheduled_job(settings, job.id, now, now)

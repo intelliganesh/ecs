@@ -1,0 +1,55 @@
+{
+  "liveDatabaseCountsBefore": {
+    "jobs": 1,
+    "results": 5,
+    "history": 1,
+    "payroll": 10,
+    "companies": 1,
+    "employees": 4
+  },
+  "isolatedDb": "ecs_phase2_ZHXjLU",
+  "catalogsCopied": [
+    "rjob_file_typ",
+    "rjob_mapping_column",
+    "rjobformat"
+  ],
+  "syntheticPayroll": [
+    [
+      "A1",
+      "Alpha",
+      "2026-09-01",
+      "100.00"
+    ],
+    [
+      "A2",
+      "Alpha",
+      "2026-09-01",
+      "200.00"
+    ],
+    [
+      "A1",
+      "Alpha",
+      "2026-10-01",
+      "115.00"
+    ],
+    [
+      "A2",
+      "Alpha",
+      "2026-10-01",
+      "210.00"
+    ],
+    [
+      "B1",
+      "Beta",
+      "2026-09-01",
+      "180.00"
+    ],
+    [
+      "B1",
+      "Beta",
+      "2026-10-01",
+      "320.00"
+    ]
+  ],
+  "liveWrites": false
+}

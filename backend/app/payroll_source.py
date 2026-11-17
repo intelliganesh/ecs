@@ -10,7 +10,8 @@ from sqlalchemy.engine import Connection
 
 from app.core.config import SQL_IDENTIFIER, get_settings
 from app.retirement_results import (
-    MAX_ROWS, MAX_SOURCE_BYTES, RECORD_TYPES, InvalidRun, _name_format, _source_key, format_sort_order, parse_sort_order,
+    ISO_DATE_PATTERN, MAX_ROWS, MAX_SOURCE_BYTES, RECORD_TYPES, InvalidRun, _name_format, _source_key,
+    condition_date, format_sort_order, parse_sort_order,
 )
 
 if TYPE_CHECKING:
@@ -20,14 +21,23 @@ if TYPE_CHECKING:
 PAYROLL_QUERY_TYPE = "PAYROLL"
 PAYROLL_RECORD_TYPES = ("H", "D", "T")
 _PAYROLL_RECORD_MARKER = "/* company payroll */"
-PAYROLL_COLUMNS = ("Record Type", "Company Name", "Pay Date", "Employee Count", "Net Salary Total")
+PAYROLL_MAPPING_FIELDS = {
+    "rectype": "Record Type",
+    "company_name": "Company Name",
+    "payroll_month": "Pay Date",
+    "employee_count": "Employee Count",
+    "net_salary_total": "Net Salary Total",
+}
+PAYROLL_COLUMNS = tuple(PAYROLL_MAPPING_FIELDS.values())
 _COLUMNS_BY_KEY = {column.casefold(): column for column in PAYROLL_COLUMNS}
 PAYROLL_COLUMN_KEYS = frozenset(_COLUMNS_BY_KEY)
 _PROCEDURE_CALL = re.compile(
     rf"^INSERT INTO @payroll EXEC (?:{SQL_IDENTIFIER}\.{SQL_IDENTIFIER}|\[{SQL_IDENTIFIER}\]\.\[{SQL_IDENTIFIER}\]);$",
     re.MULTILINE,
 )
-_SAVED_CONDITION = re.compile(r"\[([^\[\]]+)\] (<=|>=|!=|<>|[=<>]) (-?[0-9]{1,16}(?:\.[0-9]{1,2})?)")
+_SAVED_CONDITION = re.compile(
+    rf"\[([^\[\]]+)\] (<=|>=|!=|<>|[=<>]) (-?[0-9]{{1,16}}(?:\.[0-9]{{1,2}})?|'{ISO_DATE_PATTERN}')"
+)
 READ_PAYROLL_COMPANY_IDS = text("""
 SELECT company_name, CASE WHEN COUNT_BIG(*) = 1 THEN MIN(id) END
 FROM dbo.companies WITH (HOLDLOCK)
@@ -61,7 +71,8 @@ def payroll_record_queries(connection: Connection, job: "RetirementBuilderJobInp
     for rule in settings.conditionalStatements:
         column = _COLUMNS_BY_KEY[rule.mappingColumn.strip().casefold()]
         operator = "=" if rule.condition == "==" else rule.condition
-        conditions.append(f"[{column}] {operator} {rule.value}")
+        value = f"'{rule.value}'" if condition_date(rule.value) is not None else rule.value
+        conditions.append(f"[{column}] {operator} {value}")
     sorting = format_sort_order(
         (_COLUMNS_BY_KEY[rule.mappingColumn.strip().casefold()], rule.direction)
         for rule in sorted(settings.sortingOrder, key=lambda row: int(row.orderBy or "0"))
@@ -102,7 +113,7 @@ def payroll_job_with_saved_rules(job: "RetirementBuilderJob") -> "RetirementBuil
         match = _SAVED_CONDITION.fullmatch(clause)
         if match is None or match[1].casefold() not in PAYROLL_COLUMN_KEYS:
             raise InvalidRun("The saved payroll condition is invalid. Save the job again before running it.")
-        conditions.append({"mappingColumn": match[1], "condition": match[2], "value": match[3]})
+        conditions.append({"mappingColumn": match[1], "condition": match[2], "value": match[3].strip("'")})
 
     sorting = parse_sort_order(detail.sortOrder)
     if any(rule["mappingColumn"].casefold() not in PAYROLL_COLUMN_KEYS for rule in sorting):
@@ -120,7 +131,8 @@ def payroll_report_query(job: "RetirementBuilderJob | RetirementBuilderJobInput"
         if kind is None or not mapping.field.strip():
             raise InvalidRun("Every mapping needs an output field and a supported record type.")
         kinds.add(kind)
-        column = _COLUMNS_BY_KEY.get(_source_key(mapping))
+        source = _source_key(mapping)
+        column = PAYROLL_MAPPING_FIELDS.get(source) or _COLUMNS_BY_KEY.get(source)
         if column:
             columns.add(column)
         elif not mapping.defaultValue:
@@ -139,6 +151,9 @@ def payroll_report_query(job: "RetirementBuilderJob | RetirementBuilderJobInput"
         if column is None:
             raise InvalidRun(f'The Company Payroll Report cannot sort or filter by "{rule.mappingColumn}".')
         columns.add(column)
+    for rule in job.fileSettings.conditionalStatements:
+        if condition_date(rule.value) is not None and rule.mappingColumn.strip().casefold() != "pay date":
+            raise InvalidRun("Use Pay Date for a payroll date condition.")
 
     projection = ", ".join(
         "CASE WHEN [Record Type] = 'H' THEN NULL ELSE [Pay Date] END AS [Pay Date]"

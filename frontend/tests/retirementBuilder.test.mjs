@@ -19,7 +19,7 @@ after(async () => {
 })
 const {
   displayFileFormat, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors,
-  pasteEmailText, readExcelMappings, validEmail, validWholeNumber,
+  pasteEmailText, readExcelMappings, reportWorkbook, validEmail, validIsoDate, validWholeNumber,
 } = await vite.ssrLoadModule('/src/retirementBuilder.ts')
 
 test('General flags blank and oversized required values', () => {
@@ -38,6 +38,31 @@ test('mapping and schedule number checks use the accepted ranges', () => {
   assert.equal(validWholeNumber('12', 1, 12), true)
   assert.equal(validWholeNumber('05', 0, 59), true)
   assert.equal(validWholeNumber('60', 0, 59), false)
+})
+
+test('date conditions require a real calendar date in ISO format', () => {
+  for (const value of ['2026-11-01', '2024-02-29', ' 0001-01-01 ']) assert.equal(validIsoDate(value), true)
+  for (const value of ['2026-02-29', '2026-13-01', '0000-01-01', '20261101', '2026-11-1']) {
+    assert.equal(validIsoDate(value), false)
+  }
+})
+
+test('Excel downloads preserve delimited columns and treat report values as text', () => {
+  for (const delimiter of [',', '\t', ' ', ';', '|']) {
+    const columnLabels = ['Company, Name', 'Pay Date', 'Code', 'Note', 'Empty', 'Literal']
+    const values = [
+      `Audit${delimiter}Alpha`, '2026-11-01', '00007', 'First line\n"Second line"', '', '=1+1',
+    ]
+    const quote = (value) => `"${value.replaceAll('"', '""')}"`
+    const csv = [columnLabels, values].map((row) => row.map(quote).join(delimiter)).join('\r\n') + '\r\n'
+    const output = XLSX.write(reportWorkbook(csv, delimiter), { bookType: 'xlsx', type: 'buffer' })
+    const parsed = XLSX.read(output, { type: 'buffer' }).Sheets.Report
+    assert.deepEqual(XLSX.utils.sheet_to_json(parsed, { header: 1, defval: '' }), [columnLabels, values])
+    assert.equal(parsed.F2.t, 's')
+    assert.equal(parsed.F2.f, undefined)
+  }
+  const { Report } = reportWorkbook('sep=,\r\nClient Name\r\n', '\t').Sheets
+  assert.deepEqual(XLSX.utils.sheet_to_json(Report, { header: 1 }), [['sep=,'], ['Client Name']])
 })
 
 test('multiple emails replace the selected draft and are validated individually', () => {

@@ -1,0 +1,40 @@
+TAP version 13
+# Subtest: General flags blank and oversized required values
+ok 1 - General flags blank and oversized required values
+  ---
+  duration_ms: 2.432615
+  ...
+# Subtest: mapping and schedule number checks use the accepted ranges
+ok 2 - mapping and schedule number checks use the accepted ranges
+  ---
+  duration_ms: 0.653435
+  ...
+# Subtest: multiple emails replace the selected draft and are validated individually
+ok 3 - multiple emails replace the selected draft and are validated individually
+  ---
+  duration_ms: 0.575794
+  ...
+# Subtest: dashboard preserves delimiters, minutes, and actual history status
+ok 4 - dashboard preserves delimiters, minutes, and actual history status
+  ---
+  duration_ms: 0.306639
+  ...
+# Subtest: Excel imports retain Detail and Trailer rows and deduplicate fields
+ok 5 - Excel imports retain Detail and Trailer rows and deduplicate fields
+  ---
+  duration_ms: 53.366028
+  ...
+# Subtest: a renamed text file and a broken XLSX container both fail to import
+ok 6 - a renamed text file and a broken XLSX container both fail to import
+  ---
+  duration_ms: 1.302335
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 870.840568

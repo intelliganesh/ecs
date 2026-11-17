@@ -1,0 +1,7 @@
+PASS [122, 170, 171] {'degradedHealthHTTP': 200, 'body': {'status': 'degraded', 'database': 'unavailable'}, 'dbGETJobs': 500, 'dbGETOptions': 200, 'catalogCounts': [0, 0, 12], 'listResponse': {'detail': 'Unable to load Retirement Builder jobs from the database'}}
+/usr/local/Cellar/python@3.12/3.12.14/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:137: SAWarning: Unrecognized server version info '17.0.5015.4'.  Some SQL Server features may not function properly.
+  return next(self.gen)
+PASS [] {'worker8084': 116, 'worker8086': 117, 'sqlMatches': 2, 'bothHTTP': 201}
+PASS 158 {'newProcessStatuses': {'payroll': 'Success', 'missing': 'Failed'}, 'pendingRows': 36}
+PASS [128, 129, 154] {'unreadable': {'detail': 'Could not read 118.csv in the configured report input folder.'}, 'history': 'Failed', 'override': 'Synthetic Override', 'aggregateInputBytes': 4500197, 'outputOverCap': 422}
+PASS 167 {'attachment': '1.csv', 'sameBytesOnDisk': True, 'separator': '|', 'oneFileNoOp': True}

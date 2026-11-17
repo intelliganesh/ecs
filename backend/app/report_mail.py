@@ -1,14 +1,87 @@
+from dataclasses import dataclass
 from email.headerregistry import Address
 from email.message import EmailMessage
 import logging
+import re
 import smtplib
 import ssl
+from typing import TYPE_CHECKING
 
 from app.core.config import Settings
-from app.retirement_results import ReportFile
+from app.retirement_results import ReportFile, merge_report_files
+
+if TYPE_CHECKING:
+    from app.routers.retirement_builder import RetirementBuilderJob, SubscriptionsForm
 
 
 logger = logging.getLogger(__name__)
+EMAIL_PATTERN = re.compile(
+    r"[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+    r"@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+    r"(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*",
+    re.IGNORECASE | re.ASCII,
+)
+
+
+@dataclass(frozen=True)
+class ReportEmailDelivery:
+    enabled: bool
+    matched: int = 0
+    accepted: int = 0
+
+
+def _client_id(value: str) -> str | None:
+    value = value.strip()
+    if value.isascii() and value.isdecimal():
+        return value.lstrip("0") or "0"
+    return None
+
+
+def _subscription_attachments(subscriptions: "SubscriptionsForm", reports: list[ReportFile]) -> dict[str, list[ReportFile]]:
+    clients_by_recipient: dict[str, set[tuple[str, str]]] = {}
+    for subscription in subscriptions.rows:
+        if subscription.companyId is not None:
+            target = ("company", str(subscription.companyId))
+        else:
+            client = _client_id(subscription.client)
+            if client is None:
+                continue
+            target = ("client", client)
+        for address in re.split(r"[,;\n]", subscription.email):
+            address = address.strip().lower()
+            if EMAIL_PATTERN.fullmatch(address):
+                clients_by_recipient.setdefault(address, set()).add(target)
+
+    report_clients = []
+    for report in reports:
+        if report.payroll_company_ids:
+            report_clients.append((report, {("company", company) for company in report.payroll_company_ids}))
+        elif report.client_ids:
+            report_clients.append((report, {("client", _client_id(client)) for client in report.client_ids}))
+    attachments = {}
+    for address, clients in clients_by_recipient.items():
+        eligible = [report for report, required in report_clients if required <= clients]
+        if eligible:
+            attachments[address] = eligible
+    return attachments
+
+
+def send_subscribed_reports(
+    settings: Settings, job: "RetirementBuilderJob", reports: list[ReportFile],
+) -> ReportEmailDelivery:
+    if not settings.mail_enabled or not reports or not job.subscriptions.rows:
+        return ReportEmailDelivery(enabled=settings.mail_enabled)
+    attachments = _subscription_attachments(job.subscriptions, reports)
+    if not attachments:
+        logger.warning("No generated files matched the subscriptions for retirement job %s.", job.id)
+        return ReportEmailDelivery(enabled=True)
+    if job.subscriptions.mergeFiles:
+        attachments = {
+            recipient: [merge_report_files(job, files)] if len(files) > 1 else files
+            for recipient, files in attachments.items()
+        }
+    accepted = send_report_email(settings, attachments, job.id)
+    return ReportEmailDelivery(enabled=True, matched=len(attachments), accepted=accepted)
 
 
 def open_smtp(settings: Settings) -> smtplib.SMTP:
@@ -32,10 +105,11 @@ def login_smtp(client: smtplib.SMTP, settings: Settings) -> None:
     client.login(settings.mail_username, password)
 
 
-def send_report_email(settings: Settings, attachments: dict[str, list[ReportFile]], job_id: int) -> None:
+def send_report_email(settings: Settings, attachments: dict[str, list[ReportFile]], job_id: int) -> int:
     if not settings.mail_enabled or not attachments:
-        return
+        return 0
 
+    accepted = 0
     try:
         sender = Address(display_name=settings.mail_from_name, addr_spec=settings.mail_from_address)
         with open_smtp(settings) as client:
@@ -56,5 +130,8 @@ def send_report_email(settings: Settings, attachments: dict[str, list[ReportFile
                     client.send_message(message)
                 except (smtplib.SMTPRecipientsRefused, smtplib.SMTPDataError) as exc:
                     logger.warning("SMTP rejected a message for retirement job %s (%s).", job_id, type(exc).__name__)
+                else:
+                    accepted += 1
     except (OSError, ValueError) as exc:
         logger.warning("Mail delivery for retirement job %s failed (%s).", job_id, type(exc).__name__)
+    return accepted

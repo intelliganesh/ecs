@@ -2,7 +2,6 @@ from calendar import monthrange
 from contextlib import ExitStack
 from datetime import UTC, datetime, time, timedelta
 import logging
-import re
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo
 
@@ -12,10 +11,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import Settings
 from app.db import engine
 from app.report_files import report_directory
-from app.report_mail import send_report_email
-from app.retirement_results import InvalidRun, ReportFile, merge_report_files
+from app.report_mail import send_subscribed_reports
+from app.retirement_results import InvalidRun
 from app.routers.retirement_builder import (
-    EMAIL_PATTERN, LOCK_RUN_JOB, READ_ENABLED_SCHEDULES, READ_SCHEDULE, SubscriptionsForm,
+    LOCK_RUN_JOB, READ_ENABLED_SCHEDULES, READ_SCHEDULE,
     _attempt_report_run, _read_full_job, _read_report_source,
 )
 
@@ -60,42 +59,6 @@ def _scheduled_slot(schedule: Mapping[str, Any], now: datetime) -> datetime | No
     return None
 
 
-def _client_id(value: str) -> str | None:
-    value = value.strip()
-    if value.isascii() and value.isdecimal():
-        return value.lstrip("0") or "0"
-    return None
-
-
-def _subscription_attachments(subscriptions: SubscriptionsForm, reports: list[ReportFile]) -> dict[str, list[ReportFile]]:
-    clients_by_recipient: dict[str, set[tuple[str, str]]] = {}
-    for subscription in subscriptions.rows:
-        if subscription.companyId is not None:
-            target = ("company", str(subscription.companyId))
-        else:
-            client = _client_id(subscription.client)
-            if client is None:
-                continue
-            target = ("client", client)
-        for address in re.split(r"[,;\n]", subscription.email):
-            address = address.strip().lower()
-            if EMAIL_PATTERN.fullmatch(address):
-                clients_by_recipient.setdefault(address, set()).add(target)
-
-    report_clients = []
-    for report in reports:
-        if report.payroll_company_ids:
-            report_clients.append((report, {("company", company) for company in report.payroll_company_ids}))
-        elif report.client_ids:
-            report_clients.append((report, {("client", _client_id(client)) for client in report.client_ids}))
-    attachments = {}
-    for address, clients in clients_by_recipient.items():
-        eligible = [report for report, required in report_clients if required <= clients]
-        if eligible:
-            attachments[address] = eligible
-    return attachments
-
-
 def _run_scheduled_job(settings: Settings, job_id: int, slot: datetime, now: datetime) -> None:
     run_dir = report_directory(settings.report_output_dir) / "scheduled" / str(job_id) / slot.strftime("%Y%m%dT%H%M%SZ")
     with ExitStack() as resources, engine.begin() as connection:
@@ -117,17 +80,7 @@ def _run_scheduled_job(settings: Settings, job_id: int, slot: datetime, now: dat
     if isinstance(result, Exception):
         raise result
     run, reports = result
-    if settings.mail_enabled and reports and job.subscriptions.rows:
-        attachments = _subscription_attachments(job.subscriptions, reports)
-        if attachments:
-            if job.subscriptions.mergeFiles:
-                attachments = {
-                    recipient: [merge_report_files(job, files)] if len(files) > 1 else files
-                    for recipient, files in attachments.items()
-                }
-            send_report_email(settings, attachments, job_id)
-        else:
-            logger.warning("No generated files matched the subscriptions for retirement job %s.", job_id)
+    send_subscribed_reports(settings, job, reports)
     logger.info("Scheduled retirement job %s generated %s rows.", job_id, run.rowCount)
 
 

@@ -212,6 +212,8 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
 .button:disabled { border-color: #d6dee9; color: #9aa6b7; background: #eef2f7; cursor: not-allowed; opacity: .8; }
 .dashboard-action-message { margin: -4px 24px 8px; color: var(--primary-dark); font-size: .9rem; font-weight: 650; text-align: right; }
 .report-downloads { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px 14px; margin-top: 6px; overflow-wrap: anywhere; }
+.report-download { display: flex; align-items: baseline; justify-content: flex-end; flex-wrap: wrap; gap: 4px 12px; }
+.report-excel-button { padding: 0; border: 0; color: inherit; background: transparent; font: inherit; text-decoration: underline; }
 .card-heading-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 @media (max-width: 767px) {
   .mapping-add-dataset { justify-content: stretch; }
@@ -352,10 +354,11 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
   display: flex;
   flex-direction: column;
 }
-.schedule-form-content { padding: 28px 30px 0; }
+.schedule-form-content { padding: 28px 30px 0; container-type: inline-size; }
 .schedule-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: 22px 24px;
 }
 .schedule-field {
@@ -367,9 +370,7 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
   font-weight: 700;
   line-height: 1.35;
 }
-.schedule-field-full { grid-column: 1 / -1; }
 .schedule-time-field {
-  grid-column: 1 / -1;
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -377,6 +378,7 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
 }
 .schedule-time-field legend {
   margin-bottom: 8px;
+  padding: 0;
   color: #344258;
   font-size: 0.95rem;
   font-weight: 700;
@@ -385,7 +387,7 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
 .schedule-time-field .time-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 8px;
   margin: 0;
   padding: 0;
 }
@@ -397,63 +399,65 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
   justify-content: flex-end;
   margin-top: 30px;
 }
+@container (max-width: 560px) {
+  .schedule-fields { grid-template-columns: 1fr; gap: 18px; }
+}
+@container (max-width: 280px) {
+  .schedule-time-field .time-row { grid-template-columns: 1fr; }
+}
 @media (max-width: 767px) {
   .schedule-form-content { padding: 22px 18px 0; }
-  .schedule-fields { grid-template-columns: 1fr; gap: 18px; }
-  .schedule-field-full,
-  .schedule-time-field { grid-column: auto; }
-  .schedule-time-field .time-row { grid-template-columns: 1fr; gap: 10px; }
   .schedule-step .step-footer { padding-left: 18px; padding-right: 18px; }
 }
 
-/* Mapping tab: structured controls above a calmer, more readable data grid. */
 .mapping-step {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
-  padding: 28px 30px 0;
+  padding: 12px 22px 0;
+}
+.mapping-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-padding-top: 45px;
+}
+.mapping-scroll:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
 }
 .mapping-controls {
-  flex: 0 0 auto;
-  padding-top: 16px;
-}
-.mapping-header {
+  position: sticky;
+  left: 0;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding-bottom: 22px;
-  border-bottom: 1px solid #edf0f5;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding-bottom: 10px;
 }
-.mapping-header h3 {
+.mapping-controls h3 {
   margin: 0;
   color: #253c62;
   font-size: 1.1rem;
 }
-.mapping-header p {
-  margin: 5px 0 0;
-  color: var(--muted);
-  font-size: 0.875rem;
-}
 .mapping-header-actions {
   display: flex;
   align-items: center;
-  gap: 18px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-.mapping-header-actions .check-label { display: inline-flex; align-items: center; white-space: nowrap; }
-.mapping-actions {
-  display: flex;
-  justify-content: flex-end;
   gap: 8px;
-  margin: 16px 0 12px;
+  flex-wrap: wrap;
 }
-.mapping-actions .icon-button { min-width: 40px; min-height: 40px; }
+.mapping-header-actions .check-label {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+}
+.mapping-header-actions .icon-button { min-width: 36px; min-height: 36px; }
 .button-icon { display: inline-grid; width: 16px; height: 16px; margin-right: 7px; vertical-align: -3px; }
 .button-icon svg,
-.mapping-actions .icon-button svg,
+.mapping-header-actions .icon-button svg,
 .mapping-table .icon-button svg {
   width: 18px;
   height: 18px;
@@ -463,11 +467,11 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
   stroke-linejoin: round;
   stroke-width: 1.8;
 }
-.mapping-actions .icon-button,
-.mapping-table .icon-button { display: inline-grid; place-items: center; padding: 10px; }
+.mapping-header-actions .icon-button,
+.mapping-table .icon-button { display: inline-grid; place-items: center; padding: 8px; }
 .mapping-table .trash {
-  min-width: 40px;
-  min-height: 40px;
+  min-width: 36px;
+  min-height: 36px;
   padding: 8px;
   border-color: transparent;
   background: transparent;
@@ -478,31 +482,39 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
   background: #f5f8fc;
 }
 .mapping-table-wrap {
-  flex: 1 1 420px;
-  min-height: 140px;
-  max-height: 420px;
+  min-width: 980px;
+  height: auto;
   margin-top: 0;
-  overflow: auto;
+  overflow: visible;
   border: 1px solid #dbe4f0;
   border-radius: 8px;
   background: #fff;
 }
 .mapping-table {
-  min-width: 1180px;
+  min-width: 0;
+  table-layout: fixed;
   font-size: 0.9rem;
 }
 .mapping-table th {
-  height: 56px;
-  padding: 11px 12px;
+  height: 44px;
+  padding: 8px 10px;
   border-color: #dbe4f0;
   color: #344258;
   background: #f8fafc;
   font-size: 0.875rem;
   line-height: 1.25;
 }
+.mapping-table th:nth-child(1) { width: 16%; }
+.mapping-table th:nth-child(2) { width: 11%; }
+.mapping-table th:nth-child(3) { width: 8%; }
+.mapping-table th:nth-child(4) { width: 11%; }
+.mapping-table th:nth-child(5) { width: 13%; }
+.mapping-table th:nth-child(6) { width: 19%; }
+.mapping-table th:nth-child(7) { width: 16%; }
+.mapping-table th:last-child { width: 6%; }
 .mapping-table td {
-  height: 64px;
-  padding: 8px;
+  height: 54px;
+  padding: 5px 7px;
   border-color: #edf0f5;
   vertical-align: middle;
 }
@@ -513,15 +525,11 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
 .mapping-step .step-footer {
   flex: 0 0 auto;
   justify-content: flex-end;
-  margin-top: 22px;
-  padding: 18px 0 24px;
+  margin-top: 8px;
+  padding: 8px 0 12px;
 }
 @media (max-width: 767px) {
-  .mapping-step { padding: 22px 18px 0; }
-  .mapping-header { align-items: flex-start; flex-direction: column; gap: 16px; }
-  .mapping-header-actions { align-items: flex-start; justify-content: flex-start; flex-direction: column; gap: 12px; }
-  .mapping-table-wrap { max-height: 360px; }
-  .mapping-step .step-footer { padding-bottom: 20px; }
+  .mapping-step { padding: 10px 16px 0; }
 }
 
 /* Subscriptions tab: clear delivery hierarchy with a full-width recipient table. */
@@ -678,7 +686,7 @@ html, body, #root { height: 100%; }
   .wizard-card { min-width: 0; }
   .card-heading { padding: 14px 16px; }
   .general-form-content, .schedule-form-content { padding-left: 16px; padding-right: 16px; }
-  .general-fields, .schedule-fields { grid-template-columns: minmax(0, 1fr); }
+  .general-fields { grid-template-columns: minmax(0, 1fr); }
   .mapping-step, .subscriptions-step { padding-left: 16px; padding-right: 16px; }
   .mapping-header-actions { width: 100%; }
   .mapping-table-wrap { max-width: 100%; }
@@ -710,10 +718,26 @@ html, body, #root { height: 100%; }
 .main-content:has(.wizard-steps-shell) .wizard-card:has(.mapping-step) {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 .wizard-card:has(.mapping-step) > .card-heading {
   position: static;
   flex: 0 0 auto;
+}
+
+@media (max-height: 760px) {
+  .main-content:has(.mapping-step) { padding-top: 10px; }
+  .main-content:has(.mapping-step) .page-heading { margin-bottom: 6px; }
+  .main-content:has(.mapping-step) .page-heading h1 { font-size: 1.375rem; }
+  .main-content:has(.mapping-step) .wizard-steps-shell { padding-top: 4px; padding-bottom: 6px; }
+  .main-content:has(.mapping-step) .wizard-steps { min-height: 42px; }
+  .main-content:has(.mapping-step) .wizard-step { min-height: 38px; padding-block: 4px; }
+  .wizard-card:has(.mapping-step) > .card-heading { min-height: 48px; padding-block: 5px; }
+  .wizard-card:has(.mapping-step) > .card-heading .button,
+  .mapping-step .step-footer .button { min-height: 38px; }
+  .mapping-step { padding-top: 8px; }
+  .mapping-step .step-footer { margin-top: 4px; padding-block: 6px; }
+  .main-content:has(.mapping-step) > footer { min-height: 30px; flex-basis: 30px; font-size: .75rem; }
 }
 
 /* Modals must sit above sticky wizard navigation and card headers. */
