@@ -22,11 +22,15 @@ from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
 from app.db import engine
-from app.payroll_source import PAYROLL_COLUMN_KEYS, PAYROLL_QUERY_TYPE, load_payroll_source, payroll_company_ids, payroll_report_query
+from app.payroll_source import (
+    PAYROLL_COLUMN_KEYS, PAYROLL_QUERY_TYPE, PAYROLL_RECORD_TYPES, is_payroll_record_query,
+    load_payroll_source, payroll_company_ids, payroll_job_with_saved_rules, payroll_record_queries,
+)
 from app.report_files import load_report_source, publish_report, report_directory
 from app.retirement_results import (
-    COMPARISONS, MAPPING_FORMATS_BY_TYPE, MAX_SOURCE_BYTES, InvalidRun, ReportFile,
-    build_report_files, file_format_name, store_results,
+    COMPARISONS, FILE_NAME_FORMAT_CODES, FILE_NAME_FORMAT_PARTS, MAPPING_FORMATS_BY_TYPE, MAX_SOURCE_BYTES,
+    InvalidRun, ReportFile, build_report_files, file_format_name, file_name_format_code, format_sort_order,
+    parse_file_name_format, parse_sort_order, store_results,
 )
 
 
@@ -144,9 +148,14 @@ class RetirementBuilderRun(RetirementBuilderOutput):
     files: list[RetirementBuilderOutput]
 
 
+class OutputFileNameFormatOption(BaseModel):
+    label: str
+    value: str
+
+
 class RetirementBuilderOptions(BaseModel):
     fileFormats: list[str]
-    outputFileNameFormats: list[str]
+    outputFileNameFormats: list[OutputFileNameFormatOption]
     buildFrequencies: list[str]
     hours: list[str]
     minutes: list[str]
@@ -166,6 +175,7 @@ class RetirementBuilderOptions(BaseModel):
 SQL_INT_MAX = 2_147_483_647
 SQL_DATETIME_MIN = date(1753, 1, 1)
 CONDITION_MAX = Decimal("9999999999999999.99")
+CSV_SORT_QUERY_TYPE = "CSV_SORT"
 EMAIL_PATTERN = re.compile(
     r"[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
     r"@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
@@ -203,6 +213,7 @@ QUERY_36 = _load_query("36")
 QUERY_37 = _load_query("37")
 QUERY_38 = _load_query("38")
 QUERY_52 = _load_query("52")
+QUERY_53 = _load_query("53")
 QUERY_54 = _load_query("54")
 QUERY_55 = _load_query("55")
 OPTIONS_FILE = Path(__file__).resolve().parents[2] / "config" / "options.xml"
@@ -220,6 +231,14 @@ SELECT jobid, jobName, startDateTime, dayInterval, weekInterval,
        schedule_hr, schedule_min, schedules_session
 FROM dbo.rjob_schedule_info
 WHERE jobid = :jobid
+""")
+READ_ENABLED_SCHEDULES = text("""
+SELECT j.jobid, s.startDateTime, s.ScheduleType, s.ScheduleWeek, s.MonthlyDate,
+       s.schedule_hr, s.schedule_min, s.schedules_session
+FROM dbo.rjob AS j
+JOIN dbo.rjob_schedule_info AS s ON j.jobid = s.jobid
+WHERE j.isEnabled = 1 AND s.startDateTime IS NOT NULL
+ORDER BY j.jobid
 """)
 READ_MAPPINGS = text("""
 SELECT jobid, jobclientcolumn, jobfieldmapping, jobdefaultvalue, jobformat,
@@ -300,18 +319,39 @@ def _file_formats(connection: Any) -> dict[str, str]:
     return formats
 
 
-def _file_format_delimiter(connection: Any, file_format: str) -> str | None:
+def _file_format_delimiter(formats: dict[str, str], file_format: str) -> str | None:
+    # Check literal delimiters first so normalization does not strip spaces or tabs.
+    if file_format in formats.values():
+        return file_format
     requested = file_format_name(file_format).casefold()
-    return next((delimiter for name, delimiter in _file_formats(connection).items() if name.casefold() == requested), None)
+    return next((delimiter for name, delimiter in formats.items() if name.casefold() == requested), None)
+
+
+def _file_format_label(formats: dict[str, str] | None, file_format: str | None) -> str:
+    return next((name for name, delimiter in (formats or {}).items() if delimiter == file_format), file_format or "")
+
+
+def _output_file_name_formats(connection: Any) -> list[OutputFileNameFormatOption]:
+    formats = []
+    for row in connection.execute(text(QUERY_53)).mappings():
+        code = str(row["jobformattype"] or "").strip().upper()
+        label = str(row["jobformat"] or "").strip()
+        if code not in FILE_NAME_FORMAT_CODES or not label:
+            continue
+        priority = tuple(FILE_NAME_FORMAT_PARTS.index(part) for part in parse_file_name_format(code) or ())
+        formats.append(((len(priority), priority, label), OutputFileNameFormatOption(label=label, value=code)))
+    return [option for _, option in sorted(formats, key=lambda entry: entry[0])]
 
 
 def _options_from_xml() -> RetirementBuilderOptions:
     root = ET.parse(OPTIONS_FILE).getroot()
     column_types = _mapping_column_types()
     file_formats: list[str] = []
+    output_file_name_formats: list[OutputFileNameFormatOption] = []
     try:
         with engine.connect() as connection:
             file_formats = sorted(_file_formats(connection), key=str.casefold)
+            output_file_name_formats = _output_file_name_formats(connection)
             companies = {company_id: name for name, company_id in payroll_company_ids(connection).items() if company_id is not None}
     except SQLAlchemyError:
         companies = {}
@@ -322,7 +362,7 @@ def _options_from_xml() -> RetirementBuilderOptions:
 
     return RetirementBuilderOptions(
         fileFormats=file_formats,
-        outputFileNameFormats=values("outputFileNameFormats"),
+        outputFileNameFormats=output_file_name_formats,
         buildFrequencies=values("buildFrequencies"),
         hours=values("hours"),
         minutes=values("minutes"),
@@ -450,6 +490,8 @@ def _validate_payload(payload: RetirementBuilderJobInput, *, creating: bool = Fa
         if row.orderBy != "":
             _check_integer(row.orderBy, 0, SQL_INT_MAX, [*path, "orderBy"])
         _check_length(row.mappingColumn, 255, [*path, "mappingColumn"])
+        if not row.mappingColumn.strip():
+            _field_error([*path, "mappingColumn"], "Choose a mapping column for each sort rule.")
     for index, row in enumerate(payload.fileSettings.conditionalStatements):
         path = ["fileSettings", "conditionalStatements", index]
         _check_length(row.mappingColumn, 255, [*path, "mappingColumn"])
@@ -490,14 +532,18 @@ def _execute_identity_query(connection: Any, query: str, parameters: dict[str, A
         cursor.close()
 
 
-def _api_job_from_row(row: dict[str, Any]) -> dict[str, Any]:
+def _api_job_from_row(
+    row: dict[str, Any], file_formats: dict[str, str] | None = None, *, manual_only: bool = False,
+) -> dict[str, Any]:
     job_id = int(row["jobid"])
-    runtime = str(row.get("runtime") or "")
+    response = dict(row)
+    if manual_only:
+        response.update(runday="", runtime="", ScheduleType="")
+    runtime = str(response.get("runtime") or "")
     time_parts = runtime.split()
     hour_minute = time_parts[0].split(":", 1) if time_parts else []
     meridiem = time_parts[1] if len(time_parts) > 1 else None
     minute = hour_minute[1].zfill(2) if len(hour_minute) > 1 else ""
-    response = dict(row)
     if not row.get("Job_Last_Status"):
         # The legacy insert initializes joblastrun even before the first run.
         response["joblastrun"] = None
@@ -510,16 +556,17 @@ def _api_job_from_row(row: dict[str, Any]) -> dict[str, Any]:
         "id": job_id,
         "general": {
             "fileName": row.get("jobfilename") or "",
-            "fileFormat": row.get("filetype") or "",
+            "fileFormat": _file_format_label(file_formats, row.get("filetype")),
             "description": row.get("jobdesc") or "",
             "enable": bool(row.get("isEnabled")),
         },
         "schedule": {
-            "week": row.get("runday") or "",
+            "week": response.get("runday") or "",
             "hour": hour_minute[0] if hour_minute else "",
             "minute": minute,
-            "meridiem": meridiem or "AM",
-            "buildFrequency": row.get("ScheduleType") or "",
+            "meridiem": meridiem or ("" if manual_only else "AM"),
+            "buildFrequency": response.get("ScheduleType") or "",
+            **({"startDate": None} if manual_only else {}),
         },
     })
     return response
@@ -556,7 +603,7 @@ def _subscription_from_db(client_id: int | None, email: str | None) -> Subscript
     return SubscriptionRow(client="" if client_id is None else str(client_id), email=email or "")
 
 
-def _read_full_job(connection: Any, job_id: int) -> RetirementBuilderJob | None:
+def _read_full_job(connection: Any, job_id: int, *, file_formats: dict[str, str] | None = None) -> RetirementBuilderJob | None:
     main = connection.execute(READ_JOB, {"jobid": job_id}).mappings().first()
     if main is None:
         return None
@@ -566,17 +613,26 @@ def _read_full_job(connection: Any, job_id: int) -> RetirementBuilderJob | None:
     sorting = connection.execute(READ_SORTING, {"jobid": job_id}).mappings().all()
     conditions = connection.execute(READ_CONDITIONS, {"jobid": job_id}).mappings().all()
     query_configuration = connection.execute(READ_QUERY_CONFIGURATION, {"jobid": job_id}).mappings().all()
+    uses_payroll = any(
+        row.get("recttype") == PAYROLL_QUERY_TYPE or is_payroll_record_query(row.get("recttype"), row.get("Query"))
+        for row in query_configuration
+    )
+    saved_sort = next((
+        row["Sort_Order"] for row in query_configuration
+        if row.get("recttype") == ("D" if uses_payroll else CSV_SORT_QUERY_TYPE)
+        and (not uses_payroll or is_payroll_record_query(row.get("recttype"), row.get("Query")))
+    ), None)
     schedule = dict(schedule) if schedule is not None else {}
     return RetirementBuilderJob.model_validate({
         "id": int(main["jobid"]),
         "general": {
             "fileName": main.get("jobfilename"),
-            "fileFormat": main.get("filetype"),
+            "fileFormat": _file_format_label(file_formats, main.get("filetype")),
             "description": main.get("jobdesc"),
-            "outputFileNameFormat": main.get("FileNameFormat"),
+            "outputFileNameFormat": file_name_format_code(main.get("FileNameFormat") or ""),
             "enable": main.get("isEnabled"),
             "storeResultsToTable": main.get("StoreResults"),
-            "reportSource": "companyPayroll" if any(row.get("recttype") == PAYROLL_QUERY_TYPE for row in query_configuration) else "csv",
+            "reportSource": "companyPayroll" if uses_payroll else "csv",
         },
         "schedule": {
             "startDate": (
@@ -607,7 +663,7 @@ def _read_full_job(connection: Any, job_id: int) -> RetirementBuilderJob | None:
             "rows": [_subscription_from_db(row.get("jobclientid"), row.get("jobemailind")) for row in subscriptions],
         },
         "fileSettings": {
-            "sortingOrder": [{
+            "sortingOrder": parse_sort_order(saved_sort) if saved_sort else [{
                 "orderBy": str(_sort_priority(row["sort_order"])),
                 "mappingColumn": row["mapping_column"],
                 "direction": "DESC" if row["sort_order"] < 0 else "ASC",
@@ -649,6 +705,7 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
     subscriptions = payload.subscriptions
     file_settings = payload.fileSettings
     general = payload.general
+    sorting = sorted(file_settings.sortingOrder, key=lambda row: _integer(row.orderBy))
     if any(row.companyId is not None for row in subscriptions.rows):
         if general.reportSource != "companyPayroll":
             _field_error(["subscriptions", "rows"], "Payroll company subscriptions require the Company Payroll Report source.")
@@ -656,13 +713,22 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
         for index, row in enumerate(subscriptions.rows):
             if row.companyId is not None and row.companyId not in company_ids:
                 _field_error(["subscriptions", "rows", index, "companyId"], "Choose a payroll company from the list.")
-    queries = [row for row in payload.queryConfiguration if row.recttype.strip().upper() != PAYROLL_QUERY_TYPE]
+    queries = [
+        row for row in payload.queryConfiguration
+        if row.recttype.strip().upper() not in (PAYROLL_QUERY_TYPE, CSV_SORT_QUERY_TYPE)
+        and not is_payroll_record_query(row.recttype, row.query)
+    ]
     if general.reportSource == "companyPayroll":
+        queries = [row for row in queries if row.recttype.strip().upper() not in PAYROLL_RECORD_TYPES]
         try:
-            query = payroll_report_query(payload)
+            queries.extend(QueryConfigurationRow(**row) for row in payroll_record_queries(connection, payload))
         except InvalidRun as exc:
             _field_error(["mapping"], str(exc))
-        queries.append(QueryConfigurationRow(recttype=PAYROLL_QUERY_TYPE, query=query))
+    elif sorting:
+        queries.append(QueryConfigurationRow(
+            recttype=CSV_SORT_QUERY_TYPE,
+            sortOrder=format_sort_order((row.mappingColumn.strip(), row.direction) for row in sorting),
+        ))
     for row in queries:
         connection.execute(*_prepared_query(QUERY_31, {
             "jobid": job_id,
@@ -706,14 +772,11 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
             "jobclientid": -(row.companyId + 1) if row.companyId is not None else _integer(row.client),
             "jobemailind": row.email,
         }))
-    for row in file_settings.sortingOrder:
-        priority = _integer(row.orderBy)
-        # Nonnegative values retain legacy ascending priority. Negative values encode descending.
-        stored_order = -priority - 1 if row.direction == "DESC" else priority
+    for priority, row in enumerate(sorting, start=1):
         connection.execute(*_prepared_query(QUERY_54, {
             "jobid": job_id,
-            "order": stored_order,
-            "mapping": row.mappingColumn,
+            "order": priority,
+            "mapping": row.mappingColumn.strip(),
         }))
     for row in file_settings.conditionalStatements:
         connection.execute(*_prepared_query(QUERY_55, {
@@ -734,7 +797,9 @@ def list_retirement_builder_jobs() -> list[dict[str, object]]:
     try:
         with engine.connect() as connection:
             rows = _job_rows(connection)
-        return [_api_job_from_row(row) for row in rows]
+            file_formats = _file_formats(connection)
+            scheduled_ids = set(connection.execute(READ_ENABLED_SCHEDULES).scalars())
+        return [_api_job_from_row(row, file_formats, manual_only=row["jobid"] not in scheduled_ids) for row in rows]
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail="Unable to load Retirement Builder jobs from the database") from exc
 
@@ -745,23 +810,25 @@ def _create_job(payload: RetirementBuilderJobInput) -> RetirementBuilderJob:
     subscriptions = payload.subscriptions
     try:
         with engine.begin() as connection:
-            if _file_format_delimiter(connection, general.fileFormat) is None:
+            file_formats = _file_formats(connection)
+            delimiter = _file_format_delimiter(file_formats, general.fileFormat)
+            if delimiter is None:
                 _field_error(["general", "fileFormat"], "Select a configured file format.")
             job_id = _execute_identity_query(connection, QUERY_36, {
                 "jobdesc": general.description,
                 "jobfilename": general.fileName,
                 "jobstatus": "Active",
-                "filetype": general.fileFormat,
+                "filetype": delimiter,
                 "ismerge": subscriptions.mergeFiles,
                 "mergeemail": ", ".join(row.email for row in subscriptions.rows if row.email),
                 "includeHRecord": payload.mapping.includeHeader,
-                "fileNameFormat": general.outputFileNameFormat,
+                "fileNameFormat": file_name_format_code(general.outputFileNameFormat),
                 "isEnabled": general.enable,
                 "StoreResult": general.storeResultsToTable,
-                "enddate": payload.schedule.startDate,
+                "enddate": None,
             })
             _write_job_details(connection, job_id, payload)
-            job = _read_full_job(connection, job_id)
+            job = _read_full_job(connection, job_id, file_formats=file_formats)
             if job is None:
                 raise RuntimeError("The inserted job could not be retrieved")
     except (SQLAlchemyError, RuntimeError, ValueError) as exc:
@@ -821,7 +888,7 @@ def create_retirement_builder_job(
 def get_retirement_builder_job(job_id: int) -> dict[str, object]:
     try:
         with engine.connect() as connection:
-            job = _read_full_job(connection, job_id)
+            job = _read_full_job(connection, job_id, file_formats=_file_formats(connection))
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail="Unable to load Retirement Builder job from the database") from exc
     if job is None:
@@ -839,7 +906,9 @@ def update_retirement_builder_job(job_id: int, payload: RetirementBuilderJobInpu
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Retirement Builder job not found")
             effective_payload = _complete_update_payload(payload, existing)
             general = effective_payload.general
-            if "fileFormat" in payload.general.model_fields_set and _file_format_delimiter(connection, general.fileFormat) is None:
+            file_formats = _file_formats(connection)
+            delimiter = _file_format_delimiter(file_formats, general.fileFormat)
+            if delimiter is None and "fileFormat" in payload.general.model_fields_set:
                 _field_error(["general", "fileFormat"], "Select a configured file format.")
             subscriptions = effective_payload.subscriptions
             connection.execute(*_prepared_query(QUERY_45, {
@@ -847,17 +916,17 @@ def update_retirement_builder_job(job_id: int, payload: RetirementBuilderJobInpu
                 "jobdesc": general.description,
                 "jobfilename": general.fileName,
                 "jobstatus": "Active",
-                "filetype": general.fileFormat,
+                "filetype": delimiter if delimiter is not None else general.fileFormat,
                 "ismerge": subscriptions.mergeFiles,
                 "mergeemail": ", ".join(row.email for row in subscriptions.rows if row.email),
                 "includeHRecord": effective_payload.mapping.includeHeader,
-                "fileNameFormat": general.outputFileNameFormat,
+                "fileNameFormat": file_name_format_code(general.outputFileNameFormat),
                 "isEnabled": general.enable,
                 "StoreResult": general.storeResultsToTable,
             }))
             connection.execute(*_prepared_query(QUERY_44, {"jobid": job_id}))
             _write_job_details(connection, job_id, effective_payload)
-            updated = _read_full_job(connection, job_id)
+            updated = _read_full_job(connection, job_id, file_formats=file_formats)
     except HTTPException:
         raise
     except (SQLAlchemyError, ValueError) as exc:
@@ -893,15 +962,17 @@ def _active_report_run(job_id: int):
 
 
 def _execute_report_run(
-    connection, job: RetirementBuilderJob, read_source: Callable[[], bytes], output: Path,
+    connection, job: RetirementBuilderJob, read_source: Callable[[RetirementBuilderJob], bytes], output: Path,
     resources: ExitStack, *, scheduled: bool = False, from_payroll_procedure: bool = False,
 ) -> tuple[RetirementBuilderRun, list[ReportFile]]:
     run_id = uuid4()
     run_dir = output if scheduled else output / str(run_id)
-    delimiter = _file_format_delimiter(connection, job.general.fileFormat)
+    delimiter = _file_format_delimiter(_file_formats(connection), job.general.fileFormat)
     if delimiter is None:
         raise InvalidRun("Select a configured file format for this job.")
-    reports = build_report_files(job, read_source(), from_payroll_procedure=from_payroll_procedure, delimiter=delimiter)
+    if from_payroll_procedure:
+        job = payroll_job_with_saved_rules(job)
+    reports = build_report_files(job, read_source(job), from_payroll_procedure=from_payroll_procedure, delimiter=delimiter)
     for report in reports:
         resources.enter_context(publish_report(run_dir / report.file_name, report.csv))
     if scheduled and not reports:
@@ -920,7 +991,7 @@ def _execute_report_run(
 
 
 def _attempt_report_run(
-    connection, job: RetirementBuilderJob, read_source: Callable[[], bytes], output: Path,
+    connection, job: RetirementBuilderJob, read_source: Callable[[RetirementBuilderJob], bytes], output: Path,
     resources: ExitStack, *, scheduled: bool = False, from_payroll_procedure: bool = False,
 ) -> tuple[RetirementBuilderRun, list[ReportFile]] | Exception:
     resources.enter_context(_active_report_run(job.id))
@@ -963,8 +1034,8 @@ def _run_job(job_id: int, source: bytes | None) -> RetirementBuilderRun:
                 raise HTTPException(status_code=404, detail="Retirement Builder job not found")
             if not job.general.enable:
                 raise HTTPException(status_code=409, detail="Enable the job before running it.")
-            def read_source() -> bytes:
-                return source if source is not None else _read_report_source(connection, job, settings.report_input_dir)
+            def read_source(run_job: RetirementBuilderJob) -> bytes:
+                return source if source is not None else _read_report_source(connection, run_job, settings.report_input_dir)
 
             result = _attempt_report_run(
                 connection, job, read_source, output / "manual" / str(job_id), resources,

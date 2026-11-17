@@ -1,14 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <options>
-  <outputFileNameFormats>
-    <option>File Name</option>
-    <option>Client ID</option>
-    <option>Payday</option>
-    <option>File Name + Client ID</option>
-    <option>File Name + Payday</option>
-    <option>Client ID + Payday</option>
-    <option>File Name + Client ID + Payday</option>
-  </outputFileNameFormats>
   <buildFrequencies>
     <option>Daily</option>
     <option>Weekly</option>

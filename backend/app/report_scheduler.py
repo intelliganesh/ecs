@@ -7,7 +7,6 @@ from typing import Any, Mapping
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings
@@ -16,20 +15,13 @@ from app.report_files import report_directory
 from app.report_mail import send_report_email
 from app.retirement_results import InvalidRun, ReportFile, merge_report_files
 from app.routers.retirement_builder import (
-    EMAIL_PATTERN, LOCK_RUN_JOB, READ_SCHEDULE, SubscriptionsForm, _attempt_report_run, _read_full_job, _read_report_source,
+    EMAIL_PATTERN, LOCK_RUN_JOB, READ_ENABLED_SCHEDULES, READ_SCHEDULE, SubscriptionsForm,
+    _attempt_report_run, _read_full_job, _read_report_source,
 )
 
 
 logger = logging.getLogger(__name__)
 RUN_WINDOW = timedelta(minutes=5)
-READ_ENABLED_SCHEDULES = text("""
-SELECT j.jobid, s.startDateTime, s.ScheduleType, s.ScheduleWeek, s.MonthlyDate,
-       s.schedule_hr, s.schedule_min, s.schedules_session
-FROM dbo.rjob AS j
-JOIN dbo.rjob_schedule_info AS s ON j.jobid = s.jobid
-WHERE j.isEnabled = 1 AND s.startDateTime IS NOT NULL
-ORDER BY j.jobid
-""")
 
 
 def _scheduled_slot(schedule: Mapping[str, Any], now: datetime) -> datetime | None:
@@ -118,7 +110,7 @@ def _run_scheduled_job(settings: Settings, job_id: int, slot: datetime, now: dat
         if job is None or not job.general.enable:
             return
         result = _attempt_report_run(
-            connection, job, lambda: _read_report_source(connection, job, settings.report_input_dir),
+            connection, job, lambda run_job: _read_report_source(connection, run_job, settings.report_input_dir),
             run_dir, resources, scheduled=True,
             from_payroll_procedure=job.general.reportSource == "companyPayroll",
         )

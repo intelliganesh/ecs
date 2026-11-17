@@ -9,7 +9,9 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.payroll_source import PAYROLL_QUERY_TYPE, load_payroll_source, payroll_report_query
+from app.payroll_source import (
+    PAYROLL_QUERY_TYPE, load_payroll_source, payroll_job_with_saved_rules, payroll_record_queries, payroll_report_query,
+)
 from app.retirement_results import InvalidRun, build_report_files
 from app.routers import retirement_builder as rb
 
@@ -32,21 +34,141 @@ class MappingColumnOptionsTests(TestCase):
 
 
 class FileFormatTests(TestCase):
+    def test_output_file_name_options_return_database_labels_and_codes_in_format_order(self):
+        connection = Mock()
+        connection.execute.return_value.mappings.return_value = [
+            {"jobformat": "File Name + Client ID + Payday", "jobformattype": "FILENAME_CLIENT_PAYDAY"},
+            {"jobformat": "By date", "jobformattype": "PAYDAY"},
+            {"jobformat": "File Name + Payday", "jobformattype": "filename_payday"},
+            {"jobformat": "Client ID", "jobformattype": "CLIENT"},
+            {"jobformat": "Client ID + Payday", "jobformattype": "CLIENT_PAYDAY"},
+            {"jobformat": "File Name + Client ID", "jobformattype": " FILENAME_CLIENT "},
+            {"jobformat": "Use the job name", "jobformattype": "FILENAME"},
+            {"jobformat": "Client ID", "jobformattype": "all"},
+            {"jobformat": "File Name", "jobformattype": "output_file_name"},
+            {"jobformat": "MM/DD/YYYY", "jobformattype": "DATE"},
+        ]
+        self.assertEqual([option.model_dump() for option in rb._output_file_name_formats(connection)], [
+            {"label": "Use the job name", "value": "FILENAME"},
+            {"label": "Client ID", "value": "CLIENT"},
+            {"label": "By date", "value": "PAYDAY"},
+            {"label": "File Name + Client ID", "value": "FILENAME_CLIENT"},
+            {"label": "File Name + Payday", "value": "FILENAME_PAYDAY"},
+            {"label": "Client ID + Payday", "value": "CLIENT_PAYDAY"},
+            {"label": "File Name + Client ID + Payday", "value": "FILENAME_CLIENT_PAYDAY"},
+        ])
+
     def test_database_delimiters_preserve_whitespace_and_resolve_legacy_jobs(self):
         connection = Mock()
         connection.execute.return_value.mappings.return_value = [
             {"filetyp": "Comma", "delimiter": ","},
+            {"filetyp": "Pipe", "delimiter": "|"},
+            {"filetyp": "Semicolon", "delimiter": ";"},
             {"filetyp": "Space", "delimiter": " "},
             {"filetyp": "Tab", "delimiter": "\t"},
             {"filetyp": "Unconfigured", "delimiter": None},
         ]
-        self.assertEqual(rb._file_format_delimiter(connection, "CSV"), ",")
-        self.assertEqual(rb._file_format_delimiter(connection, "CSV_TAB"), "\t")
-        self.assertEqual(rb._file_format_delimiter(connection, "Space"), " ")
-        self.assertIsNone(rb._file_format_delimiter(connection, "Unconfigured"))
+        formats = rb._file_formats(connection)
+        self.assertEqual(rb._file_format_delimiter(formats, "CSV"), ",")
+        self.assertEqual(rb._file_format_delimiter(formats, "CSV_TAB"), "\t")
+        for label, delimiter in (("Comma", ","), ("Pipe", "|"), ("Semicolon", ";"), ("Space", " "), ("Tab", "\t")):
+            with self.subTest(label=label):
+                self.assertEqual(rb._file_format_delimiter(formats, label), delimiter)
+                self.assertEqual(rb._file_format_delimiter(formats, delimiter), delimiter)
+                job = rb._api_job_from_row({"jobid": 60, "filetype": delimiter}, formats)
+                self.assertEqual(job["general"]["fileFormat"], label)
+        self.assertIsNone(rb._file_format_delimiter(formats, "Unconfigured"))
+
+
+class SortingStorageTests(TestCase):
+    def test_csv_sorting_saves_positive_priorities_and_restores_directions_for_generation(self):
+        columns = ("Net Salary", "Group", "Last, First]")
+        payload = input_job(fileSettings={"sortingOrder": [
+            {"orderBy": "5", "mappingColumn": columns[2], "direction": "DESC"},
+            {"orderBy": "1", "mappingColumn": columns[0], "direction": "DESC"},
+            {"orderBy": "3", "mappingColumn": columns[1], "direction": "ASC"},
+        ]})
+        connection = Mock()
+        rb._write_job_details(connection, 33, payload)
+
+        sorting_rows = [
+            {"sort_order": values["order"], "mapping_column": values["mapping"]}
+            for statement, values in (call.args for call in connection.execute.call_args_list)
+            if str(statement).startswith("INSERT INTO [dbo].[rjob_file_sorting_details]")
+        ]
+        self.assertEqual([(row["sort_order"], row["mapping_column"]) for row in sorting_rows], list(enumerate(columns, 1)))
+        saved_query, = [
+            values for statement, values in (call.args for call in connection.execute.call_args_list)
+            if str(statement).startswith("INSERT INTO [dbo].[rjob_query]")
+        ]
+        self.assertEqual(saved_query, {
+            "jobid": 33, "recttype": "CSV_SORT", "Query": "", "conditionalStmt": "",
+            "sortOrder": "ORDER BY [Net Salary] DESC, [Group] ASC, [Last, First]]] DESC",
+        })
+
+        def read(statement, _parameters):
+            result = Mock()
+            result.mappings.return_value.first.return_value = {
+                "jobid": 33, "jobfilename": "Sort Test", "filetype": "Comma", "jobdesc": "", "isEnabled": True,
+                "StoreResults": False, "includeHeader": True, "ismerge": False, "rbJobTypeChk": "Daily",
+                "schedules_session": "AM", "ScheduleWeek": "1",
+            }
+            result.mappings.return_value.all.return_value = {
+                rb.READ_MAPPINGS: [dict.fromkeys(("jobfieldmapping", "jobdefaultvalue", "jobformat"), "") |
+                                   {"jobclientcolumn": column, "jobrectype": "Detail"} for column in columns],
+                rb.READ_SORTING: sorting_rows,
+                rb.READ_QUERY_CONFIGURATION: [{
+                    "recttype": saved_query["recttype"], "Query": "", "Conditions": "",
+                    "Sort_Order": saved_query["sortOrder"],
+                }],
+            }.get(statement, [])
+            return result
+
+        connection.execute.side_effect = read
+        job = rb._read_full_job(connection, 33)
+        self.assertEqual([row.direction for row in job.fileSettings.sortingOrder], ["DESC", "ASC", "DESC"])
+        report, = build_report_files(job, b'Net Salary,Group,"Last, First]"\n100,B,Name1\n100,A,Name1\n200,B,Name1\n100,A,Name2\n')
+        self.assertEqual(report.csv.splitlines()[1:], ["200,B,Name1", "100,A,Name2", "100,A,Name1", "100,B,Name1"])
 
 
 class PayrollQueryTests(TestCase):
+    def test_payroll_uses_saved_record_queries_and_rules_for_the_job(self):
+        payload = input_job(
+            general={"fileName": "Payroll", "fileFormat": "CSV", "reportSource": "companyPayroll"},
+            mapping={"rows": [{"field": "Employee Count"}]},
+            fileSettings={
+                "conditionalStatements": [{"mappingColumn": "Employee Count", "condition": ">=", "value": "2.00"}],
+                "sortingOrder": [{"orderBy": "1", "mappingColumn": "Employee Count", "direction": "DESC"}],
+            },
+        )
+        connection = Mock()
+        connection.execute.return_value.tuples.return_value.all.return_value = [
+            (kind, f"/* company payroll */ SELECT '{kind}'") for kind in ("H", "D", "T")
+        ]
+        settings = Settings(_env_file=None, payroll_report_procedure="reports.usp_RenamedPayroll")
+        with patch("app.payroll_source.get_settings", return_value=settings):
+            rows = payroll_record_queries(connection, payload)
+        self.assertEqual(str(connection.execute.call_args.args[0]), "EXEC [reports].[usp_RenamedPayroll] @templates_only = 1")
+        self.assertEqual([row["recttype"] for row in rows], ["H", "D", "T"])
+        self.assertEqual(rows[1]["conditions"], "[Employee Count] >= 2.00")
+        self.assertEqual(rows[1]["sortOrder"], "ORDER BY [Employee Count] DESC")
+
+        job = rb.RetirementBuilderJob.model_validate({
+            "id": 31, **payload.model_dump(), "fileSettings": {}, "queryConfiguration": rows,
+        })
+        run_job = payroll_job_with_saved_rules(job)
+        cursor = MagicMock()
+        connection.connection.cursor.return_value = cursor
+        cursor.description = [("Record Type",), ("Employee Count",)]
+        cursor.__iter__.return_value = [("D", 1), ("D", 2), ("D", 4)]
+        with patch("app.payroll_source.get_settings", return_value=settings):
+            source = load_payroll_source(connection, run_job)
+        statement, job_id = cursor.execute.call_args.args
+        self.assertIn("EXEC [reports].[usp_RenamedPayroll] @jobid = ?", statement)
+        self.assertEqual(job_id, 31)
+        report, = build_report_files(run_job, source, from_payroll_procedure=True)
+        self.assertEqual(report.csv.splitlines(), ["Employee Count", "4", "2"])
+
     def test_existing_payroll_query_uses_the_procedure_from_the_current_environment(self):
         job = rb.RetirementBuilderJob.model_validate({
             "id": 31,
@@ -192,6 +314,26 @@ class JobValidationTests(TestCase):
         self.assertEqual(job["schedule"]["minute"], "05")
         self.assertIsNone(job["Job_Last_Status"])
         self.assertIsNone(job["joblastrun"])
+
+    def test_job_list_hides_schedule_defaults_when_the_job_has_no_start_date(self):
+        saved_defaults = {"runday": "Thursday", "runtime": "4:00 AM", "ScheduleType": "Weekly", "Job_Last_Status": "Success"}
+        rows = [{"jobid": 62, **saved_defaults}, {"jobid": 63, **saved_defaults}]
+        with (
+            patch.object(rb.engine, "connect") as connect,
+            patch.object(rb, "_job_rows", return_value=rows),
+            patch.object(rb, "_file_formats", return_value={}),
+        ):
+            connection = connect.return_value.__enter__.return_value
+            connection.execute.return_value.scalars.return_value = [63]
+            manual, scheduled = rb.list_retirement_builder_jobs()
+            connection.execute.assert_called_once_with(rb.READ_ENABLED_SCHEDULES)
+        self.assertEqual(manual["schedule"], {
+            "startDate": None, "week": "", "hour": "", "minute": "", "meridiem": "", "buildFrequency": "",
+        })
+        self.assertEqual(manual["runtime"], "")
+        self.assertEqual(manual["Job_Last_Status"], "Success")
+        self.assertEqual(scheduled["schedule"]["buildFrequency"], "Weekly")
+        self.assertEqual(scheduled["runtime"], "4:00 AM")
 
     def test_run_status_uses_persisted_failure_after_attempt(self):
         row = {"jobid": 83, "joblastrun": "2026-11-11", "Job_Last_Status": "Success"}

@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from app.retirement_results import InvalidRun, build_report_files, merge_report_files
+from app.retirement_results import InvalidRun, build_report_files, file_name_format_code, merge_report_files
 from app.routers.retirement_builder import RetirementBuilderJob
 
 
@@ -50,20 +50,31 @@ class RetirementResultsTests(TestCase):
             "mapping": {"rows": [{"field": "Name"}]},
         })
         source = b"Client_ID,Payday,Name\n0002,2026-11-12,C\n0001,11/11/2026,A\n0001,2026-11-12,B\n0001,2026-11-11,D\n"
-        expected = {
-            "File Name": {"Payroll.csv": "CABD"},
-            "Client ID": {"0001.csv": "ABD", "0002.csv": "C"},
-            "Payday": {"2026-11-11.csv": "AD", "2026-11-12.csv": "CB"},
-            "File Name + Client ID": {"Payroll_0001.csv": "ABD", "Payroll_0002.csv": "C"},
-            "File Name + Payday": {"Payroll_2026-11-11.csv": "AD", "Payroll_2026-11-12.csv": "CB"},
-            "Client ID + Payday": {"0001_2026-11-11.csv": "AD", "0001_2026-11-12.csv": "B", "0002_2026-11-12.csv": "C"},
-            "File Name + Client ID + Payday": {"Payroll_0001_2026-11-11.csv": "AD", "Payroll_0001_2026-11-12.csv": "B", "Payroll_0002_2026-11-12.csv": "C"},
-        }
-        for name_format, names in expected.items():
-            with self.subTest(name_format=name_format):
-                job.general.outputFileNameFormat = name_format
-                files = build_report_files(job, source)
-                self.assertEqual({file.file_name: "".join(file.csv.splitlines()[1:]) for file in files}, names)
+        cases = (
+            ("FILENAME", "File Name", {"Payroll.csv": "CABD"}),
+            ("CLIENT", "Client ID", {"0001.csv": "ABD", "0002.csv": "C"}),
+            ("PAYDAY", "Payday", {"2026-11-11.csv": "AD", "2026-11-12.csv": "CB"}),
+            ("FILENAME_CLIENT", "File Name + Client ID", {"Payroll_0001.csv": "ABD", "Payroll_0002.csv": "C"}),
+            ("FILENAME_PAYDAY", "File Name + Payday", {"Payroll_2026-11-11.csv": "AD", "Payroll_2026-11-12.csv": "CB"}),
+            ("CLIENT_PAYDAY", "Client ID + Payday", {"0001_2026-11-11.csv": "AD", "0001_2026-11-12.csv": "B", "0002_2026-11-12.csv": "C"}),
+            ("FILENAME_CLIENT_PAYDAY", "File Name + Client ID + Payday", {
+                "Payroll_0001_2026-11-11.csv": "AD", "Payroll_0001_2026-11-12.csv": "B", "Payroll_0002_2026-11-12.csv": "C",
+            }),
+        )
+        for code, label, names in cases:
+            self.assertEqual(file_name_format_code(label), code)
+            for name_format in (code, code.casefold(), label, label.replace("Payday", "Pay Date")):
+                with self.subTest(name_format=name_format):
+                    job.general.outputFileNameFormat = name_format
+                    files = build_report_files(job, source)
+                    self.assertEqual({file.file_name: "".join(file.csv.splitlines()[1:]) for file in files}, names)
+
+    def test_filename_code_keeps_part_order_and_falls_back_for_unknown_values(self):
+        self.assertEqual(file_name_format_code("Pay Date + Client ID"), "PAYDAY_CLIENT")
+        self.assertEqual(file_name_format_code(" payday_client "), "PAYDAY_CLIENT")
+        for value in ("", "Unknown", "CLIENT_CLIENT", "FILENAME_EXTRA"):
+            with self.subTest(value=value):
+                self.assertEqual(file_name_format_code(value), "FILENAME")
 
     def test_grouped_reports_share_headers_and_select_client_trailers(self):
         job = RetirementBuilderJob.model_validate({

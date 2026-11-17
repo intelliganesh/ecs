@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 import csv
 from dataclasses import dataclass
 from datetime import date
@@ -83,6 +84,24 @@ class InvalidRun(ValueError):
     pass
 
 
+_SAVED_SORT_RULE = re.compile(r"\[((?:[^\]]|\]\])*)\] (ASC|DESC)")
+
+
+def format_sort_order(rules: Iterable[tuple[str, str]]) -> str:
+    parts = [f"[{column.replace(']', ']]')}] {direction}" for column, direction in rules]
+    return "ORDER BY " + ", ".join(parts) if parts else ""
+
+
+def parse_sort_order(clause: str) -> list[dict[str, str]]:
+    rules = [(column.replace("]]", "]"), direction) for column, direction in _SAVED_SORT_RULE.findall(clause)]
+    if format_sort_order(rules) != clause:
+        raise InvalidRun("The saved sort order is invalid. Save the job again before running it.")
+    return [
+        {"orderBy": str(index), "mappingColumn": column, "direction": direction}
+        for index, (column, direction) in enumerate(rules, start=1)
+    ]
+
+
 @dataclass(frozen=True)
 class ResultRow:
     record_type: str
@@ -100,13 +119,31 @@ class ReportFile:
 
 
 GROUP_COLUMNS = {"client id": ("clientid",), "payday": ("paydate", "payday")}
+FILE_NAME_FORMAT_PARTS = ("file name", *GROUP_COLUMNS)
+FILE_NAME_FORMAT_CODES = frozenset({
+    "FILENAME", "CLIENT", "PAYDAY", "FILENAME_CLIENT", "FILENAME_PAYDAY", "CLIENT_PAYDAY", "FILENAME_CLIENT_PAYDAY",
+})
+_FILE_NAME_CODE_PARTS = {"FILENAME": "file name", "CLIENT": "client id", "PAYDAY": "payday"}
+_FILE_NAME_PART_CODES = {part: code for code, part in _FILE_NAME_CODE_PARTS.items()}
 SourceRows = dict[str, list[dict[str, str]]]
 
 
+def parse_file_name_format(value: str) -> tuple[str, ...] | None:
+    if "+" in value or value.strip().casefold() in ("file name", "client id", "pay date"):
+        parts = tuple(part.strip().casefold().replace("pay date", "payday") for part in value.split("+"))
+    else:
+        parts = tuple(_FILE_NAME_CODE_PARTS.get(code.strip().upper(), "") for code in value.split("_"))
+    if len(parts) == len(set(parts)) and all(part in FILE_NAME_FORMAT_PARTS for part in parts):
+        return parts
+    return None
+
+
 def _name_format(value: str) -> tuple[str, ...]:
-    parts = tuple(part.strip().casefold().replace("pay date", "payday") for part in value.split("+"))
-    valid = {"file name", *GROUP_COLUMNS}
-    return parts if set(parts) <= valid and len(parts) == len(set(parts)) else ("file name",)
+    return parse_file_name_format(value) or ("file name",)
+
+
+def file_name_format_code(value: str) -> str:
+    return "_".join(_FILE_NAME_PART_CODES[part] for part in _name_format(value))
 
 
 def _safe_name_part(value: str, byte_limit: int) -> str:

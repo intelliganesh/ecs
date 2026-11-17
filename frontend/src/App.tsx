@@ -27,7 +27,7 @@ type DashboardJob = { id: number; values: string[] }
 type JobRunFile = { fileName: string; csv: string }
 type JobRun = JobRunFile & { runId: string; rowCount: number; storedRows: number; files?: JobRunFile[] }
 type RetirementBuilderApiJob = { id: number; general?: { fileName?: string; fileFormat?: string; description?: string; outputFileNameFormat?: string; enable?: boolean; storeResultsToTable?: boolean; selectedFile?: string; reportSource?: ReportSource }; schedule?: { startDate?: string | null; week?: string; hour?: string; minute?: string; meridiem?: string; buildFrequency?: string }; mapping?: { includeHeader?: boolean; rows?: ApiMappingRow[] }; subscriptions?: { mergeFiles?: boolean; rows?: ApiSubscription[] }; fileSettings?: { sortingOrder?: Partial<SortingRow>[]; conditionalStatements?: Partial<ConditionalRow>[] }; jobid?: number; jobfilename?: string; jobdesc?: string; filetype?: string; isEnabled?: boolean | number; ismerge?: boolean; runday?: string; runtime?: string; ScheduleType?: string; joblastmodified?: string | null; joblastrun?: string | null; Job_Last_Status?: string | null }
-type RetirementBuilderOptions = { fileFormats: string[]; outputFileNameFormats: string[]; buildFrequencies: string[]; hours: string[]; minutes: string[]; meridiems: string[]; weekDays: string[]; recordTypes: string[]; sortDirections: SortDirection[]; comparisonOperators: string[]; mappingColumns: string[]; payrollMappingColumns: string[]; payrollCompanies: Record<string, string>; mappingColumnTypes: Record<string, string>; mappingFormatsByType: Record<string, string[]> }
+type RetirementBuilderOptions = { fileFormats: string[]; outputFileNameFormats: Array<{ label: string; value: string }>; buildFrequencies: string[]; hours: string[]; minutes: string[]; meridiems: string[]; weekDays: string[]; recordTypes: string[]; sortDirections: SortDirection[]; comparisonOperators: string[]; mappingColumns: string[]; payrollMappingColumns: string[]; payrollCompanies: Record<string, string>; mappingColumnTypes: Record<string, string>; mappingFormatsByType: Record<string, string[]> }
 
 const navigation: [SideIcon, string][] = [['edit', 'Benefits'], ['file', 'Mass Mutual Files'], ['copy', 'Process Validator'], ['copy', 'Retirement Builder'], ['edit', 'Prism'], ['copy', 'Services'], ['copy', 'Swipe Clock'], ['copy', 'Payroll Builder'], ['copy', 'NYS-45'], ['copy', 'Reports']]
 const menuPaths: Record<string, string> = { Benefits: '/benefits', 'Mass Mutual Files': '/mass-mutual-files', 'Process Validator': '/process-validator', Prism: '/prism', Services: '/services', 'Swipe Clock': '/swipe-clock', 'Payroll Builder': '/payroll-builder', 'NYS-45': '/nys-45', Reports: '/reports' }
@@ -51,7 +51,7 @@ function toDashboardJob(rawJob: RetirementBuilderApiJob): DashboardJob {
     values: [
       general.fileName || `Job ${job.id}`, general.description || '', job.joblastmodified?.slice(0, 10) || '',
       lastRunDate === '1900-01-01' ? '' : lastRunDate, schedule.week || '', displayRunTime(schedule.hour, schedule.minute, schedule.meridiem),
-      schedule.buildFrequency || '', displayFileFormat(general.fileFormat),
+      schedule.startDate === null ? 'Manual only' : schedule.buildFrequency || '', displayFileFormat(general.fileFormat),
       general.enable === false ? 'No' : 'Yes', displayJobStatus(job.Job_Last_Status),
     ],
   }
@@ -67,20 +67,12 @@ const nextRowId = () => (rowSequence += 1)
 const placeholderFormat = 'Select Format'
 function toMappingRow(row: ApiMappingRow & { mapping?: string }): MappingRow { const format = row.format === placeholderFormat ? '' : row.format ?? ''; const mapping = row.mapping ?? row.mappingColumn ?? ''; return { id: nextRowId(), field: row.field ?? '', startPosition: row.startPosition ?? '', length: row.length ?? '', recordType: row.recordType ?? '', defaultValue: row.defaultValue ?? '', mapping, format } }
 function normalizeMappingRows(rows: ApiMappingRow[] = []): MappingRow[] { return rows.map((row) => toMappingRow(row)) }
-const newMappingRow = (): MappingRow => toMappingRow({ startPosition: '0', length: '0' })
 const newSubscription = (): Subscription => ({ id: nextRowId(), client: '', email: '', baseClient: '' })
 const toSubscription = (row: ApiSubscription): Subscription => ({ id: nextRowId(), client: row.client ?? '', email: row.email ?? '', baseClient: row.client ?? '', companyId: row.companyId ?? undefined })
-const makeInitialMappings = (): MappingRow[] => []
 const scheduleDefaults: Omit<ScheduleValues, 'startDate'> = {
   buildFrequency: 'Weekly', hour: '4', minute: '00', meridiem: 'AM', week: 'Thursday',
 }
-
-function createDefaultSchedule(): ScheduleValues {
-  const today = new Date()
-  const month = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate()).padStart(2, '0')
-  return { ...scheduleDefaults, startDate: `${today.getFullYear()}-${month}-${day}` }
-}
+const emptySchedule: ScheduleValues = { startDate: '', buildFrequency: '', hour: '', minute: '', meridiem: '', week: '' }
 const emptyFileSettings: FileSettingsValues = { sortingOrder: [], conditionalStatements: [] }
 const defaultNewReportSource: ReportSource = 'companyPayroll'
 const addPaths: Record<Screen, string> = { dashboard: '/retirement-builder', general: '/jobs/new', schedule: '/jobs/new/schedule', mapping: '/jobs/new/mapping', subscriptions: '/jobs/new/subscriptions', placeholder: '/placeholder' }
@@ -89,10 +81,11 @@ const editPaths: Record<Screen, string> = { dashboard: '/retirement-builder', ge
 function screenFromPath(path: string): Screen { if (path === '/retirement-builder') return 'dashboard'; if (path === '/jobs/new' || path === '/jobs/edit/general') return 'general'; if (path === '/jobs/new/schedule' || path === '/jobs/edit/schedule') return 'schedule'; if (path === '/jobs/new/mapping' || path === '/jobs/edit/mapping') return 'mapping'; if (path === '/jobs/new/subscriptions' || path === '/jobs/edit/subscriptions') return 'subscriptions'; return 'placeholder' }
 
 function SearchableSelect({
-  options, defaultValue = '', value: controlledValue, onValueChange, ariaLabel, errorId,
+  options, optionLabels, defaultValue = '', value: controlledValue, onValueChange, ariaLabel, errorId,
   clearLabel, allowCustom = false, includeSavedOption = true, canAddCustom, searchPlaceholder,
 }: {
   options: string[]
+  optionLabels?: Record<string, string>
   defaultValue?: string
   value?: string
   onValueChange?: (value: string) => void
@@ -112,11 +105,12 @@ function SearchableSelect({
     ...(includeSavedOption && controlledValue ? [controlledValue] : []),
     ...apiOptions,
   ])]
+  const optionLabel = (option: string) => option ? optionLabels?.[option] ?? option : clearLabel ?? ''
   const search = query.trim()
   const customOption = allowCustom && search && (canAddCustom?.(search) ?? true) &&
     !effectiveOptions.some((option) => option.toLowerCase() === search.toLowerCase())
     ? search : ''
-  const filteredOptions = effectiveOptions.filter((option) => (option || clearLabel || '').toLowerCase().includes(search.toLowerCase()))
+  const filteredOptions = effectiveOptions.filter((option) => optionLabel(option).toLowerCase().includes(search.toLowerCase()))
   if (customOption) filteredOptions.push(customOption)
   useEffect(() => { const close = (event: MouseEvent) => { if (!root.current?.contains(event.target as Node) && !menu.current?.contains(event.target as Node)) { setOpen(false); setQuery('') } }; document.addEventListener('mousedown', close); return () => document.removeEventListener('mousedown', close) }, [])
   useLayoutEffect(() => { if (!open) return undefined; const position = () => { const rect = root.current?.getBoundingClientRect(); if (!rect) return; const width = Math.min(Math.max(rect.width, 320), window.innerWidth - 16); const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)); const availableBelow = window.innerHeight - rect.bottom - 8; const availableAbove = rect.top - 8; const openUp = availableBelow < 340 && availableAbove > availableBelow; const maxHeight = Math.max(150, Math.min(270, openUp ? availableAbove : availableBelow)); setMenuStyle({ position: 'fixed', zIndex: 1000, left, width, maxWidth: 'calc(100vw - 16px)', maxHeight, ...(openUp ? { top: 'auto', bottom: window.innerHeight - rect.top + 5 } : { top: rect.bottom + 5, bottom: 'auto' }) }) }; position(); window.addEventListener('resize', position); window.addEventListener('scroll', position, true); return () => { window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true) } }, [open])
@@ -126,7 +120,7 @@ function SearchableSelect({
   const openMenu = () => { setQuery(''); setActiveIndex(Math.max(0, effectiveOptions.indexOf(value))); setOpen(true) }
   const onTriggerKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => { if (!open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) { event.preventDefault(); openMenu() } }
   const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => { if (event.key === 'Escape') { event.preventDefault(); closeMenu(true) } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); if (filteredOptions.length) setActiveIndex((index) => (index + (event.key === 'ArrowDown' ? 1 : -1) + filteredOptions.length) % filteredOptions.length) } else if (event.key === 'Enter' && (event.target as HTMLElement).tagName === 'INPUT') { event.preventDefault(); const option = filteredOptions[activeIndex]; if (option !== undefined) choose(option, true) } }
-  return <span className="searchable-select" ref={root}><button type="button" ref={trigger} className="searchable-select-trigger" aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined} aria-label={ariaLabel} aria-invalid={!!errorId} aria-describedby={errorId} onKeyDown={onTriggerKeyDown} onClick={() => { if (open) setOpen(false); else openMenu() }}><span className={value ? '' : 'placeholder'}>{value || clearLabel || 'Select Format'}</span><span className="select-chevron" aria-hidden="true">⌄</span></button>{open && createPortal(<div className="searchable-select-menu" id={listId} ref={menu} style={menuStyle} role="listbox" onKeyDown={onMenuKeyDown}><input autoFocus className="searchable-select-search" value={query} onChange={(event) => { setQuery(event.target.value); setActiveIndex(0) }} placeholder={searchPlaceholder ?? (allowCustom ? "Search or enter a source column…" : "Search…")} maxLength={allowCustom ? 255 : undefined} aria-label={`Search ${ariaLabel}`} aria-controls={listId} aria-activedescendant={filteredOptions.length ? `${listId}-${activeIndex}` : undefined} />{filteredOptions.length ? filteredOptions.map((option, index) => <button type="button" role="option" id={`${listId}-${index}`} data-active={index === activeIndex} aria-selected={option === value} className={`searchable-select-option ${option === value ? 'selected' : ''} ${index === activeIndex ? 'active' : ''}`} key={option} onClick={() => choose(option, true)}>{option && option === customOption ? `Use “${option}”` : option || clearLabel}</button>) : <span className="searchable-select-empty">{runtimeOptionsError || (runtimeOptionsLoading ? 'Loading options…' : 'No matches')}</span>}</div>, document.body)}</span>
+  return <span className="searchable-select" ref={root}><button type="button" ref={trigger} className="searchable-select-trigger" aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined} aria-label={ariaLabel} aria-invalid={!!errorId} aria-describedby={errorId} onKeyDown={onTriggerKeyDown} onClick={() => { if (open) setOpen(false); else openMenu() }}><span className={value ? '' : 'placeholder'}>{optionLabel(value) || 'Select Format'}</span><span className="select-chevron" aria-hidden="true">⌄</span></button>{open && createPortal(<div className="searchable-select-menu" id={listId} ref={menu} style={menuStyle} role="listbox" onKeyDown={onMenuKeyDown}><input autoFocus className="searchable-select-search" value={query} onChange={(event) => { setQuery(event.target.value); setActiveIndex(0) }} placeholder={searchPlaceholder ?? (allowCustom ? "Search or enter a source column…" : "Search…")} maxLength={allowCustom ? 255 : undefined} aria-label={`Search ${ariaLabel}`} aria-controls={listId} aria-activedescendant={filteredOptions.length ? `${listId}-${activeIndex}` : undefined} />{filteredOptions.length ? filteredOptions.map((option, index) => <button type="button" role="option" id={`${listId}-${index}`} data-active={index === activeIndex} aria-selected={option === value} className={`searchable-select-option ${option === value ? 'selected' : ''} ${index === activeIndex ? 'active' : ''}`} key={option} onClick={() => choose(option, true)}>{option && option === customOption ? `Use “${option}”` : optionLabel(option)}</button>) : <span className="searchable-select-empty">{runtimeOptionsError || (runtimeOptionsLoading ? 'Loading options…' : 'No matches')}</span>}</div>, document.body)}</span>
 }
 
 const subscriptionEmails = (row: Subscription) => [...new Set([...emailAddresses(row.email), ...emailAddresses(row.emailDraft ?? '')])]
@@ -225,8 +219,8 @@ export default function App({ userEmail }: { userEmail: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 767); const [showSettings, setShowSettings] = useState(false); const [saveError, setSaveError] = useState(''); const [saving, setSaving] = useState(false); const savingRef = useRef(false)
   const [enable, setEnable] = useState(initialDraft?.enable ?? true); const [fileName, setFileName] = useState(initialDraft?.fileName ?? ''); const [fileFormat, setFileFormat] = useState(displayFileFormat(initialDraft?.fileFormat)); const [description, setDescription] = useState(initialDraft?.description ?? ''); const [outputFileNameFormat, setOutputFileNameFormat] = useState(initialDraft?.outputFileNameFormat ?? ''); const [storeResultsToTable, setStoreResultsToTable] = useState(initialDraft?.storeResultsToTable ?? false); const [selectedFile, setSelectedFile] = useState(initialDraft?.selectedFile ?? '')
   const [reportSource, setReportSource] = useState<ReportSource>(initialDraft?.reportSource ?? (isEditFlow ? 'csv' : defaultNewReportSource))
-  const [schedule, setSchedule] = useState<ScheduleValues>(() => initialDraft?.schedule ?? createDefaultSchedule()); const [includeHeader, setIncludeHeader] = useState(initialDraft?.includeHeader ?? true); const [mappingRows, setMappingRows] = useState<MappingRow[]>(() => initialDraft?.mappingRows ?? makeInitialMappings()); const [fileSettings, setFileSettings] = useState<FileSettingsValues>(initialDraft?.fileSettings ?? emptyFileSettings)
-  const [mergeFiles, setMergeFiles] = useState(initialDraft?.mergeFiles ?? false); const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => initialDraft?.subscriptions ?? [newSubscription()])
+  const [schedule, setSchedule] = useState<ScheduleValues>(initialDraft?.schedule ?? emptySchedule); const [includeHeader, setIncludeHeader] = useState(initialDraft?.includeHeader ?? false); const [mappingRows, setMappingRows] = useState<MappingRow[]>(initialDraft?.mappingRows ?? []); const [fileSettings, setFileSettings] = useState<FileSettingsValues>(initialDraft?.fileSettings ?? emptyFileSettings)
+  const [mergeFiles, setMergeFiles] = useState(initialDraft?.mergeFiles ?? false); const [subscriptions, setSubscriptions] = useState<Subscription[]>(initialDraft?.subscriptions ?? [])
   const [retirementJobs, setRetirementJobs] = useState<RetirementBuilderApiJob[]>([]); const [jobsStatus, setJobsStatus] = useState<JobsStatus>('loading'); const [selectedJobId, setSelectedJobId] = useState<number | null>(initialDraft?.jobId ?? null); const [filters, setFilters] = useState<TableFilters>({}); const [options, setOptions] = useState({ values: emptyOptions, loading: true, error: '' })
   const [validatedSteps, setValidatedSteps] = useState<Partial<Record<Screen, boolean>>>({})
   const [uploadError, setUploadError] = useState('')
@@ -235,14 +229,18 @@ export default function App({ userEmail }: { userEmail: string }) {
   const createAttempt = useRef<CreateAttempt | null>(null)
   const generalErrors = generalFieldErrors(fileName, fileFormat)
   const invalidGeneral = Object.values(generalErrors).some(Boolean)
+  const manualOnlyDraft = !Object.values(schedule).some(Boolean)
   const scheduleErrors = {
     startDate: schedule.startDate && (!/^\d{4}-/.test(schedule.startDate) || schedule.startDate < earliestStartDate)
       ? 'Choose a date between 1753-01-01 and 9999-12-31.' : '',
+    buildFrequency: schedule.buildFrequency ? '' : 'Select a build frequency.',
     hour: validWholeNumber(schedule.hour, 1, 12) ? '' : 'Select an hour from 1 to 12.',
     minute: validWholeNumber(schedule.minute, 0, 59) ? '' : 'Select a minute from 00 to 59.',
+    meridiem: schedule.meridiem ? '' : 'Select AM or PM.',
+    week: !schedule.week && ['Weekly', 'Bi-Weekly'].includes(schedule.buildFrequency) ? 'Select a day of the week.' : '',
   }
   const invalidMapping = !mappingRows.length || mappingRows.some((row) =>
-    !row.field.trim() || !validWholeNumber(row.startPosition) || !validWholeNumber(row.length))
+    !row.field.trim() || [row.startPosition, row.length].some((value) => value.trim() && !validWholeNumber(value)))
   const awaitingJob = isWizard && isEditFlow && selectedJobId === null
   useEffect(() => {
     const controller = new AbortController()
@@ -290,7 +288,7 @@ export default function App({ userEmail }: { userEmail: string }) {
 
   const validateBefore = (target: number, edit = isEditFlow) => {
     if (target > 0 && importing) return false
-    const invalid = [invalidGeneral, Object.values(scheduleErrors).some(Boolean), invalidMapping]
+    const invalid = [invalidGeneral, !manualOnlyDraft && Object.values(scheduleErrors).some(Boolean), invalidMapping]
     const index = invalid.findIndex((failed, step) => failed && step < target)
     if (index === -1) return true
     const step = wizardSteps[index]
@@ -328,7 +326,7 @@ export default function App({ userEmail }: { userEmail: string }) {
         setUploadError('The first worksheet has no mapping fields. Add fields and try again.')
         return
       }
-      setMappingRows(fields.map((field) => toMappingRow({ ...field, startPosition: '0', length: '0' })))
+      setMappingRows(fields.map((field) => toMappingRow(isEditFlow ? { ...field, startPosition: '0', length: '0' } : field)))
       setSelectedFile(file.name)
     } catch {
       if (request === uploadRequest.current) setUploadError('Unable to read this workbook. Open it in Excel, save a valid copy, and try again.')
@@ -336,8 +334,15 @@ export default function App({ userEmail }: { userEmail: string }) {
       if (request === uploadRequest.current) setImporting(false)
     }
   }
-  const resetForm = () => { setSelectedJobId(null); setSaveError(''); setEnable(true); setFileName(''); setFileFormat(''); setDescription(''); setOutputFileNameFormat(''); setStoreResultsToTable(false); setSelectedFile(''); setReportSource(defaultNewReportSource); setSchedule(createDefaultSchedule()); setIncludeHeader(true); setMergeFiles(false); setSubscriptions([newSubscription()]); setMappingRows(makeInitialMappings()); setFileSettings(emptyFileSettings) }
-  const loadJob = (job: RetirementBuilderApiJob) => { const general = job.general ?? {}; const jobSchedule = job.schedule ?? {}; setSelectedJobId(job.id); setSaveError(''); setEnable(general.enable !== false); setFileName(general.fileName ?? ''); setFileFormat(displayFileFormat(general.fileFormat)); setDescription(general.description ?? ''); setOutputFileNameFormat(general.outputFileNameFormat ?? ''); setStoreResultsToTable(Boolean(general.storeResultsToTable)); setSelectedFile(general.selectedFile ?? ''); setReportSource(general.reportSource ?? 'csv'); setSchedule({ startDate: jobSchedule.startDate ?? '', buildFrequency: jobSchedule.buildFrequency ?? scheduleDefaults.buildFrequency, hour: jobSchedule.hour ?? scheduleDefaults.hour, minute: jobSchedule.minute ?? scheduleDefaults.minute, meridiem: jobSchedule.meridiem ?? scheduleDefaults.meridiem, week: jobSchedule.week ?? scheduleDefaults.week }); setIncludeHeader(job.mapping?.includeHeader ?? true); setMappingRows(normalizeMappingRows(job.mapping?.rows ?? [])); setMergeFiles(Boolean(job.subscriptions?.mergeFiles)); setSubscriptions((job.subscriptions?.rows ?? []).map(toSubscription)); setFileSettings({ sortingOrder: (job.fileSettings?.sortingOrder ?? []).map((row) => ({ orderBy: row.orderBy ?? '', mappingColumn: row.mappingColumn ?? '', direction: row.direction ?? 'ASC' })), conditionalStatements: (job.fileSettings?.conditionalStatements ?? []).map((row) => ({ mappingColumn: row.mappingColumn ?? '', condition: row.condition ?? '', value: row.value ?? '' })) }) }
+  const resetForm = () => { setSelectedJobId(null); setSaveError(''); setEnable(true); setFileName(''); setFileFormat(''); setDescription(''); setOutputFileNameFormat(''); setStoreResultsToTable(false); setSelectedFile(''); setReportSource(defaultNewReportSource); setSchedule(emptySchedule); setIncludeHeader(false); setMergeFiles(false); setSubscriptions([]); setMappingRows([]); setFileSettings(emptyFileSettings) }
+  const loadJob = (job: RetirementBuilderApiJob) => { const general = job.general ?? {}; const jobSchedule = job.schedule ?? {}; setSelectedJobId(job.id); setSaveError(''); setEnable(general.enable !== false); setFileName(general.fileName ?? ''); setFileFormat(displayFileFormat(general.fileFormat)); setDescription(general.description ?? ''); setOutputFileNameFormat(general.outputFileNameFormat ?? ''); setStoreResultsToTable(Boolean(general.storeResultsToTable)); setSelectedFile(general.selectedFile ?? ''); setReportSource(general.reportSource ?? 'csv'); setSchedule(jobSchedule.startDate === null ? emptySchedule : {
+      startDate: jobSchedule.startDate ?? '',
+      buildFrequency: jobSchedule.buildFrequency ?? scheduleDefaults.buildFrequency,
+      hour: jobSchedule.hour ?? scheduleDefaults.hour,
+      minute: jobSchedule.minute ?? scheduleDefaults.minute,
+      meridiem: jobSchedule.meridiem ?? scheduleDefaults.meridiem,
+      week: jobSchedule.week ?? scheduleDefaults.week,
+    }); setIncludeHeader(job.mapping?.includeHeader ?? true); setMappingRows(normalizeMappingRows(job.mapping?.rows ?? [])); setMergeFiles(Boolean(job.subscriptions?.mergeFiles)); setSubscriptions((job.subscriptions?.rows ?? []).map(toSubscription)); setFileSettings({ sortingOrder: (job.fileSettings?.sortingOrder ?? []).map((row) => ({ orderBy: row.orderBy ?? '', mappingColumn: row.mappingColumn ?? '', direction: row.direction ?? 'ASC' })), conditionalStatements: (job.fileSettings?.conditionalStatements ?? []).map((row) => ({ mappingColumn: row.mappingColumn ?? '', condition: row.condition ?? '', value: row.value ?? '' })) }) }
   const startAdd = () => {
     clearCreateAttempt()
     setValidatedSteps({})
@@ -367,9 +372,9 @@ export default function App({ userEmail }: { userEmail: string }) {
 
     const body = JSON.stringify({
       general: { fileName, fileFormat, description, outputFileNameFormat, enable, storeResultsToTable, reportSource },
-      schedule: { ...schedule, startDate: schedule.startDate || null },
+      schedule: manualOnlyDraft ? { startDate: null } : { ...schedule, startDate: schedule.startDate || null, week: schedule.week || undefined },
       mapping: { includeHeader, rows: mappingRows.map(({ field, startPosition, length, recordType, defaultValue, mapping, format }) => ({
-        field, startPosition, length, recordType, defaultValue, mappingColumn: mapping, format,
+        field, startPosition: startPosition.trim() || '0', length: length.trim() || '0', recordType, defaultValue, mappingColumn: mapping, format,
       })) },
       subscriptions: { mergeFiles, rows: subscriptionRows.map((row, index) => ({
         client: String(clientIds[index]), companyId: row.companyId, email: emails[index].join(', '),
@@ -409,7 +414,7 @@ export default function App({ userEmail }: { userEmail: string }) {
   }
   const updateFilter = (index: number, value: string) => setFilters((current) => value ? { ...current, [index]: value } : Object.fromEntries(Object.entries(current).filter(([key]) => Number(key) !== index)))
   const updateMappingRow = (id: number, patch: Partial<MappingRow>) => setMappingRows((rows) => rows.map((row) => row.id === id ? { ...row, ...patch } : row))
-  const addMappingRow = () => setMappingRows((rows) => [...rows, newMappingRow()])
+  const addMappingRow = () => setMappingRows((rows) => [...rows, toMappingRow(isEditFlow ? { startPosition: '0', length: '0' } : {})])
   const pageTitle = screen === 'placeholder' ? menuTitles[location.pathname] ?? '' : 'Retirement Builder'; const title = screen === 'dashboard' || screen === 'placeholder' ? '' : isEditFlow ? 'Edit Job' : 'Add New Job'; const userName = userEmail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
   const content = (() => {
     if (screen === 'dashboard') return <Dashboard jobs={retirementJobs.map(toDashboardJob)} status={jobsStatus} filters={filters} onFilterChange={updateFilter} onAdd={startAdd} onEdit={startEdit}
@@ -451,7 +456,7 @@ export default function App({ userEmail }: { userEmail: string }) {
       onBack={() => navigate('mapping')} onFinish={saveJob}
     />
   })()
-  return <OptionsContext.Provider value={options}><div className={`app-shell ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}><header className="topbar"><div className="brand">ESC</div><button className="menu-button" onClick={() => setSidebarOpen((open) => !open)} aria-label="Toggle navigation">☰</button><div className="user-name">{userName}</div></header><div className="workspace"><Sidebar active={screen} onNavigate={navigate} onNavigatePath={routerNavigate} /><main className="main-content"><div className="page-heading"><h1>{pageTitle}</h1><div className="breadcrumb"><CircleDot className="breadcrumb-icon" aria-hidden="true" /><button type="button" className="breadcrumb-link" onClick={() => navigate('dashboard')}>SYD</button><ChevronRight className="breadcrumb-chevron" aria-hidden="true" /><span>{title}</span></div></div>{screen === 'dashboard' || screen === 'placeholder' ? content : <WizardCard title={title} activeStep={screen} onCancel={() => navigate('dashboard')} onNavigate={navigate} headerActions={screen === 'mapping' ? <button type="button" className="button button-primary" onClick={addMappingRow}><span className="button-icon"><ToolIcon name="plus" /></span>Add Dataset</button> : screen === 'general' && isEditFlow ? <button type="button" className="button button-light" onClick={() => navigate('dashboard')}>Cancel</button> : undefined}>{content}</WizardCard>}<footer><span>Copyright © 2026</span><strong>Employer Services Corporation.</strong><span>All rights reserved.</span></footer></main></div>{showSettings && <FileSettingsModal reportSource={reportSource} mappingRows={mappingRows} initialSorting={fileSettings.sortingOrder} initialConditional={fileSettings.conditionalStatements} onSave={(sortingOrder, conditionalStatements) => { setFileSettings({ sortingOrder, conditionalStatements }); setShowSettings(false) }} onClose={() => setShowSettings(false)} />}</div></OptionsContext.Provider>
+  return <OptionsContext.Provider value={options}><div className={`app-shell ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}><header className="topbar"><div className="brand">ESC</div><button className="menu-button" onClick={() => setSidebarOpen((open) => !open)} aria-label="Toggle navigation">☰</button><div className="user-name">{userName}</div></header><div className="workspace"><Sidebar active={screen} onNavigate={navigate} onNavigatePath={routerNavigate} /><main className="main-content"><div className="page-heading"><h1>{pageTitle}</h1><div className="breadcrumb"><CircleDot className="breadcrumb-icon" aria-hidden="true" /><button type="button" className="breadcrumb-link" onClick={() => navigate('dashboard')}>SYD</button><ChevronRight className="breadcrumb-chevron" aria-hidden="true" /><span>{title}</span></div></div>{screen === 'dashboard' || screen === 'placeholder' ? content : <WizardCard title={title} activeStep={screen} onCancel={() => navigate('dashboard')} onNavigate={navigate} headerActions={screen === 'mapping' ? <button type="button" className="button button-primary" onClick={addMappingRow}><span className="button-icon"><ToolIcon name="plus" /></span>Add Dataset</button> : screen === 'general' && isEditFlow ? <button type="button" className="button button-light" onClick={() => navigate('dashboard')}>Cancel</button> : undefined}>{content}</WizardCard>}<footer><span>Copyright © 2026</span><strong>Employer Services Corporation.</strong><span>All rights reserved.</span></footer></main></div>{showSettings && <FileSettingsModal isEdit={isEditFlow} reportSource={reportSource} mappingRows={mappingRows} initialSorting={fileSettings.sortingOrder} initialConditional={fileSettings.conditionalStatements} onSave={(sortingOrder, conditionalStatements) => { setFileSettings({ sortingOrder, conditionalStatements }); setShowSettings(false) }} onClose={() => setShowSettings(false)} />}</div></OptionsContext.Provider>
 }
 
 function MenuIcon({ name }: { name: SideIcon }) { if (name === 'file') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.5h9l5 5V20.5H5z" /><path d="M14 3.5v5h5" /></svg>; if (name === 'copy') return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6.5" width="11" height="13" rx="1.5" /><path d="M8 6.5V4.8A1.8 1.8 0 0 1 9.8 3h9a1.8 1.8 0 0 1 1.8 1.8v9A1.8 1.8 0 0 1 18.8 15H15" /></svg>; return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.7 3.2 3.2-.7L18.8 6.7a2.2 2.2 0 0 0-3.1-3.1z" /><path d="m14.7 5.3 4 4" /></svg> }
@@ -627,8 +632,10 @@ function GeneralStep({
         <label className="general-field general-field-full">Description<textarea value={description} onChange={(event) => onDescriptionChange(event.target.value)} /></label>
         <div className="general-field general-field-full">
           <span>Output File Name Format</span>
-          <SearchableSelect options={values.outputFileNameFormats} value={outputFileNameFormat} onValueChange={onOutputFileNameFormatChange} ariaLabel="Output file name format" />
-          {reportSource === 'companyPayroll' && outputFileNameFormat.includes('Client ID') &&
+          <SearchableSelect options={values.outputFileNameFormats.map((option) => option.value)}
+            optionLabels={Object.fromEntries(values.outputFileNameFormats.map((option) => [option.value, option.label]))}
+            value={outputFileNameFormat} onValueChange={onOutputFileNameFormatChange} ariaLabel="Output file name format" />
+          {reportSource === 'companyPayroll' && outputFileNameFormat.split('_').includes('CLIENT') &&
             <small className="general-field-help">Client ID uses the payroll company ID in file names.</small>}
         </div>
       </div>
@@ -665,7 +672,7 @@ function GeneralStep({
 
 function ScheduleStep({ schedule, errors, onChange, onBack, onNext }: {
   schedule: ScheduleValues
-  errors?: { startDate: string; hour: string; minute: string }
+  errors?: Record<keyof ScheduleValues, string>
   onChange: (patch: Partial<ScheduleValues>) => void
   onBack: () => void
   onNext: () => void
@@ -677,23 +684,33 @@ function ScheduleStep({ schedule, errors, onChange, onBack, onNext }: {
         <div className="schedule-field">
           <label htmlFor="retirement-start-date">Start Date</label>
           <input id="retirement-start-date" type="date" min={earliestStartDate} max="9999-12-31" value={schedule.startDate}
-            aria-invalid={!!errors?.startDate} aria-describedby={errors?.startDate ? 'retirement-start-date-error' : undefined}
+            aria-invalid={!!errors?.startDate} aria-describedby={errors?.startDate ? 'retirement-start-date-help retirement-start-date-error' : 'retirement-start-date-help'}
             onInput={(event) => onChange({ startDate: event.currentTarget.value })}
             onChange={(event) => onChange({ startDate: event.currentTarget.value })} />
+          <small id="retirement-start-date-help" className="general-field-help">Leave the schedule blank for manual runs only.</small>
           <FieldError id="retirement-start-date-error" message={errors?.startDate} />
         </div>
-        <label className="schedule-field">Build Frequency<SearchableSelect options={[]} value={schedule.buildFrequency} onValueChange={(buildFrequency) => onChange({ buildFrequency })} ariaLabel="Build frequency" /></label>
+        <label className="schedule-field">Build Frequency
+          <SearchableSelect options={[]} value={schedule.buildFrequency} onValueChange={(buildFrequency) => onChange({ buildFrequency })} ariaLabel="Build frequency"
+            clearLabel="Select frequency" errorId={errors?.buildFrequency ? 'retirement-frequency-error' : undefined} />
+          <FieldError id="retirement-frequency-error" message={errors?.buildFrequency} />
+        </label>
         <fieldset className="schedule-time-field">
           <legend>Time</legend>
           <div className="time-row">
-            <SearchableSelect options={[]} value={schedule.hour} onValueChange={(hour) => onChange({ hour })} ariaLabel="Hour" errorId={errors?.hour ? 'retirement-hour-error' : undefined} />
-            <SearchableSelect options={[]} value={schedule.minute} onValueChange={(minute) => onChange({ minute })} ariaLabel="Minute" errorId={errors?.minute ? 'retirement-minute-error' : undefined} />
-            <SearchableSelect options={[]} value={schedule.meridiem} onValueChange={(meridiem) => onChange({ meridiem })} ariaLabel="AM or PM" />
+            <SearchableSelect options={[]} value={schedule.hour} onValueChange={(hour) => onChange({ hour })} ariaLabel="Hour" clearLabel="Select hour" errorId={errors?.hour ? 'retirement-hour-error' : undefined} />
+            <SearchableSelect options={[]} value={schedule.minute} onValueChange={(minute) => onChange({ minute })} ariaLabel="Minute" clearLabel="Select minute" errorId={errors?.minute ? 'retirement-minute-error' : undefined} />
+            <SearchableSelect options={[]} value={schedule.meridiem} onValueChange={(meridiem) => onChange({ meridiem })} ariaLabel="AM or PM" clearLabel="Select AM or PM" errorId={errors?.meridiem ? 'retirement-meridiem-error' : undefined} />
           </div>
           <FieldError id="retirement-hour-error" message={errors?.hour} />
           <FieldError id="retirement-minute-error" message={errors?.minute} />
+          <FieldError id="retirement-meridiem-error" message={errors?.meridiem} />
         </fieldset>
-        <label className="schedule-field schedule-field-full">Week<SearchableSelect options={[]} value={schedule.week} onValueChange={(week) => onChange({ week })} ariaLabel="Week" /></label>
+        <label className="schedule-field schedule-field-full">Week
+          <SearchableSelect options={[]} value={schedule.week} onValueChange={(week) => onChange({ week })} ariaLabel="Week"
+            clearLabel="Select day" errorId={errors?.week ? 'retirement-week-error' : undefined} />
+          <FieldError id="retirement-week-error" message={errors?.week} />
+        </label>
       </div>
     </div>
     <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onNext}>Next</button></div>
@@ -704,7 +721,7 @@ function MappingNumber({ label, value, onChange, validate }: {
   label: string; value: string; onChange: (value: string) => void; validate: boolean
 }) {
   const errorId = useId()
-  const invalid = validate && !validWholeNumber(value)
+  const invalid = validate && !!value.trim() && !validWholeNumber(value)
   return <><input aria-label={label} value={value} inputMode="numeric" aria-invalid={invalid}
     aria-describedby={invalid ? errorId : undefined} onChange={(event) => onChange(event.target.value)} />
     <FieldError id={errorId} message={invalid ? 'Enter a whole number from 0 to 2147483647.' : undefined} /></>
@@ -839,7 +856,8 @@ function SubscriptionsStep({
     <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onFinish} disabled={saving}>Finish</button></div>
   </div>
 }
-function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialConditional, onSave, onClose }: {
+function FileSettingsModal({ isEdit, reportSource, mappingRows, initialSorting, initialConditional, onSave, onClose }: {
+  isEdit: boolean
   reportSource: ReportSource
   mappingRows: MappingRow[]
   initialSorting: SortingRow[]
@@ -861,8 +879,8 @@ function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialC
   closeRef.current = onClose
 
   const saveRows = () => {
-    if (sortingRows.some((row) => !row[1]?.trim())) {
-      setSortError('Choose a mapping column for each sort rule.')
+    if (sortingRows.some(([direction, column]) => !direction || !column.trim())) {
+      setSortError('Choose a sort direction and a mapping column for each sort rule.')
       return
     }
     if (conditionalRows.some(([column, condition, value]) =>
@@ -921,9 +939,10 @@ function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialC
         sortDirections={values.sortDirections}
         rows={sortingRows}
         onAdd={() => setSortingRows((rows) => {
+          const direction = isEdit ? 'ASC' : ''
           const nextPriority = rows.reduce((max, row) => Math.max(max, Number(row[2])), 0) + 1
-          if (nextPriority <= 2147483647) return [...rows, ['ASC', '', String(nextPriority)]]
-          return [...rows, ['ASC', '', '']].map(([direction, column], index) => [direction, column, String(index + 1)])
+          if (nextPriority <= 2147483647) return [...rows, [direction, '', String(nextPriority)]]
+          return [...rows, [direction, '', '']].map(([sortDirection, column], index) => [sortDirection, column, String(index + 1)])
         })}
         onDelete={(index) => { setSortingRows((rows) => rows.filter((_, rowIndex) => rowIndex !== index)); setSortError('') }}
         onChange={(rowIndex, columnIndex, value) => {
@@ -975,6 +994,7 @@ function SettingsTable({ title, description, columns, mappingColumns, sortDirect
           </td>
           if (column === 'Order By') return <td key={column}>
             <select value={value} onChange={(event) => change(event.target.value)} aria-label={label}>
+              <option value="">Select direction</option>
               {sortDirections.map((direction) => <option key={direction} value={direction}>{direction}</option>)}
             </select>
           </td>
