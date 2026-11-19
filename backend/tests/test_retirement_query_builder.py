@@ -172,7 +172,10 @@ class ExportQueryTransactionTests(TestCase):
                     {"mapping_column": "paydate", "mapping_column_desc": "Pay Date", "mapping_column_dt": "date"},
                 ]
                 with (patch.object(rb.engine, "begin") as begin,
-                      patch.object(rb, "_read_full_job", return_value=original),
+                      patch.object(rb, "_read_edit_job", return_value=original),
+                      patch.object(rb, "_execute_query_batch", side_effect=lambda conn, queries: [
+                          conn.execute(*rb._prepared_query(sql, values)) for sql, values in queries
+                      ]),
                       patch.object(rb, "_file_formats", return_value={"CSV": ","})):
                     begin.return_value.__enter__.return_value = connection
                     rb.update_retirement_builder_job(60, payload)
@@ -218,7 +221,11 @@ class ExportQueryTransactionTests(TestCase):
                     with (patch.object(rb.engine, "begin", side_effect=transaction),
                           patch.object(rb, "_file_formats", return_value={"CSV": ","}),
                           patch.object(rb, "_execute_identity_query", return_value=30),
-                          patch.object(rb, "_read_full_job", return_value=result)):
+                          patch.object(rb, "_read_full_job", return_value=result),
+                          patch.object(rb, "_read_edit_job", return_value=result),
+                          patch.object(rb, "_execute_query_batch", side_effect=lambda conn, queries: [
+                              conn.execute(*rb._prepared_query(sql, values)) for sql, values in queries
+                          ])):
                         if fail_insert:
                             with self.assertRaises(HTTPException):
                                 rb.update_retirement_builder_job(30, payload) if updating else rb._create_job(payload)

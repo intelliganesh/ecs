@@ -484,6 +484,37 @@ def _prepared_query(query: str, parameters: dict[str, Any]) -> tuple[Any, dict[s
     return text(query), parameters
 
 
+def _execute_query_batch(connection: Any, queries: list[tuple[str, dict[str, Any]]]) -> None:
+    # Execute the existing statements in order on the caller's transaction.
+    # Compile each separately so repeated bind names keep their own values.
+    statements: list[str] = []
+    values: list[Any] = []
+    cursor = connection.connection.cursor()
+    try:
+        def flush() -> None:
+            if not statements:
+                return
+            cursor.execute(";\n".join(statements), list(values))
+            # Surface errors in later statements before the transaction commits.
+            while cursor.nextset():
+                pass
+            statements.clear()
+            values.clear()
+
+        for query, parameters in queries:
+            statement, bindings = _prepared_query(query, parameters)
+            compiled = statement.compile(dialect=connection.dialect)
+            ordered = [bindings[name] for name in compiled.positiontup]
+            # Stay below SQL Server's 2,100 parameter limit for large mappings.
+            if statements and len(values) + len(ordered) > 2000:
+                flush()
+            statements.append(compiled.string)
+            values.extend(ordered)
+        flush()
+    finally:
+        cursor.close()
+
+
 def _schedule_type(build_frequency: str) -> str:
     return {"Daily": "D", "Weekly": "W", "Bi-Weekly": "B", "Monthly": "M"}.get(build_frequency, "")
 
@@ -892,7 +923,7 @@ def _complete_update_payload(payload: RetirementBuilderJobInput, original: Retir
 
 
 def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJobInput, *,
-                       replace_conditions: bool | None = None) -> None:
+                       replace_conditions: bool | None = None, batch: bool = False) -> None:
     schedule = payload.schedule
     subscriptions = payload.subscriptions
     file_settings = payload.fileSettings
@@ -990,18 +1021,26 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
         if row.recttype in unique_queries and row != unique_queries[row.recttype]:
             _field_error(["queryConfiguration"], "Keep one query per H, D, or T record type.")
         unique_queries[row.recttype] = row
+    pending: list[tuple[str, dict[str, Any]]] = []
+
+    def write(query: str, parameters: dict[str, Any]) -> None:
+        if batch:
+            pending.append((query, parameters))
+        else:
+            connection.execute(*_prepared_query(query, parameters))
+
     for kind in ("H", "D", "T"):
         if kind not in unique_queries:
             continue
         row = unique_queries[kind]
-        connection.execute(*_prepared_query(QUERY_31, {
+        write(QUERY_31, {
             "jobid": job_id,
             "recttype": row.recttype,
             "Query": row.query,
             "conditionalStmt": row.conditions,
             "sortOrder": row.sortOrder,
-        }))
-    connection.execute(*_prepared_query(QUERY_38, {
+        })
+    write(QUERY_38, {
         "jobid": job_id,
         "jobName": general.fileName,
         "startDateTime": _start_datetime(schedule),
@@ -1015,9 +1054,9 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
         "schedule_hr": _integer(schedule.hour),
         "schedule_min": _integer(schedule.minute),
         "schedule_session": schedule.meridiem,
-    }))
+    })
     for row in mappings:
-        connection.execute(*_prepared_query(QUERY_35, {
+        write(QUERY_35, {
             "jobid": job_id,
             "jobclientcolumn": row.field,
             "jobfieldmapping": row.mappingColumn,
@@ -1028,28 +1067,30 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
             "field_len": _integer(row.length),
             "datasetNo": row.dataSetNo,
             "colSeqNo": row.colSeqNo,
-        }))
+        })
     for row, client_id in zip(subscriptions.rows, subscription_ids, strict=True):
-        connection.execute(*_prepared_query(QUERY_37, {
+        write(QUERY_37, {
             "jobid": job_id,
             "jobclientid": client_id,
             "jobemailind": row.email,
-        }))
+        })
     for priority, row in enumerate(sorting, start=1):
-        connection.execute(*_prepared_query(QUERY_54, {
+        write(QUERY_54, {
             "jobid": job_id,
             "order": priority,
             "mapping": row.mappingColumn.strip(),
-        }))
+        })
     for row in file_settings.conditionalStatements:
         date_value = condition_date(row.value)
-        connection.execute(*_prepared_query(QUERY_55, {
+        write(QUERY_55, {
             "jobid": job_id,
             "mapping": row.mappingColumn,
             # Keep the numeric storage contract and distinguish dates from numeric thresholds.
             "Symbol": f"{DATE_CONDITION_PREFIX}{row.condition}" if date_value else row.condition,
             "val": date_value.isoformat().replace("-", "") if date_value else row.value,
-        }))
+        })
+    if batch:
+        _execute_query_batch(connection, pending)
 
 
 @router.get("/options", response_model=RetirementBuilderOptions)
@@ -1183,7 +1224,7 @@ def update_retirement_builder_job(job_id: int, payload: RetirementBuilderJobInpu
     _validate_payload(payload)
     try:
         with engine.begin() as connection:
-            existing = _read_full_job(connection, job_id)
+            existing = _read_edit_job(connection, job_id)
             if existing is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Retirement Builder job not found")
             effective_payload = _complete_update_payload(payload, existing)
@@ -1213,11 +1254,11 @@ def update_retirement_builder_job(job_id: int, payload: RetirementBuilderJobInpu
             replace_conditions = "conditionalStatements" in payload.fileSettings.model_fields_set and bool(
                 effective_payload.fileSettings.conditionalStatements or existing.fileSettings.conditionalStatements
             )
-            _write_job_details(connection, job_id, effective_payload, replace_conditions=replace_conditions)
-            updated = _read_full_job(connection, job_id, file_formats=file_formats)
+            _write_job_details(connection, job_id, effective_payload, replace_conditions=replace_conditions, batch=True)
+            updated = _read_edit_job(connection, job_id)
     except HTTPException:
         raise
-    except (SQLAlchemyError, RuntimeError, ValueError) as exc:
+    except (SQLAlchemyError, OdbcError, RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=500, detail="Unable to update Retirement Builder job in the database") from exc
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Retirement Builder job not found")

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, Mock, patch
 from uuid import uuid4
 
 from fastapi import HTTPException
+from pyodbc import Error as OdbcError
 from pydantic import ValidationError
 from sqlalchemy.dialects import mssql
 from sqlalchemy.exc import SQLAlchemyError
@@ -887,7 +888,7 @@ class ConfigurationSaveTests(TestCase):
         })
         saved = rb.RetirementBuilderJob(id=60, **payload.model_dump())
         with (patch.object(rb.engine, "begin") as begin,
-              patch.object(rb, "_read_full_job", return_value=saved),
+              patch.object(rb, "_read_edit_job", return_value=saved) as read,
               patch.object(rb, "_file_formats", return_value={"TAB": "\t", "FIXED": " "}),
               patch.object(rb, "_write_job_details") as details,
               patch.object(rb, "_record_run") as history):
@@ -906,6 +907,8 @@ class ConfigurationSaveTests(TestCase):
         self.assertFalse(compiled.params["StoreResults"])
         self.assertEqual(len(connection.execute.call_args_list), 2)  # Config update + unchanged detail replacement query.
         details.assert_called_once()
+        self.assertTrue(details.call_args.kwargs["batch"])
+        self.assertEqual(read.call_count, 2)
         history.assert_not_called()
 
     def test_create_stores_a_space_for_fixed(self):
@@ -919,6 +922,111 @@ class ConfigurationSaveTests(TestCase):
               patch.object(rb, "_read_full_job", return_value=saved)):
             rb._create_job(payload)
         self.assertEqual(insert.call_args.args[2]["filetype"], " ")
+
+
+class BatchedConfigurationSaveTests(TestCase):
+    def connection(self):
+        connection = Mock()
+        connection.dialect = mssql.dialect(paramstyle="qmark")
+        connection.execute.return_value.mappings.return_value = []
+        connection.connection.cursor.return_value.nextset.return_value = False
+        return connection
+
+    def test_batch_keeps_exact_statements_values_and_order_with_one_write_call(self):
+        payload = input_job(
+            general={"fileName": "O'Brien payroll", "fileFormat": "CSV"},
+            mapping={"rows": [
+                {"field": field, "mappingColumn": key, "recordType": "D", "colSeqNo": index}
+                for index, (field, key) in enumerate([
+                    ("Pay Date", "paydate"), ("Work Phone", "workphone"), ("SSN", "ssn"),
+                    ("Name", "emp_formatted_name"), ("Email", "Workemail"),
+                    ("Earnings", "ytd_ret_elig_earn"), ("Phone", "formatted_phone"),
+                    ("Hire Date", "last_hire_date"),
+                ], 1)
+            ]},
+            subscriptions={"rows": [
+                {"client": "719", "email": "qa@example.invalid"},
+                {"client": "204", "email": "other@example.invalid"},
+            ]},
+            fileSettings={
+                "sortingOrder": [{"orderBy": "2", "mappingColumn": "paydate"},
+                                 {"orderBy": "1", "mappingColumn": "ssn"}],
+                "conditionalStatements": [{"mappingColumn": "paydate", "condition": ">=", "value": "2026-11-01"}],
+            },
+        )
+        sequential = self.connection()
+        rb._write_job_details(sequential, 60, payload)
+        writes = [call.args for call in sequential.execute.call_args_list
+                  if str(call.args[0]).startswith("INSERT")]
+        expected_sql, expected_values = [], []
+        for statement, values in writes:
+            compiled = statement.compile(dialect=sequential.dialect)
+            expected_sql.append(compiled.string)
+            expected_values.extend(values[name] for name in compiled.positiontup)
+
+        batched = self.connection()
+        rb._write_job_details(batched, 60, payload, batch=True)
+        cursor = batched.connection.cursor.return_value
+        self.assertEqual(len(writes), 17)
+        cursor.execute.assert_called_once_with(";\n".join(expected_sql), expected_values)
+        # Only the mapping lookup uses a separate SQLAlchemy execute.
+        self.assertEqual(batched.execute.call_count, 1)
+        self.assertEqual([args[1]["recttype"] for args in writes if "recttype" in args[1]], ["H", "D", "T"])
+        self.assertNotIn("O'Brien payroll", cursor.execute.call_args.args[0])
+        self.assertIn("O'Brien payroll", cursor.execute.call_args.args[1])
+        cursor.close.assert_called_once()
+        batched.connection.commit.assert_not_called()
+
+    def test_large_batch_splits_below_parameter_limit_without_losing_bindings(self):
+        connection = self.connection()
+        queries = [(rb.QUERY_37, {"jobid": 60, "jobclientid": index + 1,
+                                  "jobemailind": "O'Brien@example.invalid"}) for index in range(701)]
+        rb._execute_query_batch(connection, queries)
+        cursor = connection.connection.cursor.return_value
+        self.assertEqual(cursor.execute.call_count, 2)
+        values = []
+        for call in cursor.execute.call_args_list:
+            sql, bound = call.args
+            self.assertLessEqual(len(bound), 2000)
+            self.assertEqual(sql.count("?"), len(bound))
+            values.extend(bound)
+        self.assertEqual(values, [value for _, row in queries for value in row.values()])
+        cursor.close.assert_called_once()
+
+    def test_execute_and_later_result_errors_roll_back_update_and_close_cursor(self):
+        payload = input_job(general={"fileName": "Rollback test", "fileFormat": "CSV"},
+                            mapping={"rows": [{"field": "Name", "recordType": "D"}]})
+        saved = rb.RetirementBuilderJob(id=60, **payload.model_dump())
+        for failing_method in ("execute", "nextset"):
+            with self.subTest(failing_method=failing_method):
+                connection = self.connection()
+                cursor = connection.connection.cursor.return_value
+                getattr(cursor, failing_method).side_effect = OdbcError("Simulated batch failure")
+                with (patch.object(rb.engine, "begin") as begin,
+                      patch.object(rb, "_read_edit_job", return_value=saved) as read,
+                      patch.object(rb, "_file_formats", return_value={"CSV": ","}),
+                      patch.object(rb, "_record_run") as history,
+                      patch.object(rb, "send_subscribed_reports") as send):
+                    transaction = begin.return_value
+                    transaction.__enter__.return_value = connection
+                    transaction.__exit__.return_value = False
+                    with self.assertRaises(HTTPException) as error:
+                        rb.update_retirement_builder_job(60, payload)
+                self.assertEqual(error.exception.status_code, 500)
+                self.assertIs(transaction.__exit__.call_args.args[0], OdbcError)
+                cursor.close.assert_called_once()
+                read.assert_called_once()
+                connection.connection.commit.assert_not_called()
+                history.assert_not_called()
+                send.assert_not_called()
+
+    def test_missing_job_does_not_start_writes(self):
+        with (patch.object(rb.engine, "begin") as begin,
+              patch.object(rb, "_read_edit_job", return_value=None)):
+            with self.assertRaises(HTTPException) as error:
+                rb.update_retirement_builder_job(60, input_job(general={"description": "Missing"}))
+        self.assertEqual(error.exception.status_code, 404)
+        begin.return_value.__enter__.return_value.execute.assert_not_called()
 
 
 class JobIdempotencyTests(TestCase):

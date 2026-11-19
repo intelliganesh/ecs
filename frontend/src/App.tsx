@@ -323,26 +323,15 @@ export default function App({ userEmail }: { userEmail: string }) {
   useEffect(() => {
     if (screen !== 'dashboard') return
     const controller = new AbortController()
-    let refreshing = false
-    const refresh = async (initial = false) => {
-      if (refreshing) return
-      refreshing = true
-      try {
-        await jobListRequests.current.apply(
-          () => fetchRetirementJobs(controller.signal),
-          (jobs) => { setRetirementJobs(jobs); setJobsStatus('ready') },
-          controller.signal,
-        )
-      } catch {
-        if (initial && !controller.signal.aborted) { setRetirementJobs([]); setJobsStatus('error') }
-      } finally {
-        refreshing = false
-      }
-    }
     setJobsStatus('loading')
-    void refresh(true)
-    const interval = window.setInterval(() => { if (!document.hidden) void refresh() }, 5000)
-    return () => { controller.abort(); window.clearInterval(interval) }
+    void jobListRequests.current.apply(
+      () => fetchRetirementJobs(controller.signal),
+      (jobs) => { setRetirementJobs(jobs); setJobsStatus('ready') },
+      controller.signal,
+    ).catch(() => {
+      if (!controller.signal.aborted) { setRetirementJobs([]); setJobsStatus('error') }
+    })
+    return () => controller.abort()
   }, [screen])
   useEffect(() => { setSaveError(''); setShowSettings(false) }, [location.pathname])
   useEffect(() => {
@@ -573,7 +562,7 @@ export default function App({ userEmail }: { userEmail: string }) {
       onBack={() => navigate('mapping')} onFinish={saveJob}
     />
   })()
-  return <OptionsContext.Provider value={options}><div className={`app-shell ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}><header className="topbar"><div className="brand">ESC</div><button className="menu-button" onClick={() => setSidebarOpen((open) => !open)} aria-label="Toggle navigation">☰</button><div className="user-name">{userName}</div></header><div className="workspace"><Sidebar active={screen} onNavigate={navigate} onNavigatePath={routerNavigate} /><main className="main-content"><div className="page-heading"><h1>{pageTitle}</h1><div className="breadcrumb"><CircleDot className="breadcrumb-icon" aria-hidden="true" /><button type="button" className="breadcrumb-link" onClick={() => navigate('dashboard')}>SYD</button><ChevronRight className="breadcrumb-chevron" aria-hidden="true" /><span>{title}</span></div></div>{screen === 'dashboard' || screen === 'placeholder' ? content : <WizardCard title={title} activeStep={screen} stepsDisabled={awaitingJob} onCancel={() => navigate('dashboard')} onNavigate={navigate} headerActions={screen === 'mapping' ? <button type="button" className="button button-primary" onClick={addMappingRow}><span className="button-icon"><ToolIcon name="plus" /></span>Add Dataset</button> : screen === 'general' && isEditFlow ? <button type="button" className="button button-light" onClick={() => navigate('dashboard')}>Cancel</button> : undefined}>{content}</WizardCard>}<footer><span>Copyright © 2026</span><strong>Employer Services Corporation.</strong><span>All rights reserved.</span></footer></main></div>{showSettings && <FileSettingsModal reportSource={reportSource} mappingRows={mappingRows} initialSorting={fileSettings.sortingOrder} initialConditional={fileSettings.conditionalStatements} onSave={(sortingOrder, conditionalStatements) => { setFileSettings({ sortingOrder, conditionalStatements }); setShowSettings(false) }} onClose={() => setShowSettings(false)} />}</div></OptionsContext.Provider>
+  return <OptionsContext.Provider value={options}><div className={`app-shell ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}><header className="topbar"><div className="brand">ECS</div><button className="menu-button" onClick={() => setSidebarOpen((open) => !open)} aria-label="Toggle navigation">☰</button><div className="user-name">{userName}</div></header><div className="workspace"><Sidebar active={screen} onNavigate={navigate} onNavigatePath={routerNavigate} /><main className="main-content"><div className="page-heading"><h1>{pageTitle}</h1><div className="breadcrumb"><CircleDot className="breadcrumb-icon" aria-hidden="true" /><button type="button" className="breadcrumb-link" onClick={() => navigate('dashboard')}>SYD</button><ChevronRight className="breadcrumb-chevron" aria-hidden="true" /><span>{title}</span></div></div>{screen === 'dashboard' || screen === 'placeholder' ? content : <WizardCard title={title} activeStep={screen} stepsDisabled={awaitingJob} onCancel={() => navigate('dashboard')} onNavigate={navigate} headerActions={screen === 'mapping' ? <button type="button" className="button button-primary" onClick={addMappingRow}><span className="button-icon"><ToolIcon name="plus" /></span>Add Dataset</button> : screen === 'general' && isEditFlow ? <button type="button" className="button button-light" onClick={() => navigate('dashboard')}>Cancel</button> : undefined}>{content}</WizardCard>}<footer><span>Copyright © 2026</span><strong>Employer Services Corporation.</strong><span>All rights reserved.</span></footer></main></div>{showSettings && <FileSettingsModal reportSource={reportSource} mappingRows={mappingRows} initialSorting={fileSettings.sortingOrder} initialConditional={fileSettings.conditionalStatements} onSave={(sortingOrder, conditionalStatements) => { setFileSettings({ sortingOrder, conditionalStatements }); setShowSettings(false) }} onClose={() => setShowSettings(false)} />}</div></OptionsContext.Provider>
 }
 
 function MenuIcon({ name }: { name: SideIcon }) { if (name === 'file') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.5h9l5 5V20.5H5z" /><path d="M14 3.5v5h5" /></svg>; if (name === 'copy') return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6.5" width="11" height="13" rx="1.5" /><path d="M8 6.5V4.8A1.8 1.8 0 0 1 9.8 3h9a1.8 1.8 0 0 1 1.8 1.8v9A1.8 1.8 0 0 1 18.8 15H15" /></svg>; return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.7 3.2 3.2-.7L18.8 6.7a2.2 2.2 0 0 0-3.1-3.1z" /><path d="m14.7 5.3 4 4" /></svg> }
@@ -1009,7 +998,7 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
             <input type="checkbox" checked={includeHeader} onChange={(event) => onHeaderChange(event.target.checked)} />Include Header Row
           </label>
           <button type="button" className="icon-button" onClick={onOpenSettings} aria-label="Manage dataset settings" title="Manage dataset settings"><Settings aria-hidden="true" /></button>
-          <button className="icon-button" onClick={onOpenSettings} aria-label="Add mapping rule" title="Add mapping rule"><ToolIcon name="plus" /></button>
+          <button className="icon-button" onClick={onOpenSettings} aria-label="Add file setting rule" title="Add file setting rule"><ToolIcon name="plus" /></button>
         </div>
       </div>
       <div className="mapping-table-wrap">
