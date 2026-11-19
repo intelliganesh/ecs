@@ -6,11 +6,15 @@ from sqlalchemy.engine import Engine
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
+from app.core.error_logging import configure_error_logging, install_error_handlers
+
+settings = get_settings()
+configure_error_logging(settings)
+
+# Configure the file handler before importing database and scheduler modules.
 from app.db import check_database_connection, get_db
 from app.report_scheduler import start_scheduler
 from app.routers.retirement_builder import router as retirement_builder_router
-
-settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,6 +34,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+install_error_handlers(app)
 app.include_router(retirement_builder_router, prefix=settings.api_v1_prefix)
 
 

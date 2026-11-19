@@ -18,9 +18,74 @@ after(async () => {
   await rm(cacheDir, { recursive: true, force: true })
 })
 const {
-  displayFileFormat, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors,
-  pasteEmailText, readExcelMappings, reportWorkbook, validEmail, validIsoDate, validWholeNumber,
+  configuredFileFormat, createJobListRequestGuard, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors,
+  mergeSavedJob, normalizeSortingPriorities, sortingPriorityError, pasteEmailText, readExcelMappings, reportWorkbook,
+  validEmail, validIsoDate, validWholeNumber,
 } = await vite.ssrLoadModule('/src/retirementBuilder.ts')
+
+test('saving immediately replaces the dashboard format while retaining history and other jobs', () => {
+  const jobs = [
+    { id: 60, general: { fileName: 'Demo', fileFormat: 'FIXED', enable: true },
+      schedule: { hour: '4', week: 'Thursday' }, joblastrun: '2026-11-18', Job_Last_Status: 'Success' },
+    { id: 61, general: { fileName: 'Other', fileFormat: 'PIPE', enable: true } },
+  ]
+  const before = structuredClone(jobs)
+  const saved = { id: 60, general: { fileFormat: 'CSV', enable: true }, schedule: { week: 'Friday' } }
+  const next = mergeSavedJob(jobs, saved)
+  assert.equal(next[0].general.fileFormat, 'CSV')
+  assert.equal(next[0].general.fileName, 'Demo')
+  assert.equal(next[0].joblastrun, '2026-11-18')
+  assert.equal(next[0].Job_Last_Status, 'Success')
+  assert.deepEqual(next[0].schedule, { hour: '4', week: 'Friday' })
+  assert.equal(next[1], jobs[1])
+  assert.deepEqual(jobs, before)
+  assert.equal(mergeSavedJob(next, saved).length, 2)
+  assert.deepEqual(mergeSavedJob(next, { id: 60, general: { enable: false } }), [jobs[1]])
+  assert.equal(mergeSavedJob([], saved)[0].general.fileFormat, 'CSV')
+})
+
+test('a list response started before Save cannot overwrite the new dashboard format', async () => {
+  const guard = createJobListRequestGuard()
+  let resolveOld
+  const old = new Promise((resolve) => { resolveOld = resolve })
+  let jobs = [{ id: 60, general: { fileFormat: 'FIXED' } }]
+  const pending = guard.apply(() => old, (value) => { jobs = value })
+  guard.invalidate()
+  jobs = mergeSavedJob(jobs, { id: 60, general: { fileFormat: 'CSV' } })
+  await guard.apply(() => Promise.resolve([{ id: 60, general: { fileFormat: 'CSV' }, joblastrun: '2026-11-18' }]),
+    (value) => { jobs = value })
+  resolveOld([{ id: 60, general: { fileFormat: 'FIXED' } }])
+  await pending
+  assert.equal(jobs[0].general.fileFormat, 'CSV')
+  assert.equal(jobs[0].joblastrun, '2026-11-18')
+})
+
+test('aborted dashboard requests do not replace current rows', async () => {
+  const guard = createJobListRequestGuard()
+  const controller = new AbortController()
+  let resolve
+  const pending = new Promise((done) => { resolve = done })
+  const committed = []
+  const request = guard.apply(() => pending, (rows) => committed.push(rows), controller.signal)
+  controller.abort()
+  resolve([{ id: 60 }])
+  await request
+  assert.deepEqual(committed, [])
+})
+
+test('FIXED Excel downloads use structured fields instead of splitting padded records on spaces', () => {
+  const fields = [
+    ['NAME            ', 'SSN      ', 'COUNT'],
+    ['Doe, Sam "Ace"  ', '000000000', '    7'],
+  ]
+  const workbook = reportWorkbook('NAME            SSN      COUNT\r\nDoe, Sam "Ace"  000000000    7\r\n', ' ', fields)
+  const bytes = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })
+  const reopened = XLSX.read(bytes, { type: 'buffer', raw: true })
+  const sheet = reopened.Sheets.Report
+  assert.deepEqual(XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true }), fields)
+  assert.equal(sheet.B2.t, 's')
+  assert.equal(sheet.B2.v, '000000000')
+})
 
 test('General flags blank and oversized required values', () => {
   assert.deepEqual(generalFieldErrors('  ', ''), {
@@ -31,6 +96,19 @@ test('General flags blank and oversized required values', () => {
   assert.deepEqual(generalFieldErrors('QA', 'CSV'), { fileName: '', fileFormat: '' })
 })
 
+test('restored file format labels use the current configured option', () => {
+  const options = ['CSV', 'FIXED', 'PIPE', 'TAB', 'SEMICOLON']
+  assert.equal(configuredFileFormat('Comma', options), 'CSV')
+  assert.equal(configuredFileFormat('CSV', options), 'CSV')
+  assert.equal(configuredFileFormat('Pipe', options), 'PIPE')
+  assert.equal(configuredFileFormat('CSV_TAB', options), 'TAB')
+  assert.equal(configuredFileFormat('CSV_SEMI', options), 'SEMICOLON')
+  assert.equal(configuredFileFormat('Comma', ['CSV', 'Comma']), 'Comma')
+  assert.equal(configuredFileFormat('CSV', ['Comma']), 'Comma')
+  assert.equal(configuredFileFormat('Comma', []), 'Comma')
+  assert.equal(configuredFileFormat('', options), '')
+})
+
 test('mapping and schedule number checks use the accepted ranges', () => {
   for (const value of ['-1', 'abc', '', '1.5', '2147483648']) assert.equal(validWholeNumber(value), false)
   for (const value of ['0', '2147483647']) assert.equal(validWholeNumber(value), true)
@@ -38,6 +116,32 @@ test('mapping and schedule number checks use the accepted ranges', () => {
   assert.equal(validWholeNumber('12', 1, 12), true)
   assert.equal(validWholeNumber('05', 0, 59), true)
   assert.equal(validWholeNumber('60', 0, 59), false)
+})
+
+test('sort priorities require unique positive integers and a column', () => {
+  assert.equal(sortingPriorityError([]), '')
+  for (const orderBy of ['', '0', '-1', '1.5', 'ASC', '2147483648']) {
+    assert.match(sortingPriorityError([{ orderBy, mappingColumn: 'paydate' }]), /positive whole-number priority/)
+  }
+  assert.match(sortingPriorityError([
+    { orderBy: '1', mappingColumn: 'paydate' }, { orderBy: '01', mappingColumn: 'Employee_Name' },
+  ]), /different priority/)
+  assert.match(sortingPriorityError([{ orderBy: '1', mappingColumn: ' ' }]), /mapping column/)
+  assert.equal(sortingPriorityError([{ orderBy: '2147483647', mappingColumn: 'paydate' }]), '')
+})
+
+test('priority-only payloads preserve precedence and strip legacy directions', () => {
+  const rows = [
+    { orderBy: '3', mappingColumn: ' Employee_Name ', direction: 'DESC' },
+    { orderBy: '1', mappingColumn: 'paydate', direction: 'ASC' },
+  ]
+  const result = normalizeSortingPriorities(rows)
+  assert.deepEqual(result, [
+    { orderBy: '1', mappingColumn: 'paydate' },
+    { orderBy: '2', mappingColumn: 'Employee_Name' },
+  ])
+  assert.equal(rows[0].orderBy, '3')
+  assert.deepEqual(normalizeSortingPriorities(result.slice(1)), [{ orderBy: '1', mappingColumn: 'Employee_Name' }])
 })
 
 test('date conditions require a real calendar date in ISO format', () => {
@@ -75,11 +179,7 @@ test('multiple emails replace the selected draft and are validated individually'
   assert.ok(emails.every(validEmail))
 })
 
-test('dashboard preserves delimiters, minutes, and actual history status', () => {
-  assert.equal(displayFileFormat('CSV_PIPE'), 'Pipe')
-  assert.equal(displayFileFormat('CSV (Pipe Delimited)'), 'Pipe')
-  assert.equal(displayFileFormat('CSV_TAB'), 'Tab')
-  assert.equal(displayFileFormat('CSV_SEMI'), 'Semicolon')
+test('dashboard preserves minutes and actual history status', () => {
   assert.equal(displayRunTime('1', '5', 'AM'), '1:05 AM')
   assert.equal(displayJobStatus(null), 'Pending')
   assert.equal(displayJobStatus('Unknown'), 'Pending')
@@ -108,4 +208,22 @@ test('Excel imports retain Detail and Trailer rows and deduplicate fields', asyn
 test('a renamed text file and a broken XLSX container both fail to import', async () => {
   await assert.rejects(readExcelMappings(new File(['PAY_DATE,COUNT'], 'renamed.xlsx')))
   await assert.rejects(readExcelMappings(new File([Uint8Array.of(0x50, 0x4b, 0x03, 0x04)], 'corrupt.xlsx')))
+})
+
+test('Excel mapping imports preserve dataset ordering metadata and separate H D T fields', async () => {
+  const book = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([
+    ['Field Name', 'Record Type', 'DataSetNo', 'ColSeqNo'],
+    ['Name', 'H', 1, 1],
+    ['Name', 'D', 2, 3],
+    ['Name', 'D', 3, 1],
+    ['Name', 'T', 4, 1],
+  ]), 'Mappings')
+  const file = new File([XLSX.write(book, { type: 'buffer', bookType: 'xlsx' })], 'ordered.xlsx')
+  assert.deepEqual(await readExcelMappings(file), [
+    { field: 'Name', recordType: 'Header', dataSetNo: 1, colSeqNo: 1 },
+    { field: 'Name', recordType: 'Detail', dataSetNo: 2, colSeqNo: 3 },
+    { field: 'Name', recordType: 'Detail', dataSetNo: 3, colSeqNo: 1 },
+    { field: 'Name', recordType: 'Trailer', dataSetNo: 4, colSeqNo: 1 },
+  ])
 })

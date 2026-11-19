@@ -12,7 +12,7 @@ from app.core.config import Settings
 from app.db import engine
 from app.report_files import report_directory
 from app.report_mail import send_subscribed_reports
-from app.retirement_results import InvalidRun
+from app.retirement_results import InvalidRun, ReportDateRange
 from app.routers.retirement_builder import (
     LOCK_RUN_JOB, READ_ENABLED_SCHEDULES, READ_SCHEDULE,
     _attempt_report_run, _read_full_job, _read_report_source,
@@ -72,10 +72,14 @@ def _run_scheduled_job(settings: Settings, job_id: int, slot: datetime, now: dat
         job = _read_full_job(connection, job_id)
         if job is None or not job.general.enable:
             return
+        date_range = ReportDateRange()
         result = _attempt_report_run(
-            connection, job, lambda run_job: _read_report_source(connection, run_job, settings.report_input_dir),
+            connection, job, lambda run_job: _read_report_source(
+                connection, run_job, settings.report_input_dir, date_range, scheduled=True,
+            ),
             run_dir, resources, scheduled=True,
             from_payroll_procedure=job.general.reportSource == "companyPayroll",
+            date_range=date_range,
         )
     if isinstance(result, Exception):
         raise result
@@ -89,8 +93,8 @@ def run_due_reports(settings: Settings, zone: ZoneInfo) -> None:
     try:
         with engine.connect() as connection:
             schedules = connection.execute(READ_ENABLED_SCHEDULES).mappings().all()
-    except SQLAlchemyError as exc:
-        logger.warning("Could not read retirement schedules (%s).", type(exc).__name__)
+    except SQLAlchemyError:
+        logger.exception("Could not read retirement schedules.")
         return
 
     for schedule in schedules:
@@ -99,10 +103,10 @@ def run_due_reports(settings: Settings, zone: ZoneInfo) -> None:
             slot = _scheduled_slot(schedule, now)
             if slot is not None:
                 _run_scheduled_job(settings, job_id, slot, now)
-        except InvalidRun as exc:
-            logger.warning("Scheduled retirement job %s could not run. %s", job_id, exc)
-        except (OSError, SQLAlchemyError, ValueError) as exc:
-            logger.warning("Scheduled retirement job %s failed (%s).", job_id, type(exc).__name__)
+        except InvalidRun:
+            logger.exception("Scheduled retirement job %s could not run.", job_id, extra={"job_id": job_id})
+        except (OSError, SQLAlchemyError, ValueError):
+            logger.exception("Scheduled retirement job %s failed.", job_id, extra={"job_id": job_id})
 
 
 def start_scheduler(settings: Settings) -> BackgroundScheduler:

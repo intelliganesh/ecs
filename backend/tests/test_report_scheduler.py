@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -9,7 +9,7 @@ from app.core.config import Settings
 from app.report_mail import _subscription_attachments, send_report_email
 from app.report_scheduler import _run_scheduled_job, _scheduled_slot
 from app.retirement_results import build_report_files
-from app.routers.retirement_builder import RetirementBuilderJob
+from app.routers.retirement_builder import INSERT_RUN_DATES, RetirementBuilderJob
 
 
 class ScheduledReportTests(TestCase):
@@ -73,7 +73,7 @@ class ScheduledReportTests(TestCase):
                 catalog.mappings.return_value = [
                     {"mapping_column": "company_id", "mapping_column_desc": "Client ID", "mapping_column_dt": "text"},
                 ]
-                connection.execute.side_effect = [locked_job, schedule, formats, catalog, MagicMock(), locked_job]
+                connection.execute.side_effect = [locked_job, schedule, formats, catalog, MagicMock(), MagicMock(), locked_job]
 
                 _run_scheduled_job(settings, job.id, now, now)
                 _run_scheduled_job(settings, job.id, now, now)
@@ -83,6 +83,9 @@ class ScheduledReportTests(TestCase):
                 self.assertEqual(files[0].read_bytes(), b"Name\r\nTest Person\r\n")
                 self.assertEqual(files[1].read_bytes(), b"Name\r\nAnother Person\r\n")
                 store.assert_called_once()
+                connection.execute.assert_any_call(INSERT_RUN_DATES, {
+                    "jobid": job.id, "flag": "S", "start_date": date(1900, 1, 1), "end_date": date(1900, 1, 1),
+                })
                 messages = [
                     call.args[0] for call in smtp.return_value.__enter__.return_value.send_message.call_args_list
                 ]

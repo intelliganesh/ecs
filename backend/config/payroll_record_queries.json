@@ -1,0 +1,5 @@
+{
+  "H": "/* company payroll */ SELECT 1, 'H' AS RECTYPE, c.company_name, '', 0, 0 FROM dbo.companies AS c",
+  "D": "/* company payroll */ SELECT 2, 'D', c.company_name, p.payroll_month, COUNT(*) AS employee_count, SUM(p.net_salary) AS net_salary_total FROM dbo.companies AS c JOIN dbo.employees AS e ON e.company_id = c.id JOIN dbo.payroll AS p ON p.employee_id = e.id GROUP BY c.company_name, p.payroll_month",
+  "T": "/* company payroll */ SELECT 3, 'T', c.company_name, p.payroll_month, COUNT(*) AS employee_count, SUM(p.net_salary) AS net_salary_total FROM dbo.companies AS c JOIN dbo.employees AS e ON e.company_id = c.id JOIN dbo.payroll AS p ON p.employee_id = e.id GROUP BY c.company_name, p.payroll_month"
+}

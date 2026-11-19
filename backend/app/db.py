@@ -1,4 +1,5 @@
 from collections.abc import Generator
+import logging
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -7,6 +8,7 @@ from app.core.config import get_settings
 
 
 engine = create_engine(get_settings().database_url, pool_pre_ping=True)
+logger = logging.getLogger(__name__)
 
 
 def get_db() -> Generator[Engine, None, None]:
@@ -19,5 +21,6 @@ def check_database_connection() -> bool:
             connection.execute(text("SELECT 1"))
         return True
     except Exception:
+        logger.exception("Database health check failed.")
         return False
 

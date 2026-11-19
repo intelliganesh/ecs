@@ -8,5 +8,6 @@ __pycache__/
 .env
 /backend/report-input/
 /backend/report-output/
+/backend/logs/
 .DS_Store
 

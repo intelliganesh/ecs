@@ -1,0 +1,1 @@
+{"kind":"table","sheet":"Mappings","address":"A1:D9","rows":9,"cols":4,"values":[["Field Name","Record Type","DataSetNo","ColSeqNo"],["Header Label","H",1,1],["Employee","D",2,1],["Pay Date","D",2,2],["Gross","D",2,3],["Net","D",2,4],["Hours","D",2,5],["Trailer Total","T",3,1],[null,null,null,null]]}

@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     scheduler_timezone: str = "UTC"
     report_input_dir: Path = Path("report-input")
     report_output_dir: Path = Path("report-output")
+    error_log_file: Path = Path("logs/errors.log")
+    error_log_max_bytes: int = Field(10 * 1024 * 1024, ge=1024)
+    error_log_backup_count: int = Field(5, ge=1)
     payroll_report_procedure: str = "dbo.usp_CompanyPayrollReport"
     mail_enabled: bool = False
     mail_mailer: Literal["smtp"] = "smtp"

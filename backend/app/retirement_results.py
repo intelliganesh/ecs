@@ -24,10 +24,14 @@ MAX_SOURCE_BYTES = 5 * 1024 * 1024
 MAX_OUTPUT_BYTES = 10 * 1024 * 1024
 MAX_ROWS = 10_000
 MAX_COLUMNS = 100
+UNBOUNDED_RUN_DATE = date(1900, 1, 1)
 RECORD_TYPES = {"h": "H", "header": "H", "d": "D", "detail": "D", "t": "T", "trailer": "T"}
 DATE_FORMATS = {
+    "MMDDYYYY": "MMDDYYYY",
     "MMDDYYYY - Date": "MMDDYYYY",
     "MM/DD/YYYY": "MM/DD/YYYY",
+    "MM-DD-YYYY": "MM-DD-YYYY",
+    "CCYYMMDD": "YYYYMMDD",
     "YYYY-MM-DD": "YYYY-MM-DD",
     "YYYYMMDD": "YYYYMMDD",
     "DD/MM/YYYY": "DD/MM/YYYY",
@@ -46,14 +50,8 @@ TEXT_FORMATS = {
     "Uppercase": str.upper,
     "Lowercase": str.lower,
 }
-MAPPING_FORMATS_BY_TYPE = {
-    "text": ["LA - Left Justified", *TEXT_FORMATS],
-    "date": list(DATE_FORMATS),
-    "number": list(NUMBER_FORMATS),
-    "phone": list(PHONE_FORMATS),
-    "email": ["Trim Whitespace", "Lowercase"],
-    "ssn": ["XXXXXXXXX - SSN", "XXX-XX-XXXX - SSN"],
-}
+SSN_FORMATS = {"XXXXXXXXX", "XXX-XX-XXXX", "XXXXXXXXX - SSN", "XXX-XX-XXXX - SSN"}
+NUMERIC_MASK_PATTERN = re.compile(r"(\$)?#+(?:\.(#+))?")
 _LEGACY_DELIMITERS = {
     "Comma": ",",
     "Pipe": "|",
@@ -85,6 +83,28 @@ class InvalidRun(ValueError):
     pass
 
 
+def record_type_code(value: str) -> str:
+    code = RECORD_TYPES.get(value.strip().casefold())
+    if code is None:
+        raise InvalidRun("Choose H, D, or T as the record type.")
+    return code
+
+
+@dataclass(frozen=True)
+class ReportDateRange:
+    start: date = UNBOUNDED_RUN_DATE
+    end: date = UNBOUNDED_RUN_DATE
+
+    @property
+    def bounded(self) -> bool:
+        return self.start != UNBOUNDED_RUN_DATE or self.end != UNBOUNDED_RUN_DATE
+
+    def includes(self, value: date) -> bool:
+        return (self.start == UNBOUNDED_RUN_DATE or self.start <= value) and (
+            self.end == UNBOUNDED_RUN_DATE or value <= self.end
+        )
+
+
 _SAVED_SORT_RULE = re.compile(r"\[((?:[^\]]|\]\])*)\] (ASC|DESC)")
 
 
@@ -93,10 +113,32 @@ def format_sort_order(rules: Iterable[tuple[str, str]]) -> str:
     return "ORDER BY " + ", ".join(parts) if parts else ""
 
 
+def format_sort_columns(columns: Iterable[str]) -> str:
+    parts = []
+    for name in columns:
+        output = StringIO(newline="")
+        csv.writer(output, lineterminator="\n").writerow([name])
+        parts.append(output.getvalue().removesuffix("\n"))
+    return ", ".join(parts)
+
+
 def parse_sort_order(clause: str) -> list[dict[str, str]]:
-    rules = [(column.replace("]]", "]"), direction) for column, direction in _SAVED_SORT_RULE.findall(clause)]
-    if format_sort_order(rules) != clause:
-        raise InvalidRun("The saved sort order is invalid. Save the job again before running it.")
+    if not clause:
+        return []
+    if clause.startswith("ORDER BY "):
+        rules = [(column.replace("]]", "]"), direction) for column, direction in _SAVED_SORT_RULE.findall(clause)]
+        if format_sort_order(rules) != clause:
+            raise InvalidRun("The saved sort order is invalid. Save the job again before running it.")
+    else:
+        # Legacy lists may start with a comma because they were appended to a base sort.
+        value = clause.strip().removeprefix(",").lstrip()
+        try:
+            rows = list(csv.reader(StringIO(value), skipinitialspace=True, strict=True))
+        except csv.Error as exc:
+            raise InvalidRun("The saved sort order is invalid. Save the job again before running it.") from exc
+        if len(rows) != 1 or not rows[0] or any(not name.strip() for name in rows[0]):
+            raise InvalidRun("The saved sort order is invalid. Save the job again before running it.")
+        rules = [(column.strip(), "ASC") for column in rows[0]]
     return [
         {"orderBy": str(index), "mappingColumn": column, "direction": direction}
         for index, (column, direction) in enumerate(rules, start=1)
@@ -117,6 +159,8 @@ class ReportFile:
     client_ids: frozenset[str] | None
     payroll_company_ids: frozenset[str] | None = None
     delimiter: str = ","
+    # FIXED output has no delimiter; retain its fields for Excel conversion.
+    excel_rows: list[list[str]] | None = None
 
 
 GROUP_COLUMNS = {"client id": ("clientid",), "payday": ("paydate", "payday")}
@@ -310,14 +354,16 @@ def _format_phone(value: str, format_name: str, field: str) -> str:
 
 
 def _format_value(value: str, mapping: "MappingRow") -> str:
-    if not value or not mapping.format:
+    name = mapping.format.strip()
+    if not value or not name:
         return value
-    if mapping.format in DATE_FORMATS:
+    if name in DATE_FORMATS:
         parsed = _parse_date(value, mapping.field)
-        return (DATE_FORMATS[mapping.format].replace("YYYY", f"{parsed.year:04d}")
+        return (DATE_FORMATS[name].replace("YYYY", f"{parsed.year:04d}")
                 .replace("MM", f"{parsed.month:02d}").replace("DD", f"{parsed.day:02d}"))
-    if mapping.format in NUMBER_FORMATS:
-        places, grouping = NUMBER_FORMATS[mapping.format]
+    mask = NUMERIC_MASK_PATTERN.fullmatch(name)
+    if name in NUMBER_FORMATS or mask:
+        places, grouping = NUMBER_FORMATS[name] if mask is None else (len(mask[2] or ""), "")
         try:
             number = _decimal(value)
             if number.adjusted() >= 1_000:
@@ -327,23 +373,28 @@ def _format_value(value: str, mapping: "MappingRow") -> str:
                 rounded = number.quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
         except (InvalidOperation, InvalidRun) as exc:
             raise InvalidRun(f'Column "{mapping.field}" contains a value that cannot be formatted as a number.') from exc
-        return format(rounded, f"{grouping}.{places}f")
-    if mapping.format in PHONE_FORMATS:
-        return _format_phone(value, mapping.format, mapping.field)
-    if mapping.format in MAPPING_FORMATS_BY_TYPE["ssn"]:
+        formatted = format(rounded, f"{grouping}.{places}f")
+        if mask and places:
+            formatted = formatted.rstrip("0").rstrip(".")
+        if mask and mask[1]:
+            return f"-${formatted[1:]}" if formatted.startswith("-") else f"${formatted}"
+        return formatted
+    if name in PHONE_FORMATS:
+        return _format_phone(value, name, mapping.field)
+    if name in SSN_FORMATS:
         digits = value.strip().replace("-", "")
         if not re.fullmatch(r"[0-9]{9}", digits):
             raise InvalidRun(f'Column "{mapping.field}" requires nine SSN digits.')
-        if mapping.format == "XXX-XX-XXXX - SSN":
+        if name.startswith("XXX-"):
             return f"{digits[:3]}-{digits[3:5]}-{digits[5:]}"
         return digits
-    if mapping.format in TEXT_FORMATS:
-        return TEXT_FORMATS[mapping.format](value)
-    if mapping.format == "LA - Left Justified":
+    if name in TEXT_FORMATS:
+        return TEXT_FORMATS[name](value)
+    if name in {"LA", "LA - Left Justified", "RA", "RA - Right Justified"}:
         width = int(mapping.length or "0")
         if width > 1_000:
             raise InvalidRun(f'Column "{mapping.field}" exceeds the 1,000-character padding limit.')
-        return value.ljust(width)
+        return value.rjust(width) if name.startswith("RA") else value.ljust(width)
     raise InvalidRun(f'Column "{mapping.field}" uses an unsupported format.')
 
 
@@ -352,12 +403,79 @@ def file_format_name(value: str) -> str:
     return _LEGACY_FILE_FORMAT_NAMES.get(name.upper(), name)
 
 
+def is_fixed_format(value: str) -> bool:
+    return value.strip().casefold() == "fixed"
+
+
+def _is_name_mapping(mapping: "MappingRow") -> bool:
+    source = re.sub(r"[^a-z0-9]", "", _source_key(mapping))
+    return source in {"name", "fullname", "employeename", "empformattedname", "empname", "companyname", "clientname",
+                      "firstname", "lastname", "middlename", "firstlast", "lastfirst"}
+
+
+def _clean_name_value(value: str, mapping: "MappingRow") -> str:
+    # The retirement procedure wraps formatted names in literal quotes. Remove
+    # that wrapper only for mapped name sources; preserve meaningful inner quotes.
+    if _is_name_mapping(mapping):
+        stripped = value.strip()
+        if len(stripped) >= 2 and stripped.startswith('"') and stripped.endswith('"'):
+            return stripped[1:-1]
+    return value
+
+
+def fixed_layout(layout: list["MappingRow"]) -> list[tuple[int, int]]:
+    """Return zero-based offsets and character widths in configured column order."""
+    try:
+        positions = [int(row.startPosition or "0") for row in layout]
+    except ValueError as exc:
+        raise InvalidRun("FIXED start positions must be whole numbers.") from exc
+    explicit_positions = any(position != 0 for position in positions)
+    fields = []
+    end = 0
+    for row, position in zip(layout, positions, strict=True):
+        try:
+            width = int(row.length or "0")
+            start = position if explicit_positions else end
+        except ValueError as exc:
+            raise InvalidRun(f'Column "{row.field}" needs whole-number FIXED positions and lengths.') from exc
+        if not 1 <= width <= 1_000:
+            raise InvalidRun(f'Column "{row.field}" needs a FIXED length from 1 to 1,000 characters.')
+        if start < end:
+            raise InvalidRun(f'Column "{row.field}" overlaps another FIXED field or is out of order.')
+        if start + width > MAX_OUTPUT_BYTES:
+            raise InvalidRun("The FIXED record exceeds the 10 MB output limit.")
+        fields.append((start, width))
+        end = start + width
+    if not fields:
+        raise InvalidRun("FIXED output requires configured fields and positive lengths.")
+    return fields
+
+
+def _fixed_record(values: list[str] | tuple[str, ...], layout: list["MappingRow"]) -> tuple[str, list[str]]:
+    if len(values) != len(layout):
+        raise InvalidRun("The FIXED mappings do not match the export columns.")
+    chunks, padded = [], []
+    end = 0
+    for value, mapping, (start, width) in zip(values, layout, fixed_layout(layout), strict=True):
+        value = value.strip(" ")  # Replace existing SQL padding with the configured alignment.
+        if any(char in value for char in "\r\n\t\x00"):
+            raise InvalidRun(f'Column "{mapping.field}" contains a control character that cannot be written in FIXED output.')
+        if len(value) > width:
+            raise InvalidRun(f'Column "{mapping.field}" exceeds its FIXED length of {width} characters.')
+        field = value.rjust(width) if mapping.format.strip() in {"RA", "RA - Right Justified"} else value.ljust(width)
+        chunks.extend((" " * (start - end), field))
+        padded.append(field)
+        end = start + width
+    return "".join(chunks) + "\r\n", padded
+
+
 def build_report_files(
     job: "RetirementBuilderJob", source: bytes, *, from_payroll_procedure: bool = False, delimiter: str | None = None,
-    source_labels: dict[str, str] | None = None,
+    source_labels: dict[str, str] | None = None, date_range: ReportDateRange = ReportDateRange(),
 ) -> list[ReportFile]:
+    fixed = is_fixed_format(job.general.fileFormat)
     if delimiter is None:
-        delimiter = _LEGACY_DELIMITERS.get(file_format_name(job.general.fileFormat))
+        delimiter = " " if fixed else _LEGACY_DELIMITERS.get(file_format_name(job.general.fileFormat))
     if delimiter is None:
         raise InvalidRun("Select a supported CSV file format for this job.")
     layouts: dict[str, list[MappingRow]] = {}
@@ -407,6 +525,14 @@ def build_report_files(
         else:
             client_source, _ = _find_group_source("client id", headings, layouts.get("D", []), source_aliases)
 
+        range_column = None
+        if date_range.bounded and not from_payroll_procedure:
+            range_column, _ = _find_group_source("payday", headings, layouts.get("D", []), source_aliases)
+            if range_column not in heading_set:
+                range_column = next((key for key in headings if re.sub(r"[^a-z0-9]", "", key) == "checkdate"), None)
+            if range_column is None:
+                raise InvalidRun('Add a Pay Date or Check Date source column to run this report for a date range.')
+
         conditions = []
         for rule in job.fileSettings.conditionalStatements:
             key = resolve_heading(rule.mappingColumn.strip().casefold())
@@ -441,6 +567,8 @@ def build_report_files(
             if kind not in layouts:
                 raise InvalidRun(f"Source row {number} has a record type with no matching layout.")
             seen_kinds.add(kind)
+            if range_column and kind in {"D", "T"} and not date_range.includes(_parse_date(row[range_column], range_column)):
+                continue
             retained = kind != "D" or all(
                 compare(_parse_date(row[key], key) if isinstance(threshold, date) else _decimal(row[key]), threshold)
                 for key, compare, threshold in conditions
@@ -449,12 +577,16 @@ def build_report_files(
                 retained_details.append(retained)
             if retained:
                 source_rows[kind].append(row)
+        if from_payroll_procedure and date_range.bounded and not seen_kinds:
+            return []
         if layouts.keys() - seen_kinds:
             raise InvalidRun("Include source rows for each record type configured in Mapping.")
     except (UnicodeDecodeError, csv.Error) as exc:
         raise InvalidRun("Upload a valid UTF-8, comma-delimited CSV.") from exc
 
     details = source_rows["D"]
+    if date_range.bounded and not details and "D" in layouts:
+        return []
     if from_payroll_procedure and not all(retained_details):
         if not details:
             return []
@@ -489,7 +621,7 @@ def build_report_files(
                 filename = f"{base}_{group_hash}_{number}.csv"
                 number += 1
         filenames.add(filename.casefold())
-        results, output = _render_csv(rows, layouts, delimiter, job.mapping.includeHeader, remaining_bytes)
+        results, output, excel_rows = _render_csv(rows, layouts, delimiter, job.mapping.includeHeader, remaining_bytes, fixed=fixed)
         remaining_bytes -= len(output.encode("utf-8"))
         source_ids = _report_clients(rows, client_source)
         files.append(ReportFile(
@@ -497,38 +629,63 @@ def build_report_files(
             client_ids=None if from_payroll_procedure else source_ids,
             payroll_company_ids=source_ids if from_payroll_procedure else None,
             delimiter=delimiter,
+            excel_rows=excel_rows,
         ))
     return files
 
 
 def _render_csv(
     source_rows: SourceRows, layouts: dict[str, list["MappingRow"]], delimiter: str, include_header: bool, remaining_bytes: int,
-) -> tuple[list[ResultRow], str]:
+    *, fixed: bool = False,
+) -> tuple[list[ResultRow], str, list[list[str]] | None]:
     results = []
+    excel_rows = [] if fixed else None
     csv_output = StringIO(newline="")
     writer = csv.writer(csv_output, delimiter=delimiter)
+    def write(values: list[str], layout: list["MappingRow"]) -> list[str]:
+        if fixed:
+            record, fields = _fixed_record(values, layout)
+            csv_output.write(record)
+            excel_rows.append(fields)
+            return fields
+        writer.writerow(values)
+        return values
     if include_header:
-        writer.writerow([mapping.field for mapping in (layouts.get("D") or next(iter(layouts.values())))])
+        layout = layouts.get("D") or next(iter(layouts.values()))
+        write([mapping.field for mapping in layout], layout)
     for kind, records in source_rows.items():
         for row in records:
             values = {}
             for mapping in layouts[kind]:
                 key = _source_key(mapping)
                 value = row.get(key) or mapping.defaultValue
+                value = _clean_name_value(value, mapping)
+                if mapping.format.strip() in SSN_FORMATS:
+                    value = value.strip()
                 values[mapping.field] = _format_value(value, mapping)
-            writer.writerow(values.values())
+            fields = write(list(values.values()), layouts[kind])
+            if fixed:
+                values = dict(zip(values, fields, strict=True))
             if csv_output.tell() > remaining_bytes:
                 raise InvalidRun("The generated report exceeds the 10 MB limit.")
             results.append(ResultRow(kind, values))
     output = csv_output.getvalue()
     if len(output.encode("utf-8")) > remaining_bytes:
         raise InvalidRun("The generated report exceeds the 10 MB limit.")
-    return results, output
+    return results, output, excel_rows
 
 
 def merge_report_files(job: "RetirementBuilderJob", reports: list[ReportFile]) -> ReportFile:
     contents = [reports[0].csv]
+    excel_rows = list(reports[0].excel_rows) if reports[0].excel_rows is not None else None
     for report in reports[1:]:
+        if excel_rows is not None:
+            if report.excel_rows is None:
+                raise InvalidRun("Cannot merge FIXED and delimited reports together.")
+            skip = 1 if job.mapping.includeHeader else 0
+            contents.append("".join(report.csv.splitlines(keepends=True)[skip:]))
+            excel_rows.extend(report.excel_rows[skip:])
+            continue
         if not job.mapping.includeHeader:
             contents.append(report.csv)
             continue
@@ -542,6 +699,7 @@ def merge_report_files(job: "RetirementBuilderJob", reports: list[ReportFile]) -
         frozenset(client for report in reports for client in report.client_ids or ()),
         frozenset(company for report in reports for company in report.payroll_company_ids or ()),
         delimiter=reports[0].delimiter,
+        excel_rows=excel_rows,
     )
 
 
@@ -552,7 +710,7 @@ def store_results(connection: Connection, job_id: int, run_id: UUID, rows: list[
                 "run_id": str(run_id),
                 "job_id": job_id,
                 "row_number": number,
-                "record_type": row.record_type,
+                "record_type": record_type_code(row.record_type),
                 "row_values": json.dumps(row.values, ensure_ascii=False),
             }
             for number, row in enumerate(rows, start=1)

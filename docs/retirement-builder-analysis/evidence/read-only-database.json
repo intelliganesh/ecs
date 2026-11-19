@@ -1,0 +1,1522 @@
+{
+  "date": "2026-11-18",
+  "policy": "SELECT-only; no record values, addresses, credentials or connections exported",
+  "connected": true,
+  "procedure": {
+    "configured_name": "dbo.usp_CompanyPayrollReport",
+    "definition_visible": true,
+    "matches_migration_012_normalized": true
+  },
+  "procedure_parameters": [
+    {
+      "name": "@jobid",
+      "type": "int"
+    },
+    {
+      "name": "@start_date",
+      "type": "date"
+    },
+    {
+      "name": "@end_date",
+      "type": "date"
+    }
+  ],
+  "columns": [
+    {
+      "schema_name": "dbo",
+      "table_name": "companies",
+      "column_name": "id",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": true,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "companies",
+      "column_name": "company_name",
+      "type": "varchar",
+      "max_length": 120,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "companies",
+      "column_name": "company_code",
+      "type": "varchar",
+      "max_length": 40,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "companies",
+      "column_name": "city",
+      "type": "nvarchar",
+      "max_length": 200,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "companies",
+      "column_name": "company_email",
+      "type": "varchar",
+      "max_length": 254,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "companies",
+      "column_name": "company_phone",
+      "type": "varchar",
+      "max_length": 32,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "id",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": true,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "employee_code",
+      "type": "varchar",
+      "max_length": 40,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "employee_name",
+      "type": "nvarchar",
+      "max_length": 320,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "company_id",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "department",
+      "type": "nvarchar",
+      "max_length": 200,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "designation",
+      "type": "nvarchar",
+      "max_length": 240,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "is_active",
+      "type": "bit",
+      "max_length": 1,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "paydate",
+      "type": "datetime",
+      "max_length": 8,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "first_name",
+      "type": "nvarchar",
+      "max_length": 160,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "last_name",
+      "type": "nvarchar",
+      "max_length": 160,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "work_email",
+      "type": "varchar",
+      "max_length": 254,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "phone",
+      "type": "varchar",
+      "max_length": 32,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "ssn",
+      "type": "varchar",
+      "max_length": 9,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "date_of_birth",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "hire_date",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "employees",
+      "column_name": "termination_date",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "payroll",
+      "column_name": "id",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": true,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "payroll",
+      "column_name": "employee_id",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "payroll",
+      "column_name": "payroll_month",
+      "type": "datetime",
+      "max_length": 8,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "payroll",
+      "column_name": "basic_salary",
+      "type": "numeric",
+      "max_length": 9,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "payroll",
+      "column_name": "allowances",
+      "type": "numeric",
+      "max_length": 9,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "payroll",
+      "column_name": "deductions",
+      "type": "numeric",
+      "max_length": 9,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "payroll",
+      "column_name": "net_salary",
+      "type": "numeric",
+      "max_length": 9,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "payroll",
+      "column_name": "payment_status",
+      "type": "varchar",
+      "max_length": 30,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "payroll",
+      "column_name": "pay_start_date",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "payroll",
+      "column_name": "pay_end_date",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "payroll",
+      "column_name": "pay_date",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "payroll",
+      "column_name": "hours_worked",
+      "type": "decimal",
+      "max_length": 5,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "payroll",
+      "column_name": "gross_pay",
+      "type": "decimal",
+      "max_length": 9,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": "(CONVERT([decimal](13,2),[basic_salary]+[allowances]))"
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "jobid",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": true,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "jobdesc",
+      "type": "varchar",
+      "max_length": 300,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "jobfilename",
+      "type": "varchar",
+      "max_length": 300,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "jobstatus",
+      "type": "varchar",
+      "max_length": 10,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "joblastmodified",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "joblastrun",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "filetype",
+      "type": "varchar",
+      "max_length": 20,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "ismerge",
+      "type": "bit",
+      "max_length": 1,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "mergeemail",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "includeHeader",
+      "type": "bit",
+      "max_length": 1,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "FileNameFormat",
+      "type": "varchar",
+      "max_length": 55,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "isEnabled",
+      "type": "bit",
+      "max_length": 1,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "StoreResults",
+      "type": "bit",
+      "max_length": 1,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "enddate",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob",
+      "column_name": "msrepl_tran_version",
+      "type": "uniqueidentifier",
+      "max_length": 16,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_client_detail",
+      "column_name": "jobid",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_client_detail",
+      "column_name": "jobclientid",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_client_detail",
+      "column_name": "jobemailind",
+      "type": "varchar",
+      "max_length": -1,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_detail",
+      "column_name": "jobid",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_detail",
+      "column_name": "jobfiletype",
+      "type": "varchar",
+      "max_length": 10,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_detail",
+      "column_name": "jobfileschedule",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_detail",
+      "column_name": "jobfileschday",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_detail",
+      "column_name": "mergefile",
+      "type": "varchar",
+      "max_length": 5,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_condition_details",
+      "column_name": "job_id",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_condition_details",
+      "column_name": "mapping_column",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_condition_details",
+      "column_name": "condition_symbol",
+      "type": "varchar",
+      "max_length": 50,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_condition_details",
+      "column_name": "condition_value",
+      "type": "numeric",
+      "max_length": 9,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_detail",
+      "column_name": "jobid",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_detail",
+      "column_name": "jobclientcolumn",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_detail",
+      "column_name": "jobfieldmapping",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_detail",
+      "column_name": "jobdefaultvalue",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_detail",
+      "column_name": "jobformat",
+      "type": "varchar",
+      "max_length": 20,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_detail",
+      "column_name": "jobrectype",
+      "type": "varchar",
+      "max_length": 20,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_detail",
+      "column_name": "startposition",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_detail",
+      "column_name": "field_len",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_detail",
+      "column_name": "DataSetNo",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_detail",
+      "column_name": "ColSeqNo",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_sorting_details",
+      "column_name": "job_id",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_sorting_details",
+      "column_name": "sort_order",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_sorting_details",
+      "column_name": "mapping_column",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_typ",
+      "column_name": "filetyp",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_file_typ",
+      "column_name": "delimiter",
+      "type": "nchar",
+      "max_length": 2,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_history",
+      "column_name": "Job_Id",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_history",
+      "column_name": "Job_Create_Date",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_history",
+      "column_name": "Job_Last_Trigger_Date",
+      "type": "datetime",
+      "max_length": 8,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_history",
+      "column_name": "Job_Next_Trigger_Date",
+      "type": "datetime",
+      "max_length": 8,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_history",
+      "column_name": "Job_Last_Status",
+      "type": "varchar",
+      "max_length": 50,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_history",
+      "column_name": "Job_Last_Message",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_history",
+      "column_name": "Job_Update_Date",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_history_details",
+      "column_name": "Id",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": true,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_history_details",
+      "column_name": "Job_Id",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_history_details",
+      "column_name": "Flag",
+      "type": "varchar",
+      "max_length": 1,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_history_details",
+      "column_name": "Start_Date",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_history_details",
+      "column_name": "End_Date",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_history_details",
+      "column_name": "Pay_Date",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_job_schd_master",
+      "column_name": "shcdperiod",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_job_schd_master",
+      "column_name": "shcdday",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_mapping_column",
+      "column_name": "mapping_column",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_mapping_column",
+      "column_name": "mapping_column_desc",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_mapping_column",
+      "column_name": "mapping_column_dt",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_mapping_column",
+      "column_name": "ColID",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": true,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_new_client_data",
+      "column_name": "client_id",
+      "type": "varchar",
+      "max_length": 10,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_new_client_data",
+      "column_name": "pay_start_date",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_new_client_data",
+      "column_name": "pay_end_date",
+      "type": "date",
+      "max_length": 3,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_query",
+      "column_name": "jobid",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_query",
+      "column_name": "recttype",
+      "type": "varchar",
+      "max_length": 10,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_query",
+      "column_name": "Query",
+      "type": "varchar",
+      "max_length": -1,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_query",
+      "column_name": "Conditions",
+      "type": "varchar",
+      "max_length": -1,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_query",
+      "column_name": "Sort_Order",
+      "type": "varchar",
+      "max_length": -1,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_result",
+      "column_name": "run_id",
+      "type": "uniqueidentifier",
+      "max_length": 16,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_result",
+      "column_name": "job_id",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_result",
+      "column_name": "row_number",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_result",
+      "column_name": "record_type",
+      "type": "char",
+      "max_length": 1,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_result",
+      "column_name": "row_values",
+      "type": "nvarchar",
+      "max_length": -1,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_result",
+      "column_name": "created_at",
+      "type": "datetime2",
+      "max_length": 7,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_schedule_info",
+      "column_name": "jobid",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": false,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_schedule_info",
+      "column_name": "jobName",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_schedule_info",
+      "column_name": "startDateTime",
+      "type": "datetime",
+      "max_length": 8,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_schedule_info",
+      "column_name": "dayInterval",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_schedule_info",
+      "column_name": "weekInterval",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_schedule_info",
+      "column_name": "rbJobTypeChk",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_schedule_info",
+      "column_name": "ScheduleType",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_schedule_info",
+      "column_name": "MonthlyWeekNo",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_schedule_info",
+      "column_name": "ScheduleWeek",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_schedule_info",
+      "column_name": "MonthlyDate",
+      "type": "varchar",
+      "max_length": 255,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_schedule_info",
+      "column_name": "schedule_hr",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_schedule_info",
+      "column_name": "schedule_min",
+      "type": "int",
+      "max_length": 4,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjob_schedule_info",
+      "column_name": "schedules_session",
+      "type": "varchar",
+      "max_length": 10,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjobformat",
+      "column_name": "jobformat",
+      "type": "varchar",
+      "max_length": 50,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjobformat",
+      "column_name": "jobformattype",
+      "type": "nvarchar",
+      "max_length": 100,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    },
+    {
+      "schema_name": "dbo",
+      "table_name": "rjobformat",
+      "column_name": "jobformat_desc",
+      "type": "varchar",
+      "max_length": 50,
+      "is_nullable": true,
+      "is_identity": false,
+      "computed_definition": null
+    }
+  ],
+  "lookup_file_formats": [
+    {
+      "filetyp": "Comma",
+      "delimiter": ","
+    },
+    {
+      "filetyp": "Pipe",
+      "delimiter": "|"
+    },
+    {
+      "filetyp": "Tab",
+      "delimiter": "\t"
+    },
+    {
+      "filetyp": "Semicolon",
+      "delimiter": ";"
+    },
+    {
+      "filetyp": "Space",
+      "delimiter": " "
+    }
+  ],
+  "lookup_formats": [
+    {
+      "jobformat": "File Name",
+      "jobformat_desc": "One file with the job name",
+      "jobformattype": "FILENAME"
+    },
+    {
+      "jobformat": "Client ID",
+      "jobformat_desc": "One file per client",
+      "jobformattype": "CLIENT"
+    },
+    {
+      "jobformat": "Payday",
+      "jobformat_desc": "One file per pay date",
+      "jobformattype": "PAYDAY"
+    },
+    {
+      "jobformat": "File Name + Client ID",
+      "jobformat_desc": "Job name and client",
+      "jobformattype": "FILENAME_CLIENT"
+    },
+    {
+      "jobformat": "File Name + Payday",
+      "jobformat_desc": "Job name and pay date",
+      "jobformattype": "FILENAME_PAYDAY"
+    },
+    {
+      "jobformat": "Client ID + Payday",
+      "jobformat_desc": "One file per client and pay date",
+      "jobformattype": "CLIENT_PAYDAY"
+    },
+    {
+      "jobformat": "File Name + Client ID + Payday",
+      "jobformat_desc": "Job name, client, and pay date",
+      "jobformattype": "FILENAME_CLIENT_PAYDAY"
+    }
+  ],
+  "lookup_mapping_columns": [
+    {
+      "mapping_column": "company_id",
+      "mapping_column_desc": "Client ID",
+      "mapping_column_dt": "text"
+    },
+    {
+      "mapping_column": "company_name",
+      "mapping_column_desc": "Company Name",
+      "mapping_column_dt": "text"
+    },
+    {
+      "mapping_column": "pay_date",
+      "mapping_column_desc": "Date",
+      "mapping_column_dt": "date"
+    },
+    {
+      "mapping_column": "date_of_birth",
+      "mapping_column_desc": "Date of Birth",
+      "mapping_column_dt": "date"
+    },
+    {
+      "mapping_column": "employee_count",
+      "mapping_column_desc": "Employee Count",
+      "mapping_column_dt": "number"
+    },
+    {
+      "mapping_column": "employee_id",
+      "mapping_column_desc": "Employee ID",
+      "mapping_column_dt": "text"
+    },
+    {
+      "mapping_column": "employee_name",
+      "mapping_column_desc": "Employee Name",
+      "mapping_column_dt": "text"
+    },
+    {
+      "mapping_column": "work_email",
+      "mapping_column_desc": "Employee Work Email",
+      "mapping_column_dt": "email"
+    },
+    {
+      "mapping_column": "first_name",
+      "mapping_column_desc": "First Name",
+      "mapping_column_dt": "text"
+    },
+    {
+      "mapping_column": "gross_pay",
+      "mapping_column_desc": "Gross Pay",
+      "mapping_column_dt": "number"
+    },
+    {
+      "mapping_column": "hire_date",
+      "mapping_column_desc": "Hire Date",
+      "mapping_column_dt": "date"
+    },
+    {
+      "mapping_column": "hours_worked",
+      "mapping_column_desc": "Hours Worked",
+      "mapping_column_dt": "number"
+    },
+    {
+      "mapping_column": "last_name",
+      "mapping_column_desc": "Last Name",
+      "mapping_column_dt": "text"
+    },
+    {
+      "mapping_column": "net_salary",
+      "mapping_column_desc": "Net Salary",
+      "mapping_column_dt": "number"
+    },
+    {
+      "mapping_column": "net_salary_total",
+      "mapping_column_desc": "Net Salary Total",
+      "mapping_column_dt": "number"
+    },
+    {
+      "mapping_column": "payroll_month",
+      "mapping_column_desc": "Pay Date",
+      "mapping_column_dt": "date"
+    },
+    {
+      "mapping_column": "pay_end_date",
+      "mapping_column_desc": "Pay End Date",
+      "mapping_column_dt": "date"
+    },
+    {
+      "mapping_column": "pay_start_date",
+      "mapping_column_desc": "Pay Start Date",
+      "mapping_column_dt": "date"
+    },
+    {
+      "mapping_column": "phone",
+      "mapping_column_desc": "Phone",
+      "mapping_column_dt": "phone"
+    },
+    {
+      "mapping_column": "rectype",
+      "mapping_column_desc": "Record Type",
+      "mapping_column_dt": "text"
+    },
+    {
+      "mapping_column": "ssn",
+      "mapping_column_desc": "SSN",
+      "mapping_column_dt": "ssn"
+    },
+    {
+      "mapping_column": "termination_date",
+      "mapping_column_desc": "Termination Date",
+      "mapping_column_dt": "date"
+    },
+    {
+      "mapping_column": "allowances",
+      "mapping_column_desc": "Allowances",
+      "mapping_column_dt": "number"
+    },
+    {
+      "mapping_column": "basic_salary",
+      "mapping_column_desc": "Basic Salary",
+      "mapping_column_dt": "number"
+    },
+    {
+      "mapping_column": "city",
+      "mapping_column_desc": "Company City",
+      "mapping_column_dt": "text"
+    },
+    {
+      "mapping_column": "company_code",
+      "mapping_column_desc": "Company Code",
+      "mapping_column_dt": "text"
+    },
+    {
+      "mapping_column": "company_email",
+      "mapping_column_desc": "Company Email",
+      "mapping_column_dt": "email"
+    },
+    {
+      "mapping_column": "company_phone",
+      "mapping_column_desc": "Company Phone",
+      "mapping_column_dt": "phone"
+    },
+    {
+      "mapping_column": "deductions",
+      "mapping_column_desc": "Deductions",
+      "mapping_column_dt": "number"
+    },
+    {
+      "mapping_column": "department",
+      "mapping_column_desc": "Department",
+      "mapping_column_dt": "text"
+    },
+    {
+      "mapping_column": "designation",
+      "mapping_column_desc": "Designation",
+      "mapping_column_dt": "text"
+    },
+    {
+      "mapping_column": "employee_code",
+      "mapping_column_desc": "Employee Code",
+      "mapping_column_dt": "text"
+    },
+    {
+      "mapping_column": "is_active",
+      "mapping_column_desc": "Is Active",
+      "mapping_column_dt": "text"
+    },
+    {
+      "mapping_column": "paydate",
+      "mapping_column_desc": "Employee Pay Date",
+      "mapping_column_dt": "date"
+    },
+    {
+      "mapping_column": "payment_status",
+      "mapping_column_desc": "Payment Status",
+      "mapping_column_dt": "text"
+    }
+  ]
+}

@@ -1,0 +1,572 @@
+{
+  "counting": "Named definitions; repeated data-driven instances count once; login excluded",
+  "total_control_definitions": 108,
+  "dropdown_definitions": [
+    "General: File Format",
+    "General: Output File Name Format",
+    "Schedule: Build Frequency",
+    "Schedule: Hour",
+    "Schedule: Minute",
+    "Schedule: AM or PM",
+    "Schedule: Week",
+    "Mapping: Record Type",
+    "Mapping: Mapping Column",
+    "Mapping: Format",
+    "Subscriptions: Payroll Company",
+    "Subscriptions: Clients",
+    "Settings: Sort direction",
+    "Settings: Sort Mapping Column",
+    "Settings: Condition Mapping Column",
+    "Settings: Condition operator"
+  ],
+  "checkbox_definitions": [
+    "Dashboard: select all",
+    "Dashboard: select row",
+    "General: enable",
+    "General: store results",
+    "Mapping: include header",
+    "Subscriptions: merge files"
+  ],
+  "controls": [
+    {
+      "id": "C001",
+      "screen": "Dashboard",
+      "element": "Filter File Name"
+    },
+    {
+      "id": "C002",
+      "screen": "Dashboard",
+      "element": "Sort by File Name"
+    },
+    {
+      "id": "C003",
+      "screen": "Dashboard",
+      "element": "Filter Description"
+    },
+    {
+      "id": "C004",
+      "screen": "Dashboard",
+      "element": "Sort by Description"
+    },
+    {
+      "id": "C005",
+      "screen": "Dashboard",
+      "element": "Filter Modified On"
+    },
+    {
+      "id": "C006",
+      "screen": "Dashboard",
+      "element": "Sort by Modified On"
+    },
+    {
+      "id": "C007",
+      "screen": "Dashboard",
+      "element": "Filter Last Run Date"
+    },
+    {
+      "id": "C008",
+      "screen": "Dashboard",
+      "element": "Sort by Last Run Date"
+    },
+    {
+      "id": "C009",
+      "screen": "Dashboard",
+      "element": "Filter Run Day"
+    },
+    {
+      "id": "C010",
+      "screen": "Dashboard",
+      "element": "Sort by Run Day"
+    },
+    {
+      "id": "C011",
+      "screen": "Dashboard",
+      "element": "Filter Run Time"
+    },
+    {
+      "id": "C012",
+      "screen": "Dashboard",
+      "element": "Sort by Run Time"
+    },
+    {
+      "id": "C013",
+      "screen": "Dashboard",
+      "element": "Filter Schedule Type"
+    },
+    {
+      "id": "C014",
+      "screen": "Dashboard",
+      "element": "Sort by Schedule Type"
+    },
+    {
+      "id": "C015",
+      "screen": "Dashboard",
+      "element": "Filter File Type"
+    },
+    {
+      "id": "C016",
+      "screen": "Dashboard",
+      "element": "Sort by File Type"
+    },
+    {
+      "id": "C017",
+      "screen": "Dashboard",
+      "element": "Filter Is Active"
+    },
+    {
+      "id": "C018",
+      "screen": "Dashboard",
+      "element": "Sort by Is Active"
+    },
+    {
+      "id": "C019",
+      "screen": "Dashboard",
+      "element": "Filter Status"
+    },
+    {
+      "id": "C020",
+      "screen": "Dashboard",
+      "element": "Sort by Status"
+    },
+    {
+      "id": "C021",
+      "screen": "Dashboard",
+      "element": "Select all visible jobs"
+    },
+    {
+      "id": "C022",
+      "screen": "Dashboard",
+      "element": "Select job row"
+    },
+    {
+      "id": "C023",
+      "screen": "Dashboard",
+      "element": "Template link"
+    },
+    {
+      "id": "C024",
+      "screen": "Dashboard",
+      "element": "Add"
+    },
+    {
+      "id": "C025",
+      "screen": "Dashboard",
+      "element": "Edit"
+    },
+    {
+      "id": "C026",
+      "screen": "Dashboard",
+      "element": "Filename link"
+    },
+    {
+      "id": "C027",
+      "screen": "Dashboard",
+      "element": "Run"
+    },
+    {
+      "id": "C028",
+      "screen": "Dashboard",
+      "element": "Previous page"
+    },
+    {
+      "id": "C029",
+      "screen": "Dashboard",
+      "element": "Next page"
+    },
+    {
+      "id": "C030",
+      "screen": "Dashboard",
+      "element": "CSV download link"
+    },
+    {
+      "id": "C031",
+      "screen": "Dashboard",
+      "element": "Download Excel"
+    },
+    {
+      "id": "C032",
+      "screen": "General",
+      "element": "File Name"
+    },
+    {
+      "id": "C033",
+      "screen": "General",
+      "element": "File Format"
+    },
+    {
+      "id": "C034",
+      "screen": "General",
+      "element": "Description"
+    },
+    {
+      "id": "C035",
+      "screen": "General",
+      "element": "Output File Name Format"
+    },
+    {
+      "id": "C036",
+      "screen": "General",
+      "element": "Enable / Disable checkbox"
+    },
+    {
+      "id": "C037",
+      "screen": "General",
+      "element": "Store Results to Table checkbox"
+    },
+    {
+      "id": "C038",
+      "screen": "General",
+      "element": "Workbook file input"
+    },
+    {
+      "id": "C039",
+      "screen": "General",
+      "element": "Browse Files"
+    },
+    {
+      "id": "C040",
+      "screen": "General",
+      "element": "Cancel"
+    },
+    {
+      "id": "C041",
+      "screen": "General",
+      "element": "Next"
+    },
+    {
+      "id": "C042",
+      "screen": "Schedule",
+      "element": "Start Date"
+    },
+    {
+      "id": "C043",
+      "screen": "Schedule",
+      "element": "Build Frequency"
+    },
+    {
+      "id": "C044",
+      "screen": "Schedule",
+      "element": "Hour"
+    },
+    {
+      "id": "C045",
+      "screen": "Schedule",
+      "element": "Minute"
+    },
+    {
+      "id": "C046",
+      "screen": "Schedule",
+      "element": "AM or PM"
+    },
+    {
+      "id": "C047",
+      "screen": "Schedule",
+      "element": "Week"
+    },
+    {
+      "id": "C048",
+      "screen": "Schedule",
+      "element": "Back"
+    },
+    {
+      "id": "C049",
+      "screen": "Schedule",
+      "element": "Next"
+    },
+    {
+      "id": "C050",
+      "screen": "Mapping",
+      "element": "Include Header Row checkbox"
+    },
+    {
+      "id": "C051",
+      "screen": "Mapping",
+      "element": "Add Dataset"
+    },
+    {
+      "id": "C052",
+      "screen": "Mapping",
+      "element": "Field Name"
+    },
+    {
+      "id": "C053",
+      "screen": "Mapping",
+      "element": "Start Position"
+    },
+    {
+      "id": "C054",
+      "screen": "Mapping",
+      "element": "Length"
+    },
+    {
+      "id": "C055",
+      "screen": "Mapping",
+      "element": "Record Type"
+    },
+    {
+      "id": "C056",
+      "screen": "Mapping",
+      "element": "Default Value"
+    },
+    {
+      "id": "C057",
+      "screen": "Mapping",
+      "element": "Mapping Column"
+    },
+    {
+      "id": "C058",
+      "screen": "Mapping",
+      "element": "Format"
+    },
+    {
+      "id": "C059",
+      "screen": "Mapping",
+      "element": "Delete mapping"
+    },
+    {
+      "id": "C060",
+      "screen": "Mapping",
+      "element": "Manage dataset settings gear"
+    },
+    {
+      "id": "C061",
+      "screen": "Mapping",
+      "element": "Add mapping rule plus"
+    },
+    {
+      "id": "C062",
+      "screen": "Mapping",
+      "element": "Back"
+    },
+    {
+      "id": "C063",
+      "screen": "Mapping",
+      "element": "Next"
+    },
+    {
+      "id": "C064",
+      "screen": "Subscriptions",
+      "element": "Merge Files checkbox"
+    },
+    {
+      "id": "C065",
+      "screen": "Subscriptions",
+      "element": "Add Row"
+    },
+    {
+      "id": "C066",
+      "screen": "Subscriptions",
+      "element": "Payroll Company"
+    },
+    {
+      "id": "C067",
+      "screen": "Subscriptions",
+      "element": "Clients"
+    },
+    {
+      "id": "C068",
+      "screen": "Subscriptions",
+      "element": "Mail address input"
+    },
+    {
+      "id": "C069",
+      "screen": "Subscriptions",
+      "element": "Remove email tag"
+    },
+    {
+      "id": "C070",
+      "screen": "Subscriptions",
+      "element": "Delete subscription"
+    },
+    {
+      "id": "C071",
+      "screen": "Subscriptions",
+      "element": "Back"
+    },
+    {
+      "id": "C072",
+      "screen": "Subscriptions",
+      "element": "Finish"
+    },
+    {
+      "id": "C073",
+      "screen": "File Settings",
+      "element": "Cancel"
+    },
+    {
+      "id": "C074",
+      "screen": "File Settings",
+      "element": "Clear"
+    },
+    {
+      "id": "C075",
+      "screen": "File Settings",
+      "element": "Save & Continue"
+    },
+    {
+      "id": "C076",
+      "screen": "File Settings",
+      "element": "Sorting Add"
+    },
+    {
+      "id": "C077",
+      "screen": "File Settings",
+      "element": "Sort direction / Order By"
+    },
+    {
+      "id": "C078",
+      "screen": "File Settings",
+      "element": "Sort Mapping Column"
+    },
+    {
+      "id": "C079",
+      "screen": "File Settings",
+      "element": "Delete sort rule"
+    },
+    {
+      "id": "C080",
+      "screen": "File Settings",
+      "element": "Condition Add"
+    },
+    {
+      "id": "C081",
+      "screen": "File Settings",
+      "element": "Condition Mapping Column"
+    },
+    {
+      "id": "C082",
+      "screen": "File Settings",
+      "element": "Condition operator"
+    },
+    {
+      "id": "C083",
+      "screen": "File Settings",
+      "element": "Condition Value"
+    },
+    {
+      "id": "C084",
+      "screen": "File Settings",
+      "element": "Delete condition"
+    },
+    {
+      "id": "C085",
+      "screen": "Run dialog",
+      "element": "Start Date"
+    },
+    {
+      "id": "C086",
+      "screen": "Run dialog",
+      "element": "End Date"
+    },
+    {
+      "id": "C087",
+      "screen": "Run dialog",
+      "element": "Cancel"
+    },
+    {
+      "id": "C088",
+      "screen": "Run dialog",
+      "element": "Run"
+    },
+    {
+      "id": "C089",
+      "screen": "Shared feature shell",
+      "element": "General tab"
+    },
+    {
+      "id": "C090",
+      "screen": "Shared feature shell",
+      "element": "Schedule tab"
+    },
+    {
+      "id": "C091",
+      "screen": "Shared feature shell",
+      "element": "Mapping tab"
+    },
+    {
+      "id": "C092",
+      "screen": "Shared feature shell",
+      "element": "Subscriptions tab"
+    },
+    {
+      "id": "C093",
+      "screen": "Shared feature shell",
+      "element": "Wizard header Cancel"
+    },
+    {
+      "id": "C094",
+      "screen": "Shared feature shell",
+      "element": "Retry edit load"
+    },
+    {
+      "id": "C095",
+      "screen": "Shared feature shell",
+      "element": "Dropdown search input"
+    },
+    {
+      "id": "C096",
+      "screen": "Shared feature shell",
+      "element": "Dropdown option buttons"
+    },
+    {
+      "id": "C097",
+      "screen": "Shared feature shell",
+      "element": "Toggle navigation"
+    },
+    {
+      "id": "C098",
+      "screen": "Shared feature shell",
+      "element": "SYD breadcrumb"
+    },
+    {
+      "id": "C099",
+      "screen": "Sidebar",
+      "element": "Benefits"
+    },
+    {
+      "id": "C100",
+      "screen": "Sidebar",
+      "element": "Mass Mutual Files"
+    },
+    {
+      "id": "C101",
+      "screen": "Sidebar",
+      "element": "Process Validator"
+    },
+    {
+      "id": "C102",
+      "screen": "Sidebar",
+      "element": "Retirement Builder"
+    },
+    {
+      "id": "C103",
+      "screen": "Sidebar",
+      "element": "Prism"
+    },
+    {
+      "id": "C104",
+      "screen": "Sidebar",
+      "element": "Services"
+    },
+    {
+      "id": "C105",
+      "screen": "Sidebar",
+      "element": "Swipe Clock"
+    },
+    {
+      "id": "C106",
+      "screen": "Sidebar",
+      "element": "Payroll Builder"
+    },
+    {
+      "id": "C107",
+      "screen": "Sidebar",
+      "element": "NYS-45"
+    },
+    {
+      "id": "C108",
+      "screen": "Sidebar",
+      "element": "Reports"
+    }
+  ]
+}

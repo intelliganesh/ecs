@@ -1,19 +1,52 @@
 import * as XLSX from 'xlsx'
 
-const fileFormatLabels: Record<string, string> = {
-  CSV: 'Comma',
-  'CSV (COMMA DELIMITED)': 'Comma',
-  CSV_PIPE: 'Pipe',
-  'CSV (PIPE DELIMITED)': 'Pipe',
-  CSV_TAB: 'Tab',
-  'CSV (TAB DELIMITED)': 'Tab',
-  CSV_SEMI: 'Semicolon',
-  'CSV (SEMICOLON DELIMITED)': 'Semicolon',
+type SavedJobSnapshot = { id: number; general?: { enable?: boolean }; schedule?: object }
+
+export function mergeSavedJob<T extends SavedJobSnapshot>(jobs: T[], saved: T): T[] {
+  const previous = jobs.find((job) => job.id === saved.id)
+  const merged = {
+    ...previous, ...saved,
+    general: { ...previous?.general, ...saved.general },
+    schedule: { ...previous?.schedule, ...saved.schedule },
+  } as T
+  if (merged.general?.enable === false) return jobs.filter((job) => job.id !== saved.id)
+  return previous ? jobs.map((job) => job.id === saved.id ? merged : job) : [merged, ...jobs]
 }
 
-export function displayFileFormat(format = '') {
-  const value = format.trim()
-  return fileFormatLabels[value.toUpperCase()] ?? value
+export function createJobListRequestGuard() {
+  let revision = 0
+  return {
+    invalidate() { revision += 1 },
+    async apply<T>(load: () => Promise<T>, commit: (value: T) => void, signal?: AbortSignal) {
+      const started = revision
+      const value = await load()
+      if (started === revision && !signal?.aborted) commit(value)
+    },
+  }
+}
+
+const legacyFileFormatNames = new Map([
+  ['CSV', 'COMMA'],
+  ['CSV (COMMA DELIMITED)', 'COMMA'],
+  ['CSV_PIPE', 'PIPE'],
+  ['CSV (PIPE DELIMITED)', 'PIPE'],
+  ['CSV_TAB', 'TAB'],
+  ['CSV (TAB DELIMITED)', 'TAB'],
+  ['CSV_SEMI', 'SEMICOLON'],
+  ['CSV (SEMICOLON DELIMITED)', 'SEMICOLON'],
+])
+
+export function configuredFileFormat(value: string, options: string[]) {
+  if (!value.trim() || !options.length) return value
+  const requested = value.trim().toUpperCase()
+  const exact = options.find((option) => option.toUpperCase() === requested)
+  if (exact !== undefined) return exact
+
+  const legacy = legacyFileFormatNames.get(requested) ?? requested
+  return options.find((option) => {
+    const name = option.toUpperCase()
+    return (legacyFileFormatNames.get(name) ?? name) === legacy
+  }) ?? value
 }
 
 export function displayJobStatus(status?: string | null) {
@@ -54,7 +87,12 @@ export function pasteEmailText(value: string, pasted: string, start: number | nu
 
 export function isExcelFile(file: File): boolean { const name = file.name.toLowerCase(); return name.endsWith('.xlsx') || name.endsWith('.xls') }
 
-export function reportWorkbook(csv: string, delimiter: string) {
+export function reportWorkbook(csv: string, delimiter: string, excelRows?: string[][] | null) {
+  if (excelRows != null) {
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(excelRows), 'Report')
+    return workbook
+  }
   // A neutral first line keeps the reader from interpreting report data as a format directive.
   const firstLine = delimiter === '0' ? '1' : '0'
   const parsed = XLSX.read(`${firstLine}\r\n${csv}`, { type: 'string', FS: delimiter, raw: true })
@@ -73,7 +111,9 @@ function normalizeExcelRecordType(value: unknown): string {
   return 'Detail'
 }
 
-export async function readExcelMappings(file: File): Promise<Array<{ field: string; recordType: string }>> {
+type ImportedMapping = { field: string; recordType: string; dataSetNo?: number; colSeqNo?: number }
+
+export async function readExcelMappings(file: File): Promise<ImportedMapping[]> {
   const buffer = await file.arrayBuffer()
   const bytes = new Uint8Array(buffer)
   const hasSignature = (signature: number[]) => signature.every((byte, index) => bytes[index] === byte)
@@ -91,13 +131,28 @@ export async function readExcelMappings(file: File): Promise<Array<{ field: stri
   const headers = header.map((value) => String(value).trim().toLowerCase())
   const fieldIndex = headers.findIndex((value) => value.includes('column') || value.includes('field'))
   const recordTypeIndex = headers.findIndex((value) => value.includes('record') && value.includes('type'))
-  const fields = fieldIndex >= 0 && rows.length > 1
+  const compactHeaders = headers.map((value) => value.replace(/[ _]/g, ''))
+  const datasetIndex = compactHeaders.indexOf('datasetno')
+  const sequenceIndex = compactHeaders.indexOf('colseqno')
+  const metadata = (row: unknown[]) => {
+    const result: { dataSetNo?: number; colSeqNo?: number } = {}
+    for (const [index, key] of [[datasetIndex, 'dataSetNo'], [sequenceIndex, 'colSeqNo']] as const) {
+      if (index < 0 || String(row[index] ?? '').trim() === '') continue
+      const value = String(row[index]).trim()
+      if (!validWholeNumber(value)) throw new Error('Invalid dataset or column sequence')
+      result[key] = Number(value)
+    }
+    return result
+  }
+  const fields: ImportedMapping[] = fieldIndex >= 0 && rows.length > 1
     ? rows.slice(1).map((row) => ({
         field: String(row[fieldIndex] ?? '').trim(),
         recordType: normalizeExcelRecordType(row[recordTypeIndex]),
+        ...metadata(row),
       }))
     : header.map((value) => ({ field: String(value).trim(), recordType: 'Detail' }))
-  return fields.filter((row, index, all) => row.field && all.findIndex((candidate) => candidate.field === row.field) === index)
+  return fields.filter((row, index, all) => row.field && all.findIndex((candidate) => candidate.field === row.field
+    && candidate.recordType === row.recordType && (candidate.dataSetNo ?? 1) === (row.dataSetNo ?? 1)) === index)
 }
 
 const emailPattern = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i
@@ -106,6 +161,21 @@ export const validEmail = (email: string) => email.length <= 254 && email.indexO
 
 export function validWholeNumber(value: string, minimum = 0, maximum = 2147483647) {
   return /^[0-9]+$/.test(value.trim()) && Number(value) >= minimum && Number(value) <= maximum
+}
+
+export type SortingPriorityRow = { orderBy: string; mappingColumn: string }
+
+export function sortingPriorityError(rows: SortingPriorityRow[]) {
+  if (rows.some((row) => !validWholeNumber(row.orderBy, 1))) return 'Enter a positive whole-number priority for each sort rule.'
+  if (new Set(rows.map((row) => Number(row.orderBy))).size !== rows.length) return 'Use a different priority for each sort rule.'
+  if (rows.some((row) => !row.mappingColumn.trim())) return 'Choose a mapping column for each sort rule.'
+  return ''
+}
+
+export function normalizeSortingPriorities(rows: SortingPriorityRow[]): SortingPriorityRow[] {
+  return [...rows].sort((a, b) => Number(a.orderBy) - Number(b.orderBy)).map((row, index) => ({
+    orderBy: String(index + 1), mappingColumn: row.mappingColumn.trim(),
+  }))
 }
 
 export function validIsoDate(value: string) {

@@ -1,0 +1,538 @@
+[
+  {
+    "id": "DASH-FILTER-01",
+    "scenario": "File Name positive filter",
+    "status": "PASS",
+    "data": {
+      "value": "ABC"
+    },
+    "expected": "Matching jobs remain visible",
+    "actual": "ABC ABC Hardware Combined file 2025-02-06 2025-03-13 Thursday 9:15 AM Bi-Weekly CSV Yes Success\":\n        - cell \"Select ABC\":\n          - checkbox \"Select ABC\"\n        - cell \"ABC\":\n          - button \"ABC\"\n        - cell \"ABC Hardware Combined file\"\n        - cell \"2025-02-06\"\n        - cell \"2025-03-13\"\n        - cell \"Thursday\"\n        - cell \"9:15 AM\"\n        - cell \"Bi-Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n      - row \"Select ABC-W ABC-W ABC - 000474 2025-02-06 2026-05-15 Thursday 9:15 AM Weekly CSV Yes Success\":\n        - cell \"Select ABC-W\":\n          - checkbox \"Select ABC-W\"\n        - cell \"ABC-W\":\n          - button \"ABC-W\"\n        - cell \"ABC - 000474\"\n        - cell \"2025-02-06\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"9:15 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n  - navigation \"Job list pagination\":\n    - generic: 1–2 of 2 jobs\n    - button \"Previous page\" [disabled]: Previous\n    - generic: Page 1 of 1\n    - button \"Next page\" [disabled]: Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-02",
+    "scenario": "File Name unmatched filter",
+    "status": "PASS",
+    "data": {
+      "value": "QA_NO_MATCH_88D3"
+    },
+    "expected": "Empty-result message",
+    "actual": "- columnheader \"Sort by Run Day\":\n          - button \"Sort by Run Day\": Run Day ↕\n          - textbox \"Filter Run Day\"\n        - columnheader \"Sort by Run Time\":\n          - button \"Sort by Run Time\": Run Time ↕\n          - textbox \"Filter Run Time\"\n        - columnheader \"Sort by Schedule Type\":\n          - button \"Sort by Schedule Type\": Schedule Type ↕\n          - textbox \"Filter Schedule Type\"\n        - columnheader \"Sort by File Type\":\n          - button \"Sort by File Type\": File Type ↕\n          - textbox \"Filter File Type\"\n        - columnheader \"Sort by Is Active\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\"\n        - columnheader \"Sort by Status\":\n          - button \"Sort by Status\": Status ↕\n          - textbox \"Filter Status\"\n    - rowgroup:\n      - row \"No matching records found\":\n        - cell \"No matching records found\"\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-03",
+    "scenario": "Description positive filter",
+    "status": "PASS",
+    "data": {
+      "value": "Hardware"
+    },
+    "expected": "Matching jobs remain visible",
+    "actual": "x \"Filter Schedule Type\"\n        - columnheader \"Sort by File Type\":\n          - button \"Sort by File Type\": File Type ↕\n          - textbox \"Filter File Type\"\n        - columnheader \"Sort by Is Active\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\"\n        - columnheader \"Sort by Status\":\n          - button \"Sort by Status\": Status ↕\n          - textbox \"Filter Status\"\n    - rowgroup:\n      - row \"Select ABC ABC ABC Hardware Combined file 2025-02-06 2025-03-13 Thursday 9:15 AM Bi-Weekly CSV Yes Success\":\n        - cell \"Select ABC\":\n          - checkbox \"Select ABC\"\n        - cell \"ABC\":\n          - button \"ABC\"\n        - cell \"ABC Hardware Combined file\"\n        - cell \"2025-02-06\"\n        - cell \"2025-03-13\"\n        - cell \"Thursday\"\n        - cell \"9:15 AM\"\n        - cell \"Bi-Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n  - navigation \"Job list pagination\":\n    - generic: 1 of 1 job\n    - button \"Previous page\" [disabled]: Previous\n    - generic: Page 1 of 1\n    - button \"Next page\" [disabled]: Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-04",
+    "scenario": "Description unmatched filter",
+    "status": "PASS",
+    "data": {
+      "value": "QA_NO_MATCH_88D3"
+    },
+    "expected": "Empty-result message",
+    "actual": "- columnheader \"Sort by Run Day\":\n          - button \"Sort by Run Day\": Run Day ↕\n          - textbox \"Filter Run Day\"\n        - columnheader \"Sort by Run Time\":\n          - button \"Sort by Run Time\": Run Time ↕\n          - textbox \"Filter Run Time\"\n        - columnheader \"Sort by Schedule Type\":\n          - button \"Sort by Schedule Type\": Schedule Type ↕\n          - textbox \"Filter Schedule Type\"\n        - columnheader \"Sort by File Type\":\n          - button \"Sort by File Type\": File Type ↕\n          - textbox \"Filter File Type\"\n        - columnheader \"Sort by Is Active\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\"\n        - columnheader \"Sort by Status\":\n          - button \"Sort by Status\": Status ↕\n          - textbox \"Filter Status\"\n    - rowgroup:\n      - row \"No matching records found\":\n        - cell \"No matching records found\"\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-05",
+    "scenario": "Modified On positive filter",
+    "status": "PASS",
+    "data": {
+      "value": "2025"
+    },
+    "expected": "Matching jobs remain visible",
+    "actual": "s\":\n        - cell \"Select Silvestri\":\n          - checkbox \"Select Silvestri\"\n        - cell \"Silvestri\":\n          - button \"Silvestri\"\n        - cell \"Silvestri Architects\"\n        - cell \"2025-02-06\"\n        - cell \"2025-12-30\"\n        - cell \"Thursday\"\n        - cell \"9:00 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n      - row \"Select DSF_Wages DSF_Wages Dave Smith Ford request for weekly wage file 2025-02-06 2026-05-15 Thursday 9:15 AM Weekly CSV Yes Success\":\n        - cell \"Select DSF_Wages\":\n          - checkbox \"Select DSF_Wages\"\n        - cell \"DSF_Wages\":\n          - button \"DSF_Wages\"\n        - cell \"Dave Smith Ford request for weekly wage file\"\n        - cell \"2025-02-06\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"9:15 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n  - navigation \"Job list pagination\":\n    - generic: 1–10 of 40 jobs\n    - button \"Previous page\" [disabled]: Previous\n    - generic: Page 1 of 4\n    - button \"Next page\": Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-06",
+    "scenario": "Modified On unmatched filter",
+    "status": "PASS",
+    "data": {
+      "value": "QA_NO_MATCH_88D3"
+    },
+    "expected": "Empty-result message",
+    "actual": "- columnheader \"Sort by Run Day\":\n          - button \"Sort by Run Day\": Run Day ↕\n          - textbox \"Filter Run Day\"\n        - columnheader \"Sort by Run Time\":\n          - button \"Sort by Run Time\": Run Time ↕\n          - textbox \"Filter Run Time\"\n        - columnheader \"Sort by Schedule Type\":\n          - button \"Sort by Schedule Type\": Schedule Type ↕\n          - textbox \"Filter Schedule Type\"\n        - columnheader \"Sort by File Type\":\n          - button \"Sort by File Type\": File Type ↕\n          - textbox \"Filter File Type\"\n        - columnheader \"Sort by Is Active\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\"\n        - columnheader \"Sort by Status\":\n          - button \"Sort by Status\": Status ↕\n          - textbox \"Filter Status\"\n    - rowgroup:\n      - row \"No matching records found\":\n        - cell \"No matching records found\"\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-07",
+    "scenario": "Last Run Date positive filter",
+    "status": "PASS",
+    "data": {
+      "value": "2025"
+    },
+    "expected": "Matching jobs remain visible",
+    "actual": " - row \"Select DVD DVD Buffalo Spree 2025-02-06 2025-03-27 Thursday 9:00 AM Bi-Weekly CSV Yes Success\":\n        - cell \"Select DVD\":\n          - checkbox \"Select DVD\"\n        - cell \"DVD\":\n          - button \"DVD\"\n        - cell \"Buffalo Spree\"\n        - cell \"2025-02-06\"\n        - cell \"2025-03-27\"\n        - cell \"Thursday\"\n        - cell \"9:00 AM\"\n        - cell \"Bi-Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n      - row \"Select MHA MHA Mental Health Advocates 2025-02-06 2025-03-27 Thursday 9:45 AM Bi-Weekly CSV Yes Success\":\n        - cell \"Select MHA\":\n          - checkbox \"Select MHA\"\n        - cell \"MHA\":\n          - button \"MHA\"\n        - cell \"Mental Health Advocates\"\n        - cell \"2025-02-06\"\n        - cell \"2025-03-27\"\n        - cell \"Thursday\"\n        - cell \"9:45 AM\"\n        - cell \"Bi-Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n  - navigation \"Job list pagination\":\n    - generic: 1–10 of 15 jobs\n    - button \"Previous page\" [disabled]: Previous\n    - generic: Page 1 of 2\n    - button \"Next page\": Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-08",
+    "scenario": "Last Run Date unmatched filter",
+    "status": "PASS",
+    "data": {
+      "value": "QA_NO_MATCH_88D3"
+    },
+    "expected": "Empty-result message",
+    "actual": "- columnheader \"Sort by Run Day\":\n          - button \"Sort by Run Day\": Run Day ↕\n          - textbox \"Filter Run Day\"\n        - columnheader \"Sort by Run Time\":\n          - button \"Sort by Run Time\": Run Time ↕\n          - textbox \"Filter Run Time\"\n        - columnheader \"Sort by Schedule Type\":\n          - button \"Sort by Schedule Type\": Schedule Type ↕\n          - textbox \"Filter Schedule Type\"\n        - columnheader \"Sort by File Type\":\n          - button \"Sort by File Type\": File Type ↕\n          - textbox \"Filter File Type\"\n        - columnheader \"Sort by Is Active\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\"\n        - columnheader \"Sort by Status\":\n          - button \"Sort by Status\": Status ↕\n          - textbox \"Filter Status\"\n    - rowgroup:\n      - row \"No matching records found\":\n        - cell \"No matching records found\"\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-09",
+    "scenario": "Run Day positive filter",
+    "status": "PASS",
+    "data": {
+      "value": "Thursday"
+    },
+    "expected": "Matching jobs remain visible",
+    "actual": "ir 401K\":\n          - checkbox \"Select BirdAir 401K\"\n        - cell \"BirdAir 401K\":\n          - button \"BirdAir 401K\"\n        - cell \"BirdAir 401K\"\n        - cell \"2025-02-06\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"9:45 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n      - row \"Select RETIREMENT_PNK RETIREMENT_PNK Combined file for Phoenix, Nidus and Kanaka 2024-08-30 2026-05-15 Thursday 10:30 AM Weekly CSV Yes Failed\":\n        - cell \"Select RETIREMENT_PNK\":\n          - checkbox \"Select RETIREMENT_PNK\"\n        - cell \"RETIREMENT_PNK\":\n          - button \"RETIREMENT_PNK\"\n        - cell \"Combined file for Phoenix, Nidus and Kanaka\"\n        - cell \"2024-08-30\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"10:30 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Failed\"\n  - navigation \"Job list pagination\":\n    - generic: 1–10 of 43 jobs\n    - button \"Previous page\" [disabled]: Previous\n    - generic: Page 1 of 5\n    - button \"Next page\": Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-10",
+    "scenario": "Run Day unmatched filter",
+    "status": "PASS",
+    "data": {
+      "value": "QA_NO_MATCH_88D3"
+    },
+    "expected": "Empty-result message",
+    "actual": "88D3\":\n          - button \"Sort by Run Day\": Run Day ↕\n          - textbox \"Filter Run Day\" [active]: QA_NO_MATCH_88D3\n        - columnheader \"Sort by Run Time\":\n          - button \"Sort by Run Time\": Run Time ↕\n          - textbox \"Filter Run Time\"\n        - columnheader \"Sort by Schedule Type\":\n          - button \"Sort by Schedule Type\": Schedule Type ↕\n          - textbox \"Filter Schedule Type\"\n        - columnheader \"Sort by File Type\":\n          - button \"Sort by File Type\": File Type ↕\n          - textbox \"Filter File Type\"\n        - columnheader \"Sort by Is Active\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\"\n        - columnheader \"Sort by Status\":\n          - button \"Sort by Status\": Status ↕\n          - textbox \"Filter Status\"\n    - rowgroup:\n      - row \"No matching records found\":\n        - cell \"No matching records found\"\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-11",
+    "scenario": "Run Time positive filter",
+    "status": "PASS",
+    "data": {
+      "value": "9"
+    },
+    "expected": "Matching jobs remain visible",
+    "actual": "s\":\n        - cell \"Select Silvestri\":\n          - checkbox \"Select Silvestri\"\n        - cell \"Silvestri\":\n          - button \"Silvestri\"\n        - cell \"Silvestri Architects\"\n        - cell \"2025-02-06\"\n        - cell \"2025-12-30\"\n        - cell \"Thursday\"\n        - cell \"9:00 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n      - row \"Select DSF_Wages DSF_Wages Dave Smith Ford request for weekly wage file 2025-02-06 2026-05-15 Thursday 9:15 AM Weekly CSV Yes Success\":\n        - cell \"Select DSF_Wages\":\n          - checkbox \"Select DSF_Wages\"\n        - cell \"DSF_Wages\":\n          - button \"DSF_Wages\"\n        - cell \"Dave Smith Ford request for weekly wage file\"\n        - cell \"2025-02-06\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"9:15 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n  - navigation \"Job list pagination\":\n    - generic: 1–10 of 40 jobs\n    - button \"Previous page\" [disabled]: Previous\n    - generic: Page 1 of 4\n    - button \"Next page\": Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-12",
+    "scenario": "Run Time unmatched filter",
+    "status": "PASS",
+    "data": {
+      "value": "QA_NO_MATCH_88D3"
+    },
+    "expected": "Empty-result message",
+    "actual": "- button \"Sort by Run Day\": Run Day ↕\n          - textbox \"Filter Run Day\"\n        - columnheader \"Sort by Run Time QA_NO_MATCH_88D3\":\n          - button \"Sort by Run Time\": Run Time ↕\n          - textbox \"Filter Run Time\" [active]: QA_NO_MATCH_88D3\n        - columnheader \"Sort by Schedule Type\":\n          - button \"Sort by Schedule Type\": Schedule Type ↕\n          - textbox \"Filter Schedule Type\"\n        - columnheader \"Sort by File Type\":\n          - button \"Sort by File Type\": File Type ↕\n          - textbox \"Filter File Type\"\n        - columnheader \"Sort by Is Active\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\"\n        - columnheader \"Sort by Status\":\n          - button \"Sort by Status\": Status ↕\n          - textbox \"Filter Status\"\n    - rowgroup:\n      - row \"No matching records found\":\n        - cell \"No matching records found\"\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-13",
+    "scenario": "Schedule Type positive filter",
+    "status": "PASS",
+    "data": {
+      "value": "Weekly"
+    },
+    "expected": "Matching jobs remain visible",
+    "actual": "ir 401K\":\n          - checkbox \"Select BirdAir 401K\"\n        - cell \"BirdAir 401K\":\n          - button \"BirdAir 401K\"\n        - cell \"BirdAir 401K\"\n        - cell \"2025-02-06\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"9:45 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n      - row \"Select RETIREMENT_PNK RETIREMENT_PNK Combined file for Phoenix, Nidus and Kanaka 2024-08-30 2026-05-15 Thursday 10:30 AM Weekly CSV Yes Failed\":\n        - cell \"Select RETIREMENT_PNK\":\n          - checkbox \"Select RETIREMENT_PNK\"\n        - cell \"RETIREMENT_PNK\":\n          - button \"RETIREMENT_PNK\"\n        - cell \"Combined file for Phoenix, Nidus and Kanaka\"\n        - cell \"2024-08-30\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"10:30 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Failed\"\n  - navigation \"Job list pagination\":\n    - generic: 1–10 of 44 jobs\n    - button \"Previous page\" [disabled]: Previous\n    - generic: Page 1 of 5\n    - button \"Next page\": Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-14",
+    "scenario": "Schedule Type unmatched filter",
+    "status": "PASS",
+    "data": {
+      "value": "QA_NO_MATCH_88D3"
+    },
+    "expected": "Empty-result message",
+    "actual": "- button \"Sort by Run Day\": Run Day ↕\n          - textbox \"Filter Run Day\"\n        - columnheader \"Sort by Run Time\":\n          - button \"Sort by Run Time\": Run Time ↕\n          - textbox \"Filter Run Time\"\n        - columnheader \"Sort by Schedule Type QA_NO_MATCH_88D3\":\n          - button \"Sort by Schedule Type\": Schedule Type ↕\n          - textbox \"Filter Schedule Type\" [active]: QA_NO_MATCH_88D3\n        - columnheader \"Sort by File Type\":\n          - button \"Sort by File Type\": File Type ↕\n          - textbox \"Filter File Type\"\n        - columnheader \"Sort by Is Active\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\"\n        - columnheader \"Sort by Status\":\n          - button \"Sort by Status\": Status ↕\n          - textbox \"Filter Status\"\n    - rowgroup:\n      - row \"No matching records found\":\n        - cell \"No matching records found\"\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-15",
+    "scenario": "File Type positive filter",
+    "status": "PASS",
+    "data": {
+      "value": "CSV"
+    },
+    "expected": "Matching jobs remain visible",
+    "actual": "ir 401K\":\n          - checkbox \"Select BirdAir 401K\"\n        - cell \"BirdAir 401K\":\n          - button \"BirdAir 401K\"\n        - cell \"BirdAir 401K\"\n        - cell \"2025-02-06\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"9:45 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n      - row \"Select RETIREMENT_PNK RETIREMENT_PNK Combined file for Phoenix, Nidus and Kanaka 2024-08-30 2026-05-15 Thursday 10:30 AM Weekly CSV Yes Failed\":\n        - cell \"Select RETIREMENT_PNK\":\n          - checkbox \"Select RETIREMENT_PNK\"\n        - cell \"RETIREMENT_PNK\":\n          - button \"RETIREMENT_PNK\"\n        - cell \"Combined file for Phoenix, Nidus and Kanaka\"\n        - cell \"2024-08-30\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"10:30 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Failed\"\n  - navigation \"Job list pagination\":\n    - generic: 1–10 of 44 jobs\n    - button \"Previous page\" [disabled]: Previous\n    - generic: Page 1 of 5\n    - button \"Next page\": Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-16",
+    "scenario": "File Type unmatched filter",
+    "status": "PASS",
+    "data": {
+      "value": "QA_NO_MATCH_88D3"
+    },
+    "expected": "Empty-result message",
+    "actual": "- button \"Sort by Run Day\": Run Day ↕\n          - textbox \"Filter Run Day\"\n        - columnheader \"Sort by Run Time\":\n          - button \"Sort by Run Time\": Run Time ↕\n          - textbox \"Filter Run Time\"\n        - columnheader \"Sort by Schedule Type\":\n          - button \"Sort by Schedule Type\": Schedule Type ↕\n          - textbox \"Filter Schedule Type\"\n        - columnheader \"Sort by File Type QA_NO_MATCH_88D3\":\n          - button \"Sort by File Type\": File Type ↕\n          - textbox \"Filter File Type\" [active]: QA_NO_MATCH_88D3\n        - columnheader \"Sort by Is Active\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\"\n        - columnheader \"Sort by Status\":\n          - button \"Sort by Status\": Status ↕\n          - textbox \"Filter Status\"\n    - rowgroup:\n      - row \"No matching records found\":\n        - cell \"No matching records found\"\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-17",
+    "scenario": "Is Active positive filter",
+    "status": "PASS",
+    "data": {
+      "value": "Yes"
+    },
+    "expected": "Matching jobs remain visible",
+    "actual": "ir 401K\":\n          - checkbox \"Select BirdAir 401K\"\n        - cell \"BirdAir 401K\":\n          - button \"BirdAir 401K\"\n        - cell \"BirdAir 401K\"\n        - cell \"2025-02-06\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"9:45 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n      - row \"Select RETIREMENT_PNK RETIREMENT_PNK Combined file for Phoenix, Nidus and Kanaka 2024-08-30 2026-05-15 Thursday 10:30 AM Weekly CSV Yes Failed\":\n        - cell \"Select RETIREMENT_PNK\":\n          - checkbox \"Select RETIREMENT_PNK\"\n        - cell \"RETIREMENT_PNK\":\n          - button \"RETIREMENT_PNK\"\n        - cell \"Combined file for Phoenix, Nidus and Kanaka\"\n        - cell \"2024-08-30\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"10:30 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Failed\"\n  - navigation \"Job list pagination\":\n    - generic: 1–10 of 44 jobs\n    - button \"Previous page\" [disabled]: Previous\n    - generic: Page 1 of 5\n    - button \"Next page\": Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-18",
+    "scenario": "Is Active unmatched filter",
+    "status": "PASS",
+    "data": {
+      "value": "QA_NO_MATCH_88D3"
+    },
+    "expected": "Empty-result message",
+    "actual": "- button \"Sort by Run Day\": Run Day ↕\n          - textbox \"Filter Run Day\"\n        - columnheader \"Sort by Run Time\":\n          - button \"Sort by Run Time\": Run Time ↕\n          - textbox \"Filter Run Time\"\n        - columnheader \"Sort by Schedule Type\":\n          - button \"Sort by Schedule Type\": Schedule Type ↕\n          - textbox \"Filter Schedule Type\"\n        - columnheader \"Sort by File Type\":\n          - button \"Sort by File Type\": File Type ↕\n          - textbox \"Filter File Type\"\n        - columnheader \"Sort by Is Active QA_NO_MATCH_88D3\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\" [active]: QA_NO_MATCH_88D3\n        - columnheader \"Sort by Status\":\n          - button \"Sort by Status\": Status ↕\n          - textbox \"Filter Status\"\n    - rowgroup:\n      - row \"No matching records found\":\n        - cell \"No matching records found\"\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-19",
+    "scenario": "Status positive filter",
+    "status": "PASS",
+    "data": {
+      "value": "Success"
+    },
+    "expected": "Matching jobs remain visible",
+    "actual": "06 2026-05-15 Thursday 9:45 AM Weekly CSV Yes Success\":\n        - cell \"Select BirdAir 401K\":\n          - checkbox \"Select BirdAir 401K\"\n        - cell \"BirdAir 401K\":\n          - button \"BirdAir 401K\"\n        - cell \"BirdAir 401K\"\n        - cell \"2025-02-06\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"9:45 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n      - row \"Select DEMO_999999_1 DEMO_999999_1 DEMO 2026-11-17 2026-11-18 Thursday 4:00 AM Weekly CSV Yes Success\":\n        - cell \"Select DEMO_999999_1\":\n          - checkbox \"Select DEMO_999999_1\"\n        - cell \"DEMO_999999_1\":\n          - button \"DEMO_999999_1\"\n        - cell \"DEMO\"\n        - cell \"2026-11-17\"\n        - cell \"2026-11-18\"\n        - cell \"Thursday\"\n        - cell \"4:00 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n  - navigation \"Job list pagination\":\n    - generic: 1–10 of 39 jobs\n    - button \"Previous page\" [disabled]: Previous\n    - generic: Page 1 of 4\n    - button \"Next page\": Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-FILTER-20",
+    "scenario": "Status unmatched filter",
+    "status": "PASS",
+    "data": {
+      "value": "QA_NO_MATCH_88D3"
+    },
+    "expected": "Empty-result message",
+    "actual": "- button \"Sort by Run Day\": Run Day ↕\n          - textbox \"Filter Run Day\"\n        - columnheader \"Sort by Run Time\":\n          - button \"Sort by Run Time\": Run Time ↕\n          - textbox \"Filter Run Time\"\n        - columnheader \"Sort by Schedule Type\":\n          - button \"Sort by Schedule Type\": Schedule Type ↕\n          - textbox \"Filter Schedule Type\"\n        - columnheader \"Sort by File Type\":\n          - button \"Sort by File Type\": File Type ↕\n          - textbox \"Filter File Type\"\n        - columnheader \"Sort by Is Active\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\"\n        - columnheader \"Sort by Status QA_NO_MATCH_88D3\":\n          - button \"Sort by Status\": Status ↕\n          - textbox \"Filter Status\" [active]: QA_NO_MATCH_88D3\n    - rowgroup:\n      - row \"No matching records found\":\n        - cell \"No matching records found\"\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-File-Name-1",
+    "scenario": "File Name ascending",
+    "status": "PASS",
+    "data": {},
+    "expected": "ascending",
+    "actual": "ascending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-File-Name-2",
+    "scenario": "File Name descending",
+    "status": "PASS",
+    "data": {},
+    "expected": "descending",
+    "actual": "descending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Description-1",
+    "scenario": "Description ascending",
+    "status": "PASS",
+    "data": {},
+    "expected": "ascending",
+    "actual": "ascending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Description-2",
+    "scenario": "Description descending",
+    "status": "PASS",
+    "data": {},
+    "expected": "descending",
+    "actual": "descending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Modified-On-1",
+    "scenario": "Modified On ascending",
+    "status": "PASS",
+    "data": {},
+    "expected": "ascending",
+    "actual": "ascending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Modified-On-2",
+    "scenario": "Modified On descending",
+    "status": "PASS",
+    "data": {},
+    "expected": "descending",
+    "actual": "descending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Last-Run-Date-1",
+    "scenario": "Last Run Date ascending",
+    "status": "PASS",
+    "data": {},
+    "expected": "ascending",
+    "actual": "ascending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Last-Run-Date-2",
+    "scenario": "Last Run Date descending",
+    "status": "PASS",
+    "data": {},
+    "expected": "descending",
+    "actual": "descending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Run-Day-1",
+    "scenario": "Run Day ascending",
+    "status": "PASS",
+    "data": {},
+    "expected": "ascending",
+    "actual": "ascending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Run-Day-2",
+    "scenario": "Run Day descending",
+    "status": "PASS",
+    "data": {},
+    "expected": "descending",
+    "actual": "descending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Run-Time-1",
+    "scenario": "Run Time ascending",
+    "status": "PASS",
+    "data": {},
+    "expected": "ascending",
+    "actual": "ascending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Run-Time-2",
+    "scenario": "Run Time descending",
+    "status": "PASS",
+    "data": {},
+    "expected": "descending",
+    "actual": "descending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Schedule-Type-1",
+    "scenario": "Schedule Type ascending",
+    "status": "PASS",
+    "data": {},
+    "expected": "ascending",
+    "actual": "ascending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Schedule-Type-2",
+    "scenario": "Schedule Type descending",
+    "status": "PASS",
+    "data": {},
+    "expected": "descending",
+    "actual": "descending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-File-Type-1",
+    "scenario": "File Type ascending",
+    "status": "PASS",
+    "data": {},
+    "expected": "ascending",
+    "actual": "ascending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-File-Type-2",
+    "scenario": "File Type descending",
+    "status": "PASS",
+    "data": {},
+    "expected": "descending",
+    "actual": "descending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Is-Active-1",
+    "scenario": "Is Active ascending",
+    "status": "PASS",
+    "data": {},
+    "expected": "ascending",
+    "actual": "ascending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Is-Active-2",
+    "scenario": "Is Active descending",
+    "status": "PASS",
+    "data": {},
+    "expected": "descending",
+    "actual": "descending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Status-1",
+    "scenario": "Status ascending",
+    "status": "PASS",
+    "data": {},
+    "expected": "ascending",
+    "actual": "ascending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SORT-Status-2",
+    "scenario": "Status descending",
+    "status": "PASS",
+    "data": {},
+    "expected": "descending",
+    "actual": "descending",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-PAGE-2",
+    "scenario": "Navigate to page 2",
+    "status": "PASS",
+    "data": {},
+    "expected": "Correct page indicator",
+    "actual": "lect Mercedes Benz\"\n        - cell \"Mercedes Benz\":\n          - button \"Mercedes Benz\"\n        - cell \"MBB Export file\"\n        - cell \"2025-02-06\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"9:30 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n  - navigation \"Job list pagination\":\n    - generic: 11–20 of 44 jobs\n    - button \"Previous page\": Previous\n    - generic: Page 2 of 5\n    - button \"Next page\" [active]: Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-PAGE-3",
+    "scenario": "Navigate to page 3",
+    "status": "PASS",
+    "data": {},
+    "expected": "Correct page indicator",
+    "actual": " QUI\":\n          - checkbox \"Select QUI\"\n        - cell \"QUI\":\n          - button \"QUI\"\n        - cell \"Quigliano File\"\n        - cell \"2025-02-06\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"9:45 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Success\"\n  - navigation \"Job list pagination\":\n    - generic: 21–30 of 44 jobs\n    - button \"Previous page\": Previous\n    - generic: Page 3 of 5\n    - button \"Next page\" [active]: Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-PAGE-4",
+    "scenario": "Navigate to page 4",
+    "status": "PASS",
+    "data": {},
+    "expected": "Correct page indicator",
+    "actual": "cell \"RETIREMENT_PNK\":\n          - button \"RETIREMENT_PNK\"\n        - cell \"Combined file for Phoenix, Nidus and Kanaka\"\n        - cell \"2024-08-30\"\n        - cell \"2026-05-15\"\n        - cell \"Thursday\"\n        - cell \"10:30 AM\"\n        - cell \"Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Failed\"\n  - navigation \"Job list pagination\":\n    - generic: 31–40 of 44 jobs\n    - button \"Previous page\": Previous\n    - generic: Page 4 of 5\n    - button \"Next page\" [active]: Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-PAGE-5",
+    "scenario": "Navigate to page 5",
+    "status": "PASS",
+    "data": {},
+    "expected": "Correct page indicator",
+    "actual": "lect Phoenix\"\n        - cell \"Phoenix\":\n          - button \"Phoenix\"\n        - cell \"Phoenix Healthcare Retirement\"\n        - cell \"2025-02-06\"\n        - cell \"2025-04-17\"\n        - cell \"Thursday\"\n        - cell \"9:45 AM\"\n        - cell \"Bi-Weekly\"\n        - cell \"CSV\"\n        - cell \"Yes\"\n        - cell \"Failed\"\n  - navigation \"Job list pagination\":\n    - generic: 41–44 of 44 jobs\n    - button \"Previous page\": Previous\n    - generic: Page 5 of 5\n    - button \"Next page\" [disabled]: Next\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-TEXT-HTML",
+    "scenario": "Filter treats HTML string as text",
+    "status": "PASS",
+    "data": {
+      "value": "<script>alert(\"qa\")</script>"
+    },
+    "expected": "No matching records; no execution",
+    "actual": "mnheader \"Sort by Is Active\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\"\n        - columnheader \"Sort by Status\":\n          - button \"Sort by Status\": Status ↓\n          - textbox \"Filter Status\"\n    - rowgroup:\n      - row \"No matching records found\":\n        - cell \"No matching records found\"\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-TEXT-SQL",
+    "scenario": "Filter treats SQL string as text",
+    "status": "PASS",
+    "data": {
+      "value": "' OR 1=1; --"
+    },
+    "expected": "No matching records; no execution",
+    "actual": "mnheader \"Sort by Is Active\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\"\n        - columnheader \"Sort by Status\":\n          - button \"Sort by Status\": Status ↓\n          - textbox \"Filter Status\"\n    - rowgroup:\n      - row \"No matching records found\":\n        - cell \"No matching records found\"\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-TEXT-UNICODE",
+    "scenario": "Filter treats UNICODE string as text",
+    "status": "PASS",
+    "data": {
+      "value": "日本語 Ω 👩🏽‍💻"
+    },
+    "expected": "No matching records; no execution",
+    "actual": "mnheader \"Sort by Is Active\":\n          - button \"Sort by Is Active\": Is Active ↕\n          - textbox \"Filter Is Active\"\n        - columnheader \"Sort by Status\":\n          - button \"Sort by Status\": Status ↓\n          - textbox \"Filter Status\"\n    - rowgroup:\n      - row \"No matching records found\":\n        - cell \"No matching records found\"\n  - generic: Copyright © 2026\n  - strong: Employer Services Corporation.\n  - generic: All rights reserved.",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "DASH-SELECT-ALL",
+    "scenario": "Select visible rows enables Run and keeps Edit disabled",
+    "status": "FAIL",
+    "data": {},
+    "expected": "Run enabled, Edit disabled for multiple rows",
+    "actual": "Checked accessible states",
+    "evidence": "",
+    "url": "http://localhost:5174/retirement-builder"
+  },
+  {
+    "id": "TEMPLATE-01",
+    "scenario": "Download Excel mapping template",
+    "status": "PASS",
+    "data": {},
+    "expected": "An XLSX workbook is downloaded",
+    "actual": "/Users/apple/Downloads/mapped_payroll_columns_HDT (4).xlsx",
+    "evidence": "inputs/downloaded-mapping-template.xlsx",
+    "url": "http://localhost:5174/retirement-builder"
+  }
+]

@@ -1,0 +1,66 @@
+Browser tab: 37, Title: "ECS Applications", URL: "http://localhost:5174/jobs/new/schedule".
+0 AXWebArea ECS Applications, URL: localhost:5174/jobs/new/schedule
+	1 container root
+		2 container
+			3 text ESC
+			4 button Toggle navigation
+			5 text Demo
+		6 container
+			7 button Benefits ‹
+				8 text Benefits
+				9 text ‹
+			10 button Mass Mutual Files ‹
+				11 text Mass Mutual Files
+				12 text ‹
+			13 button Process Validator
+			14 button Retirement Builder
+			15 button Prism ‹
+				16 text Prism
+				17 text ‹
+			18 button Services
+			19 button Swipe Clock
+			20 button Payroll Builder
+			21 button NYS-45
+			22 button Reports
+		23 container
+			24 heading Retirement Builder, Value: 1
+				25 text Retirement Builder
+			26 button SYD
+			73 text Add New Job
+			74 container
+				75 button General
+				76 button Schedule
+				77 button Mapping
+				78 button Subscriptions
+			79 container
+				80 heading Add New Job, Value: 2
+					81 text Add New Job
+				82 button Cancel
+			83 heading Schedule Details, Value: 3
+				84 text Schedule Details
+			85 text Start Date
+			86 date field (settable) Start Date, ID: retirement-start-date
+				87 container
+					88 stepper
+					89 stepper
+					90 stepper
+				91 pop up button Show date picker Show date picker
+			92 text Leave the schedule blank for manual runs only.
+			93 container
+				94 text Build Frequency
+				95 pop up button (collapsed) Description: Build frequency, Secondary Actions: Expand
+			96 container Run Time
+				97 text Run Time
+				98 pop up button (collapsed) Description: Hour, Secondary Actions: Expand
+				99 pop up button (collapsed) Description: Minute, Secondary Actions: Expand
+				100 pop up button (collapsed) Description: AM or PM, Secondary Actions: Expand
+			101 container
+				102 text Week
+				103 pop up button (collapsed) Description: Week, Secondary Actions: Expand
+			104 button Back
+			105 button Next
+			70 text Copyright © 2026
+			71 text Employer Services Corporation.
+			72 text All rights reserved.
+
+The focused UI element is 0 AXWebArea ECS Applications, URL: localhost:5174/jobs/new/schedule

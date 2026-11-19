@@ -1,0 +1,374 @@
+{
+  "date": "2026-11-18",
+  "writes_performed": false,
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/v1/retirement-builder/options",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/retirement-builder/jobs",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/retirement-builder/jobs/64",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/retirement-builder/clients",
+      "error_type": "HTTPError",
+      "status": 503
+    }
+  ],
+  "options": {
+    "fileFormats": [
+      "Comma",
+      "Pipe",
+      "Semicolon",
+      "Space",
+      "Tab"
+    ],
+    "outputFileNameFormats": [
+      {
+        "label": "File Name",
+        "value": "FILENAME"
+      },
+      {
+        "label": "Client ID",
+        "value": "CLIENT"
+      },
+      {
+        "label": "Payday",
+        "value": "PAYDAY"
+      },
+      {
+        "label": "File Name + Client ID",
+        "value": "FILENAME_CLIENT"
+      },
+      {
+        "label": "File Name + Payday",
+        "value": "FILENAME_PAYDAY"
+      },
+      {
+        "label": "Client ID + Payday",
+        "value": "CLIENT_PAYDAY"
+      },
+      {
+        "label": "File Name + Client ID + Payday",
+        "value": "FILENAME_CLIENT_PAYDAY"
+      }
+    ],
+    "buildFrequencies": [
+      "Daily",
+      "Weekly",
+      "Bi-Weekly",
+      "Monthly"
+    ],
+    "hours": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12"
+    ],
+    "minutes": [
+      "00",
+      "01",
+      "02",
+      "03",
+      "04",
+      "05",
+      "06",
+      "07",
+      "08",
+      "09",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19",
+      "20",
+      "21",
+      "22",
+      "23",
+      "24",
+      "25",
+      "26",
+      "27",
+      "28",
+      "29",
+      "30",
+      "31",
+      "32",
+      "33",
+      "34",
+      "35",
+      "36",
+      "37",
+      "38",
+      "39",
+      "40",
+      "41",
+      "42",
+      "43",
+      "44",
+      "45",
+      "46",
+      "47",
+      "48",
+      "49",
+      "50",
+      "51",
+      "52",
+      "53",
+      "54",
+      "55",
+      "56",
+      "57",
+      "58",
+      "59"
+    ],
+    "meridiems": [
+      "AM",
+      "PM"
+    ],
+    "weekDays": [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    ],
+    "recordTypes": [
+      "Header",
+      "Detail",
+      "Trailer"
+    ],
+    "sortDirections": [
+      "ASC",
+      "DESC"
+    ],
+    "comparisonOperators": [
+      "=",
+      "==",
+      "!=",
+      "<>",
+      "<",
+      "<=",
+      ">",
+      ">="
+    ],
+    "mappingColumns": [
+      "Allowances",
+      "Basic Salary",
+      "Client ID",
+      "Company City",
+      "Company Code",
+      "Company Email",
+      "Company Name",
+      "Company Phone",
+      "Date",
+      "Date of Birth",
+      "Deductions",
+      "Department",
+      "Designation",
+      "Employee Code",
+      "Employee Count",
+      "Employee ID",
+      "Employee Name",
+      "Employee Pay Date",
+      "Employee Work Email",
+      "First Name",
+      "Gross Pay",
+      "Hire Date",
+      "Hours Worked",
+      "Is Active",
+      "Last Name",
+      "Net Salary",
+      "Net Salary Total",
+      "Pay Date",
+      "Pay End Date",
+      "Pay Start Date",
+      "Payment Status",
+      "Phone",
+      "Record Type",
+      "SSN",
+      "Termination Date"
+    ],
+    "payrollMappingColumns": [
+      "Company Name",
+      "Employee Count",
+      "Net Salary Total",
+      "Pay Date",
+      "Record Type"
+    ],
+    "payrollMappingColumnKeys": [
+      "rectype",
+      "company_name",
+      "payroll_month",
+      "employee_count",
+      "net_salary_total"
+    ],
+    "mappingColumnLabels": {
+      "company_id": "Client ID",
+      "company_name": "Company Name",
+      "pay_date": "Date",
+      "date_of_birth": "Date of Birth",
+      "employee_count": "Employee Count",
+      "employee_id": "Employee ID",
+      "employee_name": "Employee Name",
+      "work_email": "Employee Work Email",
+      "first_name": "First Name",
+      "gross_pay": "Gross Pay",
+      "hire_date": "Hire Date",
+      "hours_worked": "Hours Worked",
+      "last_name": "Last Name",
+      "net_salary": "Net Salary",
+      "net_salary_total": "Net Salary Total",
+      "payroll_month": "Pay Date",
+      "pay_end_date": "Pay End Date",
+      "pay_start_date": "Pay Start Date",
+      "phone": "Phone",
+      "rectype": "Record Type",
+      "ssn": "SSN",
+      "termination_date": "Termination Date",
+      "allowances": "Allowances",
+      "basic_salary": "Basic Salary",
+      "city": "Company City",
+      "company_code": "Company Code",
+      "company_email": "Company Email",
+      "company_phone": "Company Phone",
+      "deductions": "Deductions",
+      "department": "Department",
+      "designation": "Designation",
+      "employee_code": "Employee Code",
+      "is_active": "Is Active",
+      "paydate": "Employee Pay Date",
+      "payment_status": "Payment Status"
+    },
+    "mappingFormats": [],
+    "mappingFormatLabels": {},
+    "mappingColumnTypes": {
+      "Client ID": "text",
+      "Company Name": "text",
+      "Date": "date",
+      "Date of Birth": "date",
+      "Employee Count": "number",
+      "Employee ID": "text",
+      "Employee Name": "text",
+      "Employee Work Email": "email",
+      "First Name": "text",
+      "Gross Pay": "number",
+      "Hire Date": "date",
+      "Hours Worked": "number",
+      "Last Name": "text",
+      "Net Salary": "number",
+      "Net Salary Total": "number",
+      "Pay Date": "date",
+      "Pay End Date": "date",
+      "Pay Start Date": "date",
+      "Phone": "phone",
+      "Record Type": "text",
+      "SSN": "ssn",
+      "Termination Date": "date",
+      "Allowances": "number",
+      "Basic Salary": "number",
+      "Company City": "text",
+      "Company Code": "text",
+      "Company Email": "email",
+      "Company Phone": "phone",
+      "Deductions": "number",
+      "Department": "text",
+      "Designation": "text",
+      "Employee Code": "text",
+      "Is Active": "text",
+      "Employee Pay Date": "date",
+      "Payment Status": "text"
+    },
+    "mappingFormatsByType": {}
+  },
+  "payroll_company_option_count": 1,
+  "job_list_count": 2,
+  "job_list_row_keys": [
+    "End_Date",
+    "IsActive",
+    "Job_Last_Message",
+    "Job_Last_Status",
+    "ScheduleType",
+    "Start_Date",
+    "filetype",
+    "general",
+    "id",
+    "isEnabled",
+    "ismerge",
+    "jobdesc",
+    "jobfilename",
+    "jobid",
+    "joblastmodified",
+    "joblastrun",
+    "jobstatus",
+    "runday",
+    "runtime",
+    "schedule"
+  ],
+  "detail_section_keys": [
+    "fileSettings",
+    "general",
+    "id",
+    "mapping",
+    "queryConfiguration",
+    "schedule",
+    "subscriptions"
+  ],
+  "detail_nested_keys": {
+    "general": [
+      "description",
+      "enable",
+      "fileFormat",
+      "fileName",
+      "outputFileNameFormat",
+      "reportSource",
+      "selectedFile",
+      "storeResultsToTable",
+      "testfileName"
+    ],
+    "schedule": [
+      "buildFrequency",
+      "hour",
+      "meridiem",
+      "minute",
+      "startDate",
+      "week"
+    ],
+    "mapping": [
+      "includeHeader",
+      "rows"
+    ],
+    "subscriptions": [
+      "mergeFiles",
+      "rows"
+    ],
+    "fileSettings": [
+      "conditionalStatements",
+      "sortingOrder"
+    ]
+  }
+}

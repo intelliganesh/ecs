@@ -1,0 +1,176 @@
+{
+  "date": "2026-11-18",
+  "basis": "Current working tree including pre-existing edits, not committed HEAD",
+  "files": [
+    {
+      "path": "frontend/src/App.tsx",
+      "lines": 1310,
+      "sha256": "c175db1882ba40ef14ba644bd0c07598c45ba238de2b2ff839c530c69560436d"
+    },
+    {
+      "path": "frontend/src/retirementBuilder.ts",
+      "lines": 141,
+      "sha256": "a6fe484553d681e38bcc6abaa7d681dcd808840aff6491c7a08aad64d75ef4c4"
+    },
+    {
+      "path": "frontend/src/main.tsx",
+      "lines": 23,
+      "sha256": "7bc370334e72c0a64822582ddededaf602c2f0b1c7afd717868c2502e9e28fc4"
+    },
+    {
+      "path": "frontend/src/LoginPage.tsx",
+      "lines": 31,
+      "sha256": "37d3c677f1690466caf78dd78b430c78c4f802c712ea10dfa5e10cb89578d80a"
+    },
+    {
+      "path": "frontend/vite.config.ts",
+      "lines": 11,
+      "sha256": "f0ef830dbeda478a6ab098b634450c8ac6030649b297abf00562e1a1d44cc2b5"
+    },
+    {
+      "path": "frontend/package.json",
+      "lines": 27,
+      "sha256": "579d0810989d0c3e04e5115f64455efaf9f160e16cbafe06a5ff71140d901e04"
+    },
+    {
+      "path": "frontend/tests/retirementBuilder.test.mjs",
+      "lines": 120,
+      "sha256": "6565deee3f349abddb690d48c579df229ca207eb9853121d9e682b7e73d126b2"
+    },
+    {
+      "path": "backend/app/routers/retirement_builder.py",
+      "lines": 1255,
+      "sha256": "535abdac7ce6d68e97f04511aef1de8b247d777c07940315da3ed81071111e08"
+    },
+    {
+      "path": "backend/app/retirement_results.py",
+      "lines": 594,
+      "sha256": "c8eb934e9e5d8f1b1a99a285aa3251d276880997257d57cb8b394851ac79bda7"
+    },
+    {
+      "path": "backend/app/payroll_source.py",
+      "lines": 226,
+      "sha256": "eba45f26184a87bc69da57d730eb8bb048e47793a50742900c7748316439a6ea"
+    },
+    {
+      "path": "backend/app/report_files.py",
+      "lines": 43,
+      "sha256": "668c65b40ba634df4b4d73a4b65c8ba8cd314776552508415c58e590d9bae22a"
+    },
+    {
+      "path": "backend/app/report_mail.py",
+      "lines": 137,
+      "sha256": "370f0e65de2fb0b7f5787d9f10cb61269cf8ed900a18c17725fc8a5e822bbee4"
+    },
+    {
+      "path": "backend/app/report_scheduler.py",
+      "lines": 118,
+      "sha256": "57f34bb1865c1c2641a9ce49e560c74ce0f410f9d4e14c45ba60bc1232b60412"
+    },
+    {
+      "path": "backend/app/db.py",
+      "lines": 23,
+      "sha256": "142e683dcb24206f46872e883a960384d4e506e3793f89dce6ad9258b5f3b292"
+    },
+    {
+      "path": "backend/app/main.py",
+      "lines": 45,
+      "sha256": "b0676dcbe4825d273de0a6539fc6e764d82a9f68d12312eb7f639c97735a6428"
+    },
+    {
+      "path": "backend/app/core/config.py",
+      "lines": 81,
+      "sha256": "efa941efe273074b9d81ec2fb3979b4636d0ab41e3849a2914f757a725dc9dfd"
+    },
+    {
+      "path": "backend/query.brl",
+      "lines": 2091,
+      "sha256": "5367100c29b4c825e1fbb2f6f79761881f19569885f5ef78603e0de155ea9981"
+    },
+    {
+      "path": "backend/config/options.xml",
+      "lines": 36,
+      "sha256": "b2f22160b0b684c937bcfe72e9e09259d934e28c750c96feb9b0eef51e1a2847"
+    },
+    {
+      "path": "backend/config/payroll_record_queries.json",
+      "lines": 5,
+      "sha256": "c90f0147fb2c321dd7698190cdc807e295477910a627894b1a512857c908c4b3"
+    },
+    {
+      "path": "backend/migrations/001_retirement_builder_results.sql",
+      "lines": 17,
+      "sha256": "6dc1024b15246bc842b46b91d2d8a33c17418c8548834dba7c2cfb7c12deb30c"
+    },
+    {
+      "path": "backend/migrations/002_retirement_builder_mapping_columns.sql",
+      "lines": 31,
+      "sha256": "7c62a182275d10e15e5fb2dd20292958d6abfb4d4b22649f896048c2fe3eee38"
+    },
+    {
+      "path": "backend/migrations/003_sample_payroll_data.sql",
+      "lines": 107,
+      "sha256": "52da69b45afe865a383537718bec010fc288c1b95eacf5d5df1cd5e95ea53b7b"
+    },
+    {
+      "path": "backend/migrations/004_retirement_builder_mapping_keys.sql",
+      "lines": 47,
+      "sha256": "f4aaf35df5b43f10957a1fdcb7aadb83d3b506bb260829aaf0a4074c84515260"
+    },
+    {
+      "path": "backend/migrations/005_sample_payroll_contacts.sql",
+      "lines": 41,
+      "sha256": "16f6f04135bcba794da9c7a1699b3569081596737555da1aa89fbcb0c1ab08cd"
+    },
+    {
+      "path": "backend/migrations/006_complete_payroll_mapping_catalog.sql",
+      "lines": 32,
+      "sha256": "d59c1a54bbe76c68dff23cefdf906cfba83a8def6d4f7b8e739ac2b064dd3319"
+    },
+    {
+      "path": "backend/migrations/007_retirement_builder_file_formats.sql",
+      "lines": 13,
+      "sha256": "deb0e7e3a1f8dfc20d7e5d959b25ab4222245d9f09fff822ffdd6eb167fe3b28"
+    },
+    {
+      "path": "backend/migrations/008_retirement_builder_output_file_name_formats.sql",
+      "lines": 15,
+      "sha256": "8ce14212cfa431008419c08b15e267100fb96450ba6de2469f4573543557a585"
+    },
+    {
+      "path": "backend/migrations/009_payroll_record_queries.sql",
+      "lines": 75,
+      "sha256": "0a71b08a6bc1450b7c5f86a24d6e6695290e1bfd6d55f3952fc8d28f73279dbb"
+    },
+    {
+      "path": "backend/migrations/010_output_file_name_format_codes.sql",
+      "lines": 48,
+      "sha256": "374021275217d57967220a495744f9f98ec3d9cd131174abbede7a62fe6655e4"
+    },
+    {
+      "path": "backend/migrations/011_inline_payroll_record_queries.sql",
+      "lines": 47,
+      "sha256": "f61f575653c1b4cb261490af0f03183407ec9b37fabeac9623c705ade7d09bf2"
+    },
+    {
+      "path": "backend/migrations/012_payroll_report_date_range.sql",
+      "lines": 68,
+      "sha256": "c245b477caac523003850652a77762d8e6074698cf1b87033bca12ce84e4a4c5"
+    },
+    {
+      "path": "backend/tests/test_report_scheduler.py",
+      "lines": 146,
+      "sha256": "7e86650d098b0948f4f16c48c1622c1f739aa867d666a32c8a8dc21a52956f9a"
+    },
+    {
+      "path": "backend/tests/test_retirement_builder.py",
+      "lines": 675,
+      "sha256": "78e821f680a1af96673049445b88bfb4beca5a9e7300d562ef0ace02ba92adbf"
+    },
+    {
+      "path": "backend/tests/test_retirement_results.py",
+      "lines": 291,
+      "sha256": "a5b52e7cba6f967dcb8557b4b2a91403bfd8de151bfd42ad2989c36d60beb67f"
+    }
+  ]
+}

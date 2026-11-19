@@ -1,0 +1,3 @@
+{"kind":"workbook","id":"wb/vccbyp","sheets":1,"tables":1}
+{"kind":"sheet","id":"ws/ojvbwk","name":"Payroll Columns","index":0,"range":"A1:B8","address":"A1:B8","tables":1}
+{"kind":"table","sheet":"Payroll Columns","address":"A1:B8","rows":8,"cols":2,"values":[["record type","column name"],["H","Company Name"],["D","Employee Name"],["D","Phone"],["D","Date"],["D","Net Salary"],["T","Employee Count"],["T","Net Salary Total"]]}

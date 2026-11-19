@@ -1,8 +1,11 @@
 import csv
+from datetime import date
 from io import StringIO
 from unittest import TestCase
+from unittest.mock import Mock
+from uuid import uuid4
 
-from app.retirement_results import InvalidRun, build_report_files, file_name_format_code, merge_report_files
+from app.retirement_results import InvalidRun, ReportDateRange, ResultRow, build_report_files, file_name_format_code, format_sort_columns, merge_report_files, parse_sort_order, store_results
 from app.routers.retirement_builder import RetirementBuilderJob
 
 
@@ -12,6 +15,155 @@ def build_report(job, source):
 
 
 class RetirementResultsTests(TestCase):
+    def test_fixed_fields_use_character_lengths_and_optional_zero_based_positions(self):
+        job = RetirementBuilderJob.model_validate({
+            "id": 1, "general": {"fileName": "Fixed", "fileFormat": "FIXED"},
+            "mapping": {"includeHeader": False, "rows": [
+                {"field": "Name", "mappingColumn": "Name", "length": "10", "startPosition": "00"},
+                {"field": "Code", "mappingColumn": "Code", "length": "4", "format": "RA"},
+            ]},
+        })
+        report, = build_report_files(job, b"Name,Code\nvalue1,7\n")
+        self.assertEqual(report.csv, "value1       7\r\n")
+        self.assertEqual(len(report.csv.splitlines()[0]), 14)
+        self.assertEqual(report.excel_rows, [["value1    ", "   7"]])
+        job.mapping.rows[1].startPosition = "12"
+        report, = build_report_files(job, b"Name,Code\nvalue1,7\n")
+        self.assertEqual(report.csv, "value1         7\r\n")
+        self.assertEqual(len(report.csv.splitlines()[0]), 16)
+        job.mapping.rows[1].startPosition = "2"
+        with self.assertRaisesRegex(InvalidRun, "overlaps"):
+            build_report_files(job, b"Name,Code\nvalue1,7\n")
+
+    def test_fixed_rejects_missing_lengths_overflow_and_control_characters(self):
+        job = RetirementBuilderJob.model_validate({
+            "id": 1, "general": {"fileFormat": "FIXED"},
+            "mapping": {"includeHeader": False, "rows": [{"field": "Name", "length": "0"}]},
+        })
+        for length in ("", "0", "-1", "1001"):
+            with self.subTest(length=length), self.assertRaisesRegex(InvalidRun, "FIXED length"):
+                job.mapping.rows[0].length = length
+                build_report_files(job, b"Name\nAlex\n")
+        job.mapping.rows[0].length = "3"
+        with self.assertRaisesRegex(InvalidRun, "exceeds its FIXED length"):
+            build_report_files(job, b"Name\nAlex\n")
+        job.mapping.rows[0].length = "20"
+        with self.assertRaisesRegex(InvalidRun, "control character"):
+            build_report_files(job, b'Name\n"A\nB"\n')
+
+    def test_fixed_lengths_count_characters_and_keep_headers_within_their_widths(self):
+        job = RetirementBuilderJob.model_validate({
+            "id": 1, "general": {"fileFormat": "FIXED"},
+            "mapping": {"includeHeader": True, "rows": [{"field": "Name", "length": "6"}]},
+        })
+        report, = build_report_files(job, "Name\nJosé\n".encode())
+        self.assertEqual(report.csv, "Name  \r\nJosé  \r\n")
+        self.assertEqual([len(row) for row in report.csv.splitlines()], [6, 6])
+        job.mapping.rows[0].field = "Employee Name"
+        job.mapping.rows[0].mappingColumn = "Name"
+        with self.assertRaisesRegex(InvalidRun, "exceeds its FIXED length"):
+            build_report_files(job, b"Name\nAlex\n")
+
+    def test_fixed_merging_removes_repeated_header_and_retains_excel_field_boundaries(self):
+        job = RetirementBuilderJob.model_validate({
+            "id": 1, "general": {"fileName": "Fixed", "fileFormat": "FIXED", "outputFileNameFormat": "PAYDAY"},
+            "mapping": {"includeHeader": True, "rows": [{"field": "Name", "length": "8"}]},
+        })
+        reports = build_report_files(job, b"Payday,Name\n2026-11-10,One\n2026-11-12,Two\n")
+        merged = merge_report_files(job, reports)
+        self.assertEqual(merged.csv, "Name    \r\nOne     \r\nTwo     \r\n")
+        self.assertEqual(merged.excel_rows, [["Name    "], ["One     "], ["Two     "]])
+        job.mapping.includeHeader = False
+        merged = merge_report_files(job, build_report_files(job, b"Payday,Name\n2026-11-10,One\n2026-11-12,Two\n"))
+        self.assertEqual(merged.csv, "One     \r\nTwo     \r\n")
+
+    def test_name_quote_cleanup_and_ssn_mask_also_apply_to_csv_sources(self):
+        job = RetirementBuilderJob.model_validate({
+            "id": 1, "general": {"fileFormat": "CSV"},
+            "mapping": {"includeHeader": False, "rows": [
+                {"field": "Name", "mappingColumn": "Employee Name"},
+                {"field": "SSN", "format": "XXXXXXXXX"},
+            ]},
+        })
+        report, = build_report_files(job, b'Employee Name,SSN\n"""Doe, Alex""",000-00-0000\n')
+        self.assertEqual(list(csv.reader(StringIO(report.csv))), [["Doe, Alex", "000000000"]])
+
+    def test_column_sort_lists_use_names_in_priority_order_and_read_older_formats(self):
+        names = ["PayGroup", "lastname", "firstname"]
+        self.assertEqual(format_sort_columns(names), "PayGroup, lastname, firstname")
+        for value in ("PayGroup, lastname, firstname", ", PayGroup , lastname , firstname"):
+            self.assertEqual(parse_sort_order(value), [
+                {"orderBy": str(index), "mappingColumn": name, "direction": "ASC"}
+                for index, name in enumerate(names, 1)
+            ])
+        unusual = ['Last, First]', 'A "quoted" name']
+        self.assertEqual([row["mappingColumn"] for row in parse_sort_order(format_sort_columns(unusual))], unusual)
+        self.assertEqual(parse_sort_order("ORDER BY [lastname] DESC, [firstname] ASC"), [
+            {"orderBy": "1", "mappingColumn": "lastname", "direction": "DESC"},
+            {"orderBy": "2", "mappingColumn": "firstname", "direction": "ASC"},
+        ])
+        self.assertEqual(parse_sort_order(format_sort_columns([])), [])
+        for value in (",", "lastname,", "lastname,,firstname", '"unclosed', "lastname\nfirstname", "ORDER BY [lastname] BAD"):
+            with self.subTest(value=value), self.assertRaises(InvalidRun):
+                parse_sort_order(value)
+
+    def test_result_storage_writes_only_record_type_codes(self):
+        connection = Mock()
+        rows = [ResultRow(kind, {"Value": "example"}) for kind in ("Header", " d ", "T")]
+        self.assertEqual(store_results(connection, 31, uuid4(), rows), 3)
+        connection.execute.assert_called_once()
+        values = connection.execute.call_args.args[1]
+        self.assertEqual([row["record_type"] for row in values], ["H", "D", "T"])
+        self.assertEqual([row["row_number"] for row in values], [1, 2, 3])
+
+    def test_invalid_result_type_rejects_the_whole_batch_before_writing(self):
+        for kind in ("CSV_SORT", "PAYROLL", "CUSTOM", ""):
+            with self.subTest(kind=kind):
+                connection = Mock()
+                rows = [ResultRow("D", {}), ResultRow(kind, {})]
+                with self.assertRaisesRegex(InvalidRun, "H, D, or T"):
+                    store_results(connection, 31, uuid4(), rows)
+                connection.execute.assert_not_called()
+
+    def test_run_date_range_filters_csv_on_check_date_and_keeps_both_endpoints(self):
+        job = RetirementBuilderJob.model_validate({
+            "id": 1, "general": {"fileFormat": "CSV"}, "mapping": {"rows": [{"field": "Name"}]},
+        })
+        source = b"Check Date,Name\n2026-11-01,Before\n2026-11-02,Start\n2026-11-03,End\n2026-11-04,After\n"
+        dates = ReportDateRange(date(2026, 11, 2), date(2026, 11, 3))
+        report, = build_report_files(job, source, date_range=dates)
+        self.assertEqual(report.csv.splitlines(), ["Name", "Start", "End"])
+        self.assertEqual(build_report_files(job, source, date_range=ReportDateRange(end=date(2026, 10, 31))), [])
+        with self.assertRaisesRegex(InvalidRun, "Pay Date or Check Date"):
+            build_report_files(job, b"Name\nExample\n", date_range=dates)
+
+    def test_configured_mapping_codes_format_generated_csv(self):
+        cases = [
+            ("RA", "City", "   City"),
+            ("LA", "City", "City   "),
+            ("$######.##", "-12.345", "-$12.35"),
+            ("$########", "9.8", "$10"),
+            ("######.##", "12.30", "12.3"),
+            ("########", "9.8", "10"),
+            ("XXX-XX-XXXX", "000000000", "000-00-0000"),
+            ("XXXXXXXXX", "000-00-0000", "000000000"),
+            ("MM/DD/YYYY", "2025-11-30", "11/30/2025"),
+            ("MM-DD-YYYY", "2025-11-30", "11-30-2025"),
+            ("CCYYMMDD", "2025-11-30", "20251130"),
+            ("MMDDYYYY", "2025-11-30", "11302025"),
+        ]
+        job = RetirementBuilderJob.model_validate({
+            "id": 1, "general": {"fileFormat": "CSV"},
+            "mapping": {"rows": [
+                {"field": f"Output {i}", "mappingColumn": f"Input {i}", "format": code, "length": "7"}
+                for i, (code, _, _) in enumerate(cases)
+            ]},
+        })
+        header = ",".join(f"Input {i}" for i in range(len(cases)))
+        row = ",".join(value for _, value, _ in cases)
+        report, = build_report_files(job, f"{header}\n{row}\n".encode())
+        self.assertEqual(list(csv.reader(StringIO(report.csv)))[1], [expected for _, _, expected in cases])
+
     def test_catalog_keys_use_exact_headings_and_fall_back_to_old_display_labels(self):
         job = RetirementBuilderJob.model_validate({
             "id": 1,

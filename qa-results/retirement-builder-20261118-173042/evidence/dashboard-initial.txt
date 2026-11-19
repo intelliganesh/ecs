@@ -1,0 +1,309 @@
+Browser tab: 37, Title: "ECS Applications", URL: "http://localhost:5174/retirement-builder".
+0 AXWebArea ECS Applications, URL: localhost:5174/retirement-builder
+	1 container root
+		2 container
+			3 text ESC
+			4 button Toggle navigation
+			5 text Demo
+		6 container
+			7 button Benefits ‹
+				8 text Benefits
+				9 text ‹
+			10 button Mass Mutual Files ‹
+				11 text Mass Mutual Files
+				12 text ‹
+			13 button Process Validator
+			14 button Retirement Builder
+			15 button Prism ‹
+				16 text Prism
+				17 text ‹
+			18 button Services
+			19 button Swipe Clock
+			20 button Payroll Builder
+			21 button NYS-45
+			22 button Reports
+		23 container
+			24 heading Retirement Builder, Value: 1
+				25 text Retirement Builder
+			26 button SYD
+			27 text Showing enabled jobs only.
+			28 link Description: Template, Value: localhost:5174/mapped_payroll_columns_HDT.xlsx
+			29 button Add
+			30 button (disabled) Edit
+			31 button (disabled) Run
+			32 table Retirement Builder scheduled jobs
+				33 text Retirement Builder scheduled jobs
+				34 row
+					35 cell
+						36 checkbox (settable, integer) Description: Select all visible jobs, Value: 0
+					37 cell
+						38 button Sort by File Name
+						39 text field (settable) Filter File Name
+					40 cell
+						41 button Sort by Description
+						42 text field (settable) Filter Description
+					43 cell
+						44 button Sort by Modified On
+						45 text field (settable) Filter Modified On
+					46 cell
+						47 button Sort by Last Run Date
+						48 text field (settable) Filter Last Run Date
+					49 cell
+						50 button Sort by Run Day
+						51 text field (settable) Filter Run Day
+					52 cell
+						53 button Sort by Run Time
+						54 text field (settable) Filter Run Time
+					55 cell
+						56 button Sort by Schedule Type
+						57 text field (settable) Filter Schedule Type
+					58 cell
+						59 button Sort by File Type
+						60 text field (settable) Filter File Type
+					61 cell
+						62 button Sort by Is Active
+						63 text field (settable) Filter Is Active
+					64 cell
+						65 button Sort by Status
+						66 text field (settable) Filter Status
+				73 row
+					74 cell
+						75 checkbox (settable, integer) Description: Select ABC, Value: 0
+					76 cell
+						77 button ABC
+					78 cell
+						79 text ABC Hardware Combined file
+					80 cell
+						81 text 2025-02-06
+					82 cell
+						83 text 2025-03-13
+					84 cell
+						85 text Thursday
+					86 cell
+						87 text 9:15 AM
+					88 cell
+						89 text Bi-Weekly
+					90 cell
+						91 text CSV
+					92 cell
+						93 text Yes
+					94 cell
+						95 text Success
+				96 row
+					97 cell
+						98 checkbox (settable, integer) Description: Select ECVA, Value: 0
+					99 cell
+						100 button ECVA
+					101 cell
+						102 text ECVA
+					103 cell
+						104 text 2025-02-06
+					105 cell
+						106 text 2025-04-03
+					107 cell
+						108 text Thursday
+					109 cell
+						110 text 9:30 AM
+					111 cell
+						112 text Bi-Weekly
+					113 cell
+						114 text CSV
+					115 cell
+						116 text Yes
+					117 cell
+						118 text Success
+				119 row
+					120 cell
+						121 checkbox (settable, integer) Description: Select EVCA_Partners, Value: 0
+					122 cell
+						123 button EVCA_Partners
+					124 cell
+						125 text EVCA_Partners
+					126 cell
+						127 text 2025-02-06
+					128 cell
+						129 text 2025-04-03
+					130 cell
+						131 text Thursday
+					132 cell
+						133 text 9:45 AM
+					134 cell
+						135 text Bi-Weekly
+					136 cell
+						137 text CSV
+					138 cell
+						139 text Yes
+					140 cell
+						141 text Success
+				142 row
+					143 cell
+						144 checkbox (settable, integer) Description: Select APEX_310, Value: 0
+					145 cell
+						146 button APEX_310
+					147 cell
+						148 text File for Apex
+					149 cell
+						150 text 2025-02-06
+					151 cell
+						152 text 2025-03-27
+					153 cell
+						154 text Thursday
+					155 cell
+						156 text 9:45 AM
+					157 cell
+						158 text Bi-Weekly
+					159 cell
+						160 text CSV
+					161 cell
+						162 text Yes
+					163 cell
+						164 text Success
+				165 row
+					166 cell
+						167 checkbox (settable, integer) Description: Select NAF, Value: 0
+					168 cell
+						169 button NAF
+					170 cell
+						171 text National Assoc for School, Family, & Comm. Engag - Client 386
+					172 cell
+						173 text 2025-02-06
+					174 cell
+						175 text 2025-03-27
+					176 cell
+						177 text Thursday
+					178 cell
+						179 text 9:30 AM
+					180 cell
+						181 text Bi-Weekly
+					182 cell
+						183 text CSV
+					184 cell
+						185 text Yes
+					186 cell
+						187 text Success
+				188 row
+					189 cell
+						190 checkbox (settable, integer) Description: Select CHV_308, Value: 0
+					191 cell
+						192 button CHV_308
+					193 cell
+						194 text David Chevrolet File
+					195 cell
+						196 text 2025-02-06
+					197 cell
+						198 text 2026-06-09
+					199 cell
+						200 text Thursday
+					201 cell
+						202 text 9:45 AM
+					203 cell
+						204 text Weekly
+					205 cell
+						206 text CSV
+					207 cell
+						208 text Yes
+					209 cell
+						210 text Success
+				211 row
+					212 cell
+						213 checkbox (settable, integer) Description: Select Sanderson, Value: 0
+					214 cell
+						215 button Sanderson
+					216 cell
+						217 text Sanderson
+					218 cell
+						219 text 2026-01-20
+					220 cell
+						221 text 2026-05-15
+					222 cell
+						223 text Thursday
+					224 cell
+						225 text 11:15 AM
+					226 cell
+						227 text Weekly
+					228 cell
+						229 text CSV
+					230 cell
+						231 text Yes
+					232 cell
+						233 text Success
+				234 row
+					235 cell
+						236 checkbox (settable, integer) Description: Select Towne_RET, Value: 0
+					237 cell
+						238 button Towne_RET
+					239 cell
+						240 text Towne Retirement New
+					241 cell
+						242 text 2025-02-06
+					243 cell
+						244 text 2026-05-15
+					245 cell
+						246 text Thursday
+					247 cell
+						248 text 9:15 AM
+					249 cell
+						250 text Weekly
+					251 cell
+						252 text CSV
+					253 cell
+						254 text Yes
+					255 cell
+						256 text Success
+				257 row
+					258 cell
+						259 checkbox (settable, integer) Description: Select BirdAir 401K, Value: 0
+					260 cell
+						261 button BirdAir 401K
+					262 cell
+						263 text BirdAir 401K
+					264 cell
+						265 text 2025-02-06
+					266 cell
+						267 text 2026-05-15
+					268 cell
+						269 text Thursday
+					270 cell
+						271 text 9:45 AM
+					272 cell
+						273 text Weekly
+					274 cell
+						275 text CSV
+					276 cell
+						277 text Yes
+					278 cell
+						279 text Success
+				280 row
+					281 cell
+						282 checkbox (settable, integer) Description: Select RETIREMENT_PNK, Value: 0
+					283 cell
+						284 button RETIREMENT_PNK
+					285 cell
+						286 text Combined file for Phoenix, Nidus and Kanaka
+					287 cell
+						288 text 2024-08-30
+					289 cell
+						290 text 2026-05-15
+					291 cell
+						292 text Thursday
+					293 cell
+						294 text 10:30 AM
+					295 cell
+						296 text Weekly
+					297 cell
+						298 text CSV
+					299 cell
+						300 text Yes
+					301 cell
+						302 text Failed
+			303 container Job list pagination
+				304 container
+					305 text 1–10  of  44 jobs
+				306 button (disabled) Previous page
+				307 text Page  1  of  5
+				308 button Next page
+			70 text Copyright © 2026
+			71 text Employer Services Corporation.
+			72 text All rights reserved.
+
+The focused UI element is 0 AXWebArea ECS Applications, URL: localhost:5174/retirement-builder

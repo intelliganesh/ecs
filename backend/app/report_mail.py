@@ -123,15 +123,30 @@ def send_report_email(settings: Settings, attachments: dict[str, list[ReportFile
                 message.set_content(f"Hello,\n\nYour Retirement Builder {report_label} attached.\n\nThank you.\n")
                 for report in reports:
                     message.add_attachment(
-                        report.csv.encode("utf-8"), maintype="text", subtype="csv",
+                        report.csv.encode("utf-8"), maintype="text", subtype="plain" if report.excel_rows is not None else "csv",
                         params={"charset": "utf-8"}, filename=report.file_name,
                     )
                 try:
                     client.send_message(message)
                 except (smtplib.SMTPRecipientsRefused, smtplib.SMTPDataError) as exc:
-                    logger.warning("SMTP rejected a message for retirement job %s (%s).", job_id, type(exc).__name__)
+                    logger.exception(
+                        "SMTP rejected a message for retirement job %s.", job_id,
+                        extra={"job_id": job_id, **_smtp_error_details(exc)},
+                    )
                 else:
                     accepted += 1
     except (OSError, ValueError) as exc:
-        logger.warning("Mail delivery for retirement job %s failed (%s).", job_id, type(exc).__name__)
+        logger.exception(
+            "Mail delivery for retirement job %s failed.", job_id,
+            extra={"job_id": job_id, **_smtp_error_details(exc)},
+        )
     return accepted
+
+
+def _smtp_error_details(error: Exception) -> dict:
+    details = {}
+    if isinstance(error, smtplib.SMTPResponseException):
+        details["smtp_code"] = error.smtp_code
+        response = error.smtp_error
+        details["smtp_response"] = response.decode("utf-8", errors="replace") if isinstance(response, bytes) else str(response)
+    return details

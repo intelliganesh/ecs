@@ -1,17 +1,20 @@
 import csv
 from datetime import datetime
 from io import StringIO
+import json
+from pathlib import Path
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import pyodbc
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 from app.core.config import SQL_IDENTIFIER, get_settings
+from app.retirement_procedure import ProcedureResultSet, ProcedureSource, uses_retirement_queries
 from app.retirement_results import (
-    ISO_DATE_PATTERN, MAX_ROWS, MAX_SOURCE_BYTES, RECORD_TYPES, InvalidRun, _name_format, _source_key,
-    condition_date, format_sort_order, parse_sort_order,
+    ISO_DATE_PATTERN, MAX_ROWS, MAX_SOURCE_BYTES, RECORD_TYPES, InvalidRun, ReportDateRange, _name_format, _source_key,
+    condition_date, format_sort_columns, parse_sort_order,
 )
 
 if TYPE_CHECKING:
@@ -21,6 +24,7 @@ if TYPE_CHECKING:
 PAYROLL_QUERY_TYPE = "PAYROLL"
 PAYROLL_RECORD_TYPES = ("H", "D", "T")
 _PAYROLL_RECORD_MARKER = "/* company payroll */"
+PAYROLL_QUERIES_FILE = Path(__file__).resolve().parents[1] / "config" / "payroll_record_queries.json"
 PAYROLL_MAPPING_FIELDS = {
     "rectype": "Record Type",
     "company_name": "Company Name",
@@ -31,6 +35,7 @@ PAYROLL_MAPPING_FIELDS = {
 PAYROLL_COLUMNS = tuple(PAYROLL_MAPPING_FIELDS.values())
 _COLUMNS_BY_KEY = {column.casefold(): column for column in PAYROLL_COLUMNS}
 PAYROLL_COLUMN_KEYS = frozenset(_COLUMNS_BY_KEY)
+_PAYROLL_KEYS_BY_LABEL = {label.casefold(): key for key, label in PAYROLL_MAPPING_FIELDS.items()}
 _PROCEDURE_CALL = re.compile(
     rf"^INSERT INTO @payroll EXEC (?:{SQL_IDENTIFIER}\.{SQL_IDENTIFIER}|\[{SQL_IDENTIFIER}\]\.\[{SQL_IDENTIFIER}\]);$",
     re.MULTILINE,
@@ -64,26 +69,35 @@ def _payroll_procedure_name() -> str:
     return f"[{schema}].[{procedure}]"
 
 
-def payroll_record_queries(connection: Connection, job: "RetirementBuilderJobInput") -> list[dict[str, str]]:
+def _payroll_column(value: str) -> str | None:
+    key = value.strip().casefold()
+    return PAYROLL_MAPPING_FIELDS.get(key) or _COLUMNS_BY_KEY.get(key)
+
+
+def payroll_record_queries(job: "RetirementBuilderJobInput") -> list[dict[str, str]]:
     payroll_report_query(job)  # Validate the configured mappings and source columns before writing the rows.
     settings = job.fileSettings
     conditions = []
     for rule in settings.conditionalStatements:
-        column = _COLUMNS_BY_KEY[rule.mappingColumn.strip().casefold()]
+        column = _payroll_column(rule.mappingColumn)
         operator = "=" if rule.condition == "==" else rule.condition
         value = f"'{rule.value}'" if condition_date(rule.value) is not None else rule.value
         conditions.append(f"[{column}] {operator} {value}")
-    sorting = format_sort_order(
-        (_COLUMNS_BY_KEY[rule.mappingColumn.strip().casefold()], rule.direction)
+    sorting = format_sort_columns(
+        rule.mappingColumn.strip() if rule.mappingColumn.strip().casefold() in PAYROLL_MAPPING_FIELDS
+        else _PAYROLL_KEYS_BY_LABEL[rule.mappingColumn.strip().casefold()]
         for rule in sorted(settings.sortingOrder, key=lambda row: int(row.orderBy or "0"))
     )
 
-    template_rows = connection.execute(text(f"EXEC {_payroll_procedure_name()} @templates_only = 1")).tuples().all()
-    templates = dict(template_rows)
-    if len(template_rows) != len(PAYROLL_RECORD_TYPES) or set(templates) != set(PAYROLL_RECORD_TYPES) or any(
-        not is_payroll_record_query(recttype, query) for recttype, query in templates.items()
+    try:
+        templates = json.loads(PAYROLL_QUERIES_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise RuntimeError("Unable to read the payroll H, D, and T query template file.") from exc
+    if not isinstance(templates, dict) or set(templates) != set(PAYROLL_RECORD_TYPES) or any(
+        not isinstance(query, str) or not is_payroll_record_query(recttype, query)
+        for recttype, query in templates.items()
     ):
-        raise RuntimeError("The payroll H, D, and T query templates are missing or invalid.")
+        raise RuntimeError("The payroll query template file must contain one valid H, D, and T query.")
     return [
         {
             "recttype": kind,
@@ -116,14 +130,20 @@ def payroll_job_with_saved_rules(job: "RetirementBuilderJob") -> "RetirementBuil
         conditions.append({"mappingColumn": match[1], "condition": match[2], "value": match[3].strip("'")})
 
     sorting = parse_sort_order(detail.sortOrder)
-    if any(rule["mappingColumn"].casefold() not in PAYROLL_COLUMN_KEYS for rule in sorting):
+    if any(_payroll_column(rule["mappingColumn"]) is None for rule in sorting):
         raise InvalidRun("The saved payroll sort order is invalid. Save the job again before running it.")
+    sorting = [{**rule, "mappingColumn": _payroll_column(rule["mappingColumn"])} for rule in sorting]
 
     settings = type(job.fileSettings).model_validate({"conditionalStatements": conditions, "sortingOrder": sorting})
     return job.model_copy(update={"fileSettings": settings})
 
 
-def payroll_report_query(job: "RetirementBuilderJob | RetirementBuilderJobInput", *, use_saved_records: bool = False) -> str:
+def payroll_report_query(job: "RetirementBuilderJob | RetirementBuilderJobInput", *, for_run: bool = False) -> str:
+    if for_run:
+        return (
+            f"EXEC {_payroll_procedure_name()} "
+            "@client_id = ?, @paystartdate = ?, @payenddate = ?, @runType = ?"
+        )
     columns = {"Record Type"}
     kinds = set()
     for mapping in job.mapping.rows:
@@ -147,7 +167,7 @@ def payroll_report_query(job: "RetirementBuilderJob | RetirementBuilderJobInput"
         columns.add("Pay Date")
     rules = [*job.fileSettings.sortingOrder, *job.fileSettings.conditionalStatements]
     for rule in rules:
-        column = _COLUMNS_BY_KEY.get(rule.mappingColumn.strip().casefold())
+        column = _payroll_column(rule.mappingColumn)
         if column is None:
             raise InvalidRun(f'The Company Payroll Report cannot sort or filter by "{rule.mappingColumn}".')
         columns.add(column)
@@ -161,60 +181,105 @@ def payroll_report_query(job: "RetirementBuilderJob | RetirementBuilderJobInput"
         for column in PAYROLL_COLUMNS if column in columns
     )
     record_types = ", ".join(f"'{kind}'" for kind in sorted(kinds))
-    job_parameter = " @jobid = ?" if use_saved_records else ""
     return (
         "DECLARE @payroll TABLE ([Record Sequence] int, [Record Type] varchar(1), [Company Name] varchar(120), "
         "[Pay Date] datetime, [Employee Count] int, [Net Salary Total] numeric(38,2));\n"
-        f"INSERT INTO @payroll EXEC {_payroll_procedure_name()}{job_parameter};\n"
+        f"INSERT INTO @payroll EXEC {_payroll_procedure_name()};\n"
         f"SELECT TOP ({MAX_ROWS + 1}) {projection} FROM @payroll WHERE [Record Type] IN ({record_types}) "
         "ORDER BY [Record Sequence], [Company Name] DESC, [Pay Date];"
     )
 
 
-def load_payroll_source(connection: Connection, job: "RetirementBuilderJob") -> bytes:
-    use_saved_records = bool(_saved_record_queries(job))
-    expected = payroll_report_query(job, use_saved_records=use_saved_records)
-    if not use_saved_records:
+def load_payroll_source(
+    connection: Connection, job: "RetirementBuilderJob", date_range: ReportDateRange = ReportDateRange(),
+    *, run_type: Literal["A", "S"] = "A",
+) -> bytes | ProcedureSource:
+    if run_type not in ("A", "S"):
+        raise InvalidRun("Choose A for a manual run or S for a scheduled run.")
+    production_queries = uses_retirement_queries(job)
+    use_saved_records = bool(_saved_record_queries(job)) if not production_queries else False
+    if not production_queries and not use_saved_records:
         saved = [row.query for row in job.queryConfiguration if row.recttype == PAYROLL_QUERY_TYPE]
         # Legacy jobs can still run with a changed procedure name during the database upgrade.
+        expected = payroll_report_query(job)
         if len(saved) != 1 or _PROCEDURE_CALL.subn("", saved[0]) != (_PROCEDURE_CALL.sub("", expected), 1):
             raise InvalidRun("The saved payroll query does not match this job. Save the job again before running it.")
 
-    needs_company_ids = _needs_company_ids(job)
-    company_ids = payroll_company_ids(connection) if needs_company_ids else {}
-
-    csv_output = StringIO(newline="")
-    writer = csv.writer(csv_output)
     cursor = connection.connection.cursor()
+    result_sets = []
+    row_count = 0
+    size_check = StringIO(newline="")
+    size_writer = csv.writer(size_check)
     try:
-        if use_saved_records:
-            cursor.execute(expected, job.id)
-        else:
-            cursor.execute(expected)
-        while cursor.description is None:
+        # The procedure's client_id parameter identifies the report job, not a subscribed client.
+        cursor.execute(payroll_report_query(job, for_run=True), job.id, date_range.start, date_range.end, run_type)
+        while True:
+            if cursor.description is not None:
+                columns = tuple(str(column[0] or "") for column in cursor.description)
+                rows = []
+                size_writer.writerow(columns)
+                for row in cursor:
+                    row_count += 1
+                    if row_count > MAX_ROWS:
+                        raise InvalidRun(f"The procedure can return up to {MAX_ROWS:,} rows.")
+                    values = tuple(
+                        value.date().isoformat() if isinstance(value, datetime)
+                        else "" if value is None else str(value)
+                        for value in row
+                    )
+                    if len(values) != len(columns):
+                        raise InvalidRun("A procedure row does not match its result-set columns.")
+                    rows.append(values)
+                    size_writer.writerow(values)
+                    if size_check.tell() > MAX_SOURCE_BYTES:
+                        raise InvalidRun("The procedure output exceeds the 5 MB source limit.")
+                result_sets.append(ProcedureResultSet(columns, tuple(rows)))
+            # Advance through every result set and trailing statements. In the
+            # supplied procedure, history is written after its last SELECT.
             if not cursor.nextset():
-                raise InvalidRun("The Company Payroll Report returned no result set.")
-        headings = [column[0] for column in cursor.description]
-        company_column = headings.index("Company Name") if needs_company_ids else None
-        if needs_company_ids:
-            headings.append("Client ID")
-        writer.writerow(headings)
-        for row_number, row in enumerate(cursor, start=1):
-            if row_number > MAX_ROWS:
-                raise InvalidRun(f"The Company Payroll Report can contain up to {MAX_ROWS:,} rows.")
-            values = [value.date().isoformat() if isinstance(value, datetime) else value for value in row]
-            if company_column is not None:
-                company_id = company_ids.get(row[company_column])
-                if company_id is None:
-                    raise InvalidRun("The payroll company name must match exactly one company ID for file grouping or email subscriptions.")
-                values.append(company_id)
-            writer.writerow(values)
-            if csv_output.tell() > MAX_SOURCE_BYTES:
-                raise InvalidRun("The Company Payroll Report exceeds the 5 MB source limit.")
+                break
     except pyodbc.Error as exc:
         raise InvalidRun("The Company Payroll Report could not be read from the database.") from exc
     finally:
         cursor.close()
+
+    if not result_sets:
+        raise InvalidRun("The report procedure returned no result set.")
+    if len(size_check.getvalue().encode("utf-8")) > MAX_SOURCE_BYTES:
+        raise InvalidRun("The procedure output exceeds the 5 MB source limit.")
+    if production_queries or len(result_sets) != 1 or "Record Type" not in result_sets[0].columns:
+        return ProcedureSource(tuple(result_sets))
+
+    # Retain compatibility with procedures returning the older single, typed
+    # payroll table. The runtime call still uses the same four-input contract.
+    result, = result_sets
+    needs_company_ids = _needs_company_ids(job)
+    company_ids = payroll_company_ids(connection) if needs_company_ids else {}
+    headings = list(result.columns)
+    if needs_company_ids and "Company Name" not in headings:
+        raise InvalidRun("The payroll output needs Company Name to resolve company subscriptions.")
+    company_column = headings.index("Company Name") if needs_company_ids else None
+    if needs_company_ids:
+        headings.append("Client ID")
+    csv_output = StringIO(newline="")
+    writer = csv.writer(csv_output)
+    writer.writerow(headings)
+    configured_kinds = {RECORD_TYPES.get(row.recordType.strip().casefold() or "detail") for row in job.mapping.rows}
+    type_index = headings.index("Record Type")
+    date_index = headings.index("Pay Date") if "Pay Date" in headings else None
+    for row in result.rows:
+        values = list(row)
+        kind = RECORD_TYPES.get(values[type_index].strip().casefold())
+        if kind not in configured_kinds:
+            continue
+        if kind == "H" and date_index is not None:
+            values[date_index] = ""
+        if company_column is not None:
+            company_id = company_ids.get(row[company_column])
+            if company_id is None:
+                raise InvalidRun("The payroll company name must match exactly one company ID for file grouping or email subscriptions.")
+            values.append(company_id)
+        writer.writerow(values)
     source = csv_output.getvalue().encode("utf-8")
     if len(source) > MAX_SOURCE_BYTES:
         raise InvalidRun("The Company Payroll Report exceeds the 5 MB source limit.")
