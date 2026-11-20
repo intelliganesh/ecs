@@ -12,8 +12,9 @@ from sqlalchemy.engine import Connection
 
 from app.core.config import SQL_IDENTIFIER, get_settings
 from app.retirement_procedure import ProcedureResultSet, ProcedureSource, uses_retirement_queries
+from app.retirement_conditions import condition_fragment, parsed_conditions
 from app.retirement_results import (
-    ISO_DATE_PATTERN, MAX_ROWS, MAX_SOURCE_BYTES, RECORD_TYPES, InvalidRun, ReportDateRange, _name_format, _source_key,
+    MAX_ROWS, MAX_SOURCE_BYTES, RECORD_TYPES, InvalidRun, ReportDateRange, _name_format, _source_key,
     condition_date, format_sort_columns, parse_sort_order,
 )
 
@@ -39,9 +40,6 @@ _PAYROLL_KEYS_BY_LABEL = {label.casefold(): key for key, label in PAYROLL_MAPPIN
 _PROCEDURE_CALL = re.compile(
     rf"^INSERT INTO @payroll EXEC (?:{SQL_IDENTIFIER}\.{SQL_IDENTIFIER}|\[{SQL_IDENTIFIER}\]\.\[{SQL_IDENTIFIER}\]);$",
     re.MULTILINE,
-)
-_SAVED_CONDITION = re.compile(
-    rf"\[([^\[\]]+)\] (<=|>=|!=|<>|[=<>]) (-?[0-9]{{1,16}}(?:\.[0-9]{{1,2}})?|'{ISO_DATE_PATTERN}')"
 )
 READ_PAYROLL_COMPANY_IDS = text("""
 SELECT company_name, CASE WHEN COUNT_BIG(*) = 1 THEN MIN(id) END
@@ -77,12 +75,10 @@ def _payroll_column(value: str) -> str | None:
 def payroll_record_queries(job: "RetirementBuilderJobInput") -> list[dict[str, str]]:
     payroll_report_query(job)  # Validate the configured mappings and source columns before writing the rows.
     settings = job.fileSettings
-    conditions = []
-    for rule in settings.conditionalStatements:
-        column = _payroll_column(rule.mappingColumn)
-        operator = "=" if rule.condition == "==" else rule.condition
-        value = f"'{rule.value}'" if condition_date(rule.value) is not None else rule.value
-        conditions.append(f"[{column}] {operator} {value}")
+    conditions = condition_fragment([
+        rule.model_copy(update={"mappingColumn": _payroll_column(rule.mappingColumn)})
+        for rule in settings.conditionalStatements
+    ], where=False)
     sorting = format_sort_columns(
         rule.mappingColumn.strip() if rule.mappingColumn.strip().casefold() in PAYROLL_MAPPING_FIELDS
         else _PAYROLL_KEYS_BY_LABEL[rule.mappingColumn.strip().casefold()]
@@ -102,7 +98,7 @@ def payroll_record_queries(job: "RetirementBuilderJobInput") -> list[dict[str, s
         {
             "recttype": kind,
             "query": templates[kind],
-            "conditions": " AND ".join(conditions) if kind == "D" else "",
+            "conditions": conditions if kind == "D" else "",
             "sortOrder": sorting if kind == "D" else "",
         }
         for kind in PAYROLL_RECORD_TYPES
@@ -122,12 +118,15 @@ def payroll_job_with_saved_rules(job: "RetirementBuilderJob") -> "RetirementBuil
     if detail is None:
         return job
 
-    conditions = []
-    for clause in detail.conditions.split(" AND ") if detail.conditions else []:
-        match = _SAVED_CONDITION.fullmatch(clause)
-        if match is None or match[1].casefold() not in PAYROLL_COLUMN_KEYS:
-            raise InvalidRun("The saved payroll condition is invalid. Save the job again before running it.")
-        conditions.append({"mappingColumn": match[1], "condition": match[2], "value": match[3].strip("'")})
+    conditions = parsed_conditions(detail.conditions)
+    if conditions is None or any(rule["mappingColumn"].casefold() not in PAYROLL_COLUMN_KEYS for rule in conditions):
+        raise InvalidRun("The saved payroll condition is invalid. Save the job again before running it.")
+    for rule in conditions:
+        column = rule["mappingColumn"].casefold()
+        if column in {"company name", "record type"}:
+            rule["valueType"] = "text"
+        elif rule["valueType"] == "text":
+            raise InvalidRun("The saved payroll condition value does not match its column type.")
 
     sorting = parse_sort_order(detail.sortOrder)
     if any(_payroll_column(rule["mappingColumn"]) is None for rule in sorting):
@@ -172,7 +171,7 @@ def payroll_report_query(job: "RetirementBuilderJob | RetirementBuilderJobInput"
             raise InvalidRun(f'The Company Payroll Report cannot sort or filter by "{rule.mappingColumn}".')
         columns.add(column)
     for rule in job.fileSettings.conditionalStatements:
-        if condition_date(rule.value) is not None and rule.mappingColumn.strip().casefold() != "pay date":
+        if rule.valueType != "text" and condition_date(rule.value) is not None and _payroll_column(rule.mappingColumn) != "Pay Date":
             raise InvalidRun("Use Pay Date for a payroll date condition.")
 
     projection = ", ".join(

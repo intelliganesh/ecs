@@ -552,8 +552,10 @@ def build_report_files(
             compare = COMPARISONS.get(rule.condition.strip())
             if key not in headings or compare is None:
                 raise InvalidRun("Check the source column and comparison operator in File Settings.")
-            threshold = condition_date(rule.value)
-            if threshold is None:
+            threshold = condition_date(rule.value) if rule.valueType != "text" else None
+            if rule.valueType == "text":
+                conditions.append((key, compare, rule.value))
+            elif threshold is None:
                 conditions.append((key, compare, _decimal(rule.value)))
             else:
                 conditions.append((key, compare, threshold))
@@ -583,7 +585,8 @@ def build_report_files(
             if range_column and kind in {"D", "T"} and not date_range.includes(_parse_date(row[range_column], range_column)):
                 continue
             retained = kind != "D" or all(
-                compare(_parse_date(row[key], key) if isinstance(threshold, date) else _decimal(row[key]), threshold)
+                compare(_parse_date(row[key], key) if isinstance(threshold, date)
+                        else row[key] if isinstance(threshold, str) else _decimal(row[key]), threshold)
                 for key, compare, threshold in conditions
             )
             if kind == "D":

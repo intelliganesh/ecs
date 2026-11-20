@@ -1,0 +1,88 @@
+"""Update changed Detail projections while retaining confirmed legacy aliases."""
+
+import re
+
+from app.retirement_results import InvalidRun
+
+
+def _top_level_tokens(sql: str):
+    depth, index = 0, 0
+    while index < len(sql):
+        char = sql[index]
+        if char in "'\"[":
+            closing = "]" if char == "[" else char
+            index += 1
+            while index < len(sql):
+                if sql[index] == closing:
+                    index += 1
+                    if index < len(sql) and sql[index] == closing:
+                        index += 1
+                        continue
+                    break
+                index += 1
+            else:
+                raise InvalidRun("The saved Detail query has an unterminated quoted value.")
+            continue
+        if sql.startswith("--", index) or sql.startswith("/*", index):
+            # Do not reinterpret comments/unknown SQL as a simple projection.
+            raise InvalidRun("The saved Detail query needs review before changing its mappings.")
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth < 0:
+                raise InvalidRun("The saved Detail query has unbalanced parentheses.")
+        elif depth == 0:
+            word = re.match(r"[A-Za-z_][A-Za-z0-9_]*", sql[index:])
+            if word:
+                yield (word[0].upper(), index, index + len(word[0]))
+                index += len(word[0])
+                continue
+            if char == ",":
+                yield (",", index, index + 1)
+        index += 1
+    if depth:
+        raise InvalidRun("The saved Detail query has unbalanced parentheses.")
+
+
+def replace_detail_projection(query: str, old_rows, new_rows, expression) -> str:
+    def signature(row):
+        return (row.mappingColumn.strip().casefold(), row.defaultValue)
+
+    old_positions = {(row.dataSetNo, row.colSeqNo): row for row in old_rows}
+    new_positions = {(row.dataSetNo, row.colSeqNo): row for row in new_rows}
+    if old_positions.keys() == new_positions.keys() and all(
+        signature(old_positions[key]) == signature(row) for key, row in new_positions.items()
+    ):
+        return query
+    # Changing the layout of an opaque legacy SELECT could silently pair the
+    # wrong source/alias with an output field. Reject instead of exporting stale data.
+    if old_positions.keys() != new_positions.keys():
+        raise InvalidRun("Changing the saved Detail query layout requires confirmed column and alias mappings.")
+    tokens = list(_top_level_tokens(query))
+    prefix = re.match(r"\s*SELECT\s+(?:DISTINCT\s+)?(?:TOP\s+(?:\d+|\(\s*\d+\s*\))\s+)?", query, re.IGNORECASE)
+    if prefix is None or any(word in {"FROM", "UNION", "INTO"} for word, _, _ in tokens):
+        raise InvalidRun("The saved Detail query needs review before changing its mappings.")
+    commas = [start for word, start, _ in tokens if word == ","]
+    starts, ends = [prefix.end(), *[pos + 1 for pos in commas]], [*commas, len(query)]
+    if len(starts) != 3 + len(old_rows):
+        raise InvalidRun("The saved Detail query columns do not match its mappings; review it before saving changes.")
+    replacements = []
+    for index, (old, row) in enumerate(zip(old_rows, new_rows, strict=True), start=3):
+        if signature(old) == signature(row):
+            continue
+        start, end = starts[index], ends[index]
+        part = query[start:end]
+        aliases = [(a, b) for word, a, b in _top_level_tokens(part) if word == "AS"]
+        if aliases:
+            alias_start = aliases[-1][0]
+            body_end = len(part[:alias_start].rstrip())
+        else:
+            body_end = len(part.rstrip())
+            if not re.fullmatch(r'\s*(?:[A-Za-z_][A-Za-z0-9_]*|\[(?:[^\]]|\]\])+\]|"(?:[^"]|"")+"|\x27(?:[^\x27]|\x27\x27)*\x27)\s*', part):
+                raise InvalidRun("The changed Detail column needs a confirmed alias before saving.")
+        body_start = len(part) - len(part.lstrip())
+        replacements.append((start + body_start, start + body_end, expression(row)))
+    for start, end, value in reversed(replacements):
+        query = query[:start] + value + query[end:]
+    return query

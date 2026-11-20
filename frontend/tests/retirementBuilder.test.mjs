@@ -18,10 +18,24 @@ after(async () => {
   await rm(cacheDir, { recursive: true, force: true })
 })
 const {
-  configuredFileFormat, createJobListRequestGuard, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors,
+  configuredFileFormat, conditionValueError, createJobListRequestGuard, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors, manualRunDateHelp,
   mergeSavedJob, normalizeSortingPriorities, sortingPriorityError, pasteEmailText, readExcelMappings, reportWorkbook,
   excelDownloadFileName, reportMimeType, validEmail, validIsoDate, validWholeNumber,
 } = await vite.ssrLoadModule('/src/retirementBuilder.ts')
+
+test('conditions validate by data type and blank manual dates describe the existing sentinel contract', () => {
+  for (const value of ["O'Brien AND Sons", '000000001', '2026-10-15', 'text, with | delimiters']) {
+    assert.equal(conditionValueError(value, 'text'), '')
+  }
+  assert.ok(conditionValueError(' ', 'text'))
+  assert.ok(conditionValueError('abc', 'number'))
+  assert.ok(conditionValueError('1e999', 'number'))
+  assert.equal(conditionValueError('1.25', 'number'), '')
+  assert.equal(conditionValueError('2026-10-15', 'date'), '')
+  assert.ok(conditionValueError('2026-02-30', 'date'))
+  assert.match(manualRunDateHelp, /01\/01\/1900/)
+  assert.match(manualRunDateHelp, /do not mean an open-ended range/)
+})
 
 test('report downloads preserve bytes and use format-appropriate MIME and Excel filenames', async () => {
   for (const [extension, mime] of [

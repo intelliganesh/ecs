@@ -31,6 +31,7 @@ from app.report_files import load_report_source, publish_report, report_director
 from app.report_mail import EMAIL_PATTERN, ReportEmailDelivery, send_subscribed_reports
 from app.retirement_procedure import ProcedureSource, build_procedure_report_files, uses_retirement_queries
 from app.retirement_query_builder import export_record_queries, ordered_mappings, sql_identifier
+from app.retirement_conditions import parsed_conditions
 from app.retirement_results import (
     COMPARISONS, FILE_NAME_FORMAT_CODES, MAX_SOURCE_BYTES, RECORD_TYPES, SSN_FORMATS,
     InvalidRun, ReportDateRange, ReportFile, UNBOUNDED_RUN_DATE, build_report_files, condition_date, file_format_name,
@@ -110,6 +111,7 @@ class ConditionalStatementRow(BaseModel):
     mappingColumn: str = ""
     condition: str = ""
     value: str = ""
+    valueType: Literal["text", "date", "number"] | None = None
 
 
 class FileSettingsForm(BaseModel):
@@ -643,7 +645,12 @@ def _validate_payload(payload: RetirementBuilderJobInput, *, creating: bool = Fa
         row.condition = row.condition.strip()
         if row.condition not in COMPARISONS:
             _field_error([*path, "condition"], "Choose a supported comparison operator.")
-        row.value = _condition_value(row.value, [*path, "value"])
+        if row.valueType == "text":
+            _check_length(row.value, 4000, [*path, "value"])
+            if not row.value.strip() or "\x00" in row.value:
+                _field_error([*path, "value"], "Enter a text value for this condition.")
+        else:
+            row.value = _condition_value(row.value, [*path, "value"])
     for index, row in enumerate(payload.queryConfiguration):
         _check_length(row.recttype, 10, ["queryConfiguration", index, "recttype"])
         if (
@@ -764,7 +771,25 @@ def _condition_from_db(row: dict[str, Any]) -> dict[str, str]:
         if stored is not None:
             compact = f"{stored:08.0f}"
             value = f"{compact[:4]}-{compact[4:6]}-{compact[6:]}"
-    return {"mappingColumn": row["mapping_column"], "condition": symbol, "value": value}
+    return {"mappingColumn": row["mapping_column"], "condition": symbol, "value": value, "valueType": None}
+
+
+def _visible_conditions(conditions, query_configuration):
+    stored = [_condition_from_db(row) for row in conditions]
+    # The existing condition-detail value column is numeric. Text predicates
+    # round-trip through the existing varchar Conditions fragment instead.
+    detail = next((row for row in query_configuration if str(row.get("recttype") or "").strip().upper() == "D"), None)
+    if detail is None:
+        return stored
+    parsed = parsed_conditions(detail.get("Conditions") or "")
+    if parsed is None:
+        return stored
+    numeric_columns = {(row["mappingColumn"].casefold(), row["condition"].replace("==", "=")) for row in stored}
+    extra = [row for row in parsed if row["valueType"] in {"text", "date"}
+             and (row["mappingColumn"].casefold(), row["condition"]) not in numeric_columns]
+    if not extra:
+        return stored
+    return [dict(row, valueType="text") if row in extra else row for row in parsed]
 
 
 def _read_full_job(connection: Any, job_id: int, *, file_formats: dict[str, str] | None = None) -> RetirementBuilderJob | None:
@@ -898,7 +923,7 @@ def _job_from_rows(
         },
         "fileSettings": {
             "sortingOrder": sorting_order,
-            "conditionalStatements": [_condition_from_db(row) for row in conditions],
+            "conditionalStatements": _visible_conditions(conditions, query_configuration),
         },
         "queryConfiguration": [{
             "recttype": row.get("recttype"),
@@ -927,16 +952,29 @@ def _complete_update_payload(payload: RetirementBuilderJobInput, original: Retir
 
 
 def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJobInput, *,
-                       replace_conditions: bool | None = None, batch: bool = False) -> None:
+                       replace_conditions: bool | None = None, batch: bool = False,
+                       original_mappings: list[MappingRow] | None = None) -> None:
     schedule = payload.schedule
     subscriptions = payload.subscriptions
     file_settings = payload.fileSettings
+    submitted_conditions = "conditionalStatements" in file_settings.model_fields_set
     general = payload.general
     uses_payroll = general.reportSource == "companyPayroll"
-    catalog = _mapping_catalog(connection) if payload.mapping.rows or file_settings.sortingOrder else {}
+    catalog = _mapping_catalog(connection) if payload.mapping.rows or file_settings.sortingOrder or file_settings.conditionalStatements else {}
     keys = {key.casefold(): key for key in catalog}
     for key, (label, _) in catalog.items():
         keys.setdefault(label.casefold(), key)
+    normalized_conditions = []
+    payroll_types = {"record type": "text", "company name": "text", "pay date": "date",
+                     "employee count": "number", "net salary total": "number"}
+    for index, row in enumerate(file_settings.conditionalStatements):
+        source = keys.get(row.mappingColumn.strip().casefold(), row.mappingColumn.strip())
+        kind = payroll_types.get(row.mappingColumn.strip().casefold()) if uses_payroll else catalog.get(source, ("", None))[1]
+        if row.valueType == "text" and kind not in {"text", "phone", "email", "ssn"}:
+            _field_error(["fileSettings", "conditionalStatements", index, "value"],
+                         "Choose a text column for a text condition.")
+        normalized_conditions.append(row.model_copy(update={"mappingColumn": source}))
+    file_settings = file_settings.model_copy(update={"conditionalStatements": normalized_conditions})
     mappings = []
     for index, row in enumerate(payload.mapping.rows):
         record_type = RECORD_TYPES.get(row.recordType.strip().casefold() or "d")
@@ -1007,8 +1045,15 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
                 })})
                 queries = [QueryConfigurationRow(**row) for row in export_record_queries(
                     export_payload, mappings, queries,
-                    replace_conditions=("conditionalStatements" in file_settings.model_fields_set
+                    replace_conditions=(submitted_conditions
                                         if replace_conditions is None else replace_conditions),
+                    original_mappings=ordered_mappings([
+                        row.model_copy(update={
+                            "recordType": RECORD_TYPES.get(row.recordType.strip().casefold() or "d"),
+                            "mappingColumn": keys.get((row.mappingColumn.strip() or row.field.strip()).casefold(),
+                                                      row.mappingColumn.strip() or row.field.strip()),
+                        }) for row in original_mappings
+                    ]) if original_mappings is not None else None,
                 )]
             except InvalidRun as exc:
                 _field_error(["mapping"], str(exc))
@@ -1092,6 +1137,8 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
             "mapping": row.mappingColumn.strip(),
         })
     for row in file_settings.conditionalStatements:
+        if row.valueType == "text":
+            continue  # Saved in rjob_query.Conditions; query 55 accepts numbers only.
         date_value = condition_date(row.value)
         write(QUERY_55, {
             "jobid": job_id,
@@ -1265,7 +1312,8 @@ def update_retirement_builder_job(job_id: int, payload: RetirementBuilderJobInpu
             replace_conditions = "conditionalStatements" in payload.fileSettings.model_fields_set and bool(
                 effective_payload.fileSettings.conditionalStatements or existing.fileSettings.conditionalStatements
             )
-            _write_job_details(connection, job_id, effective_payload, replace_conditions=replace_conditions, batch=True)
+            _write_job_details(connection, job_id, effective_payload, replace_conditions=replace_conditions, batch=True,
+                               original_mappings=existing.mapping.rows)
             updated = _read_edit_job(connection, job_id)
     except HTTPException:
         raise

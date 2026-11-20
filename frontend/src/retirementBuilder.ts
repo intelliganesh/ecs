@@ -213,3 +213,14 @@ export function mappingColumnType(column: string, knownTypes: Record<string, str
   if (/\b(?:amount|salary|wages|hours|count|gross pay|net pay|contribution|deduction|balance|percent|rate)\b/.test(words)) return 'number'
   return 'text'
 }
+
+export type ConditionValueType = 'text' | 'number' | 'date'
+
+export function conditionValueError(value: string, type: ConditionValueType) {
+  if (type === 'date') return validIsoDate(value) ? '' : 'Enter a valid date in YYYY-MM-DD format.'
+  if (type === 'number') return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(value.trim())
+    && Number.isFinite(Number(value)) ? '' : 'Enter a number for each numeric condition.'
+  return value.trim() && !value.includes('\0') && value.length <= 4000 ? '' : 'Enter a text value of up to 4,000 characters.'
+}
+
+export const manualRunDateHelp = 'Blank dates are sent as 01/01/1900. They do not mean an open-ended range. Enter both dates for a specific manual report.'

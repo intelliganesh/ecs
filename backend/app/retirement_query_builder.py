@@ -6,9 +6,11 @@ not contain a FROM clause or fabricated output aliases. This module never runs S
 
 from collections.abc import Iterable
 from decimal import Decimal, InvalidOperation
+import re
 from typing import TYPE_CHECKING
 
 from app.retirement_results import COMPARISONS, DATE_FORMATS, NUMBER_FORMATS, NUMERIC_MASK_PATTERN, SSN_FORMATS, InvalidRun, _format_value, condition_date
+from app.retirement_projection import replace_detail_projection
 
 if TYPE_CHECKING:
     from app.routers.retirement_builder import MappingRow, QueryConfigurationRow, RetirementBuilderJobInput
@@ -101,8 +103,10 @@ def _conditions(job: "RetirementBuilderJobInput") -> str:
         operator = rule.condition.strip()
         if operator not in COMPARISONS:
             raise InvalidRun("Choose a supported comparison operator.")
-        date = condition_date(rule.value)
-        if date is not None:
+        date = condition_date(rule.value) if rule.valueType != "text" else None
+        if rule.valueType == "text":
+            value = sql_literal(rule.value)
+        elif date is not None:
             value = sql_literal(date.isoformat())
         else:
             try:
@@ -118,7 +122,8 @@ def _conditions(job: "RetirementBuilderJobInput") -> str:
 
 def export_record_queries(job: "RetirementBuilderJobInput", mappings: list["MappingRow"],
                           saved: list["QueryConfigurationRow"], *,
-                          replace_conditions: bool | None = None) -> list[dict[str, str]]:
+                          replace_conditions: bool | None = None,
+                          original_mappings: list["MappingRow"] | None = None) -> list[dict[str, str]]:
     if replace_conditions is None:
         replace_conditions = "conditionalStatements" in job.fileSettings.model_fields_set
     layouts = {kind: [row for row in mappings if row.recordType == kind] for kind in ("H", "D", "T")}
@@ -138,9 +143,21 @@ def export_record_queries(job: "RetirementBuilderJobInput", mappings: list["Mapp
     if header is not None:
         records.append({"recttype": "H", "query": header})
     if details:
-        # Keep the SELECT/aliases intact, while edited form conditions must
-        # replace the old WHERE fragment (including clearing visible rules).
-        detail = {"recttype": "D", "query": details[0].query,
+        query = details[0].query
+        if original_mappings is not None:
+            def detail_expression(row):
+                # Report serialization applies the configured field format.
+                # Retain existing aliases; never infer one from an output label.
+                source = row.mappingColumn.strip()
+                if source.casefold() == "default" or not source:
+                    return sql_literal(row.defaultValue)
+                value = source if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", source) else sql_identifier(source)
+                if row.defaultValue:
+                    value = f"COALESCE(NULLIF(CONVERT(varchar(max), {value}), ''), {sql_literal(row.defaultValue)})"
+                return value
+            query = replace_detail_projection(query, [row for row in original_mappings if row.recordType == "D"],
+                                              layouts["D"], detail_expression)
+        detail = {"recttype": "D", "query": query,
                   "conditions": _conditions(job) if replace_conditions else details[0].conditions}
     elif layouts["D"]:
         expressions = [_expression(row) for row in layouts["D"]]

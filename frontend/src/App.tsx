@@ -6,10 +6,10 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronRight, CircleDot, Layers, Plus, Settings, Trash2, X } from 'lucide-react'
 import { writeFile } from 'xlsx'
 import {
-  configuredFileFormat, createJobListRequestGuard, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors,
+  configuredFileFormat, conditionValueError, createJobListRequestGuard, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors, manualRunDateHelp,
   excelDownloadFileName, isExcelFile, mappingColumnType, pasteEmailText, readExcelMappings, reportEmailMessage, reportMimeType, reportWorkbook,
   mergeSavedJob, normalizeSortingPriorities, sortingPriorityError, validEmail, validIsoDate, validWholeNumber,
-  type ReportEmailDelivery, type SortingPriorityRow,
+  type ConditionValueType, type ReportEmailDelivery, type SortingPriorityRow,
 } from './retirementBuilder'
 
 type Screen = 'dashboard' | 'general' | 'schedule' | 'mapping' | 'subscriptions' | 'placeholder'
@@ -19,7 +19,7 @@ type MappingRow = { dataSetNo?: number; colSeqNo?: number; id: number; field: st
 type ApiMappingRow = { dataSetNo?: number; colSeqNo?: number; field?: string; startPosition?: string; length?: string; recordType?: string; defaultValue?: string; mappingColumn?: string; format?: string }
 type ScheduleValues = { startDate: string; buildFrequency: string; hour: string; minute: string; meridiem: string; week: string }
 type SortingRow = SortingPriorityRow
-type ConditionalRow = { mappingColumn: string; condition: string; value: string }
+type ConditionalRow = { mappingColumn: string; condition: string; value: string; valueType?: ConditionValueType | null }
 type FileSettingsValues = { sortingOrder: SortingRow[]; conditionalStatements: ConditionalRow[] }
 type JobsStatus = 'loading' | 'ready' | 'error'
 type ApiSubscription = { client?: string; email?: string; companyId?: number | null }
@@ -409,7 +409,7 @@ export default function App({ userEmail }: { userEmail: string }) {
       minute: jobSchedule.minute ?? scheduleDefaults.minute,
       meridiem: jobSchedule.meridiem ?? scheduleDefaults.meridiem,
       week: jobSchedule.week ?? scheduleDefaults.week,
-    }); setStoredStartDateTime(jobSchedule.startDateTime ?? null); setIncludeHeader(job.mapping?.includeHeader ?? true); setMappingRows(normalizeMappingRows(job.mapping?.rows ?? [])); setMergeFiles(Boolean(job.subscriptions?.mergeFiles)); setSubscriptions((job.subscriptions?.rows ?? []).map(toSubscription)); setFileSettings({ sortingOrder: (job.fileSettings?.sortingOrder ?? []).map((row) => ({ orderBy: row.orderBy ?? '', mappingColumn: row.mappingColumn ?? '' })), conditionalStatements: (job.fileSettings?.conditionalStatements ?? []).map((row) => ({ mappingColumn: row.mappingColumn ?? '', condition: row.condition ?? '', value: row.value ?? '' })) }) }, [])
+    }); setStoredStartDateTime(jobSchedule.startDateTime ?? null); setIncludeHeader(job.mapping?.includeHeader ?? true); setMappingRows(normalizeMappingRows(job.mapping?.rows ?? [])); setMergeFiles(Boolean(job.subscriptions?.mergeFiles)); setSubscriptions((job.subscriptions?.rows ?? []).map(toSubscription)); setFileSettings({ sortingOrder: (job.fileSettings?.sortingOrder ?? []).map((row) => ({ orderBy: row.orderBy ?? '', mappingColumn: row.mappingColumn ?? '' })), conditionalStatements: (job.fileSettings?.conditionalStatements ?? []).map((row) => ({ mappingColumn: row.mappingColumn ?? '', condition: row.condition ?? '', value: row.value ?? '', valueType: row.valueType })) }) }, [])
   useEffect(() => {
     if (editDetailsId === null) return
     const controller = new AbortController()
@@ -800,7 +800,7 @@ function RunDateDialog({ jobName, onCancel, onRun }: {
         <label>End Date<input type="date" name="end_date" min="0001-01-01" max="9999-12-31"
           onInput={() => setError('')} /></label>
       </div>
-      <small id="run-date-help">Leave either date blank to leave that side of the range open.</small>
+      <small id="run-date-help">{manualRunDateHelp}</small>
       <FieldError id="run-date-error" message={error} />
       <div className="run-date-actions">
         <button type="button" className="button button-light" onClick={onCancel}>Cancel</button>
@@ -1162,11 +1162,15 @@ function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialC
     if (name && !columnNames.has(name.toLowerCase())) columnNames.set(name.toLowerCase(), name)
   }
   const mappingColumns = reportSource === 'companyPayroll' ? values.payrollMappingColumns : Array.from(columnNames.values())
-  const isDateColumn = (column: string) => reportSource === 'companyPayroll'
-    ? column.trim().toLowerCase() === 'pay date'
-    : mappingColumnType(column, values.mappingColumnTypes) === 'date'
+  const conditionType = (column: string): ConditionValueType => {
+    const type = reportSource === 'companyPayroll'
+      ? ({ 'pay date': 'date', 'employee count': 'number', 'net salary total': 'number' }[column.trim().toLowerCase()] ?? 'text')
+      : mappingColumnType(column, values.mappingColumnTypes)
+    return type === 'date' || type === 'number' ? type : 'text'
+  }
+  const isDateColumn = (column: string) => conditionType(column) === 'date'
   const [sortingRows, setSortingRows] = useState(() => initialSorting.map((row, index) => [row.orderBy || String(index + 1), mappingLabel(row.mappingColumn, values.mappingColumnLabels)]))
-  const [conditionalRows, setConditionalRows] = useState(() => initialConditional.map((row) => [row.mappingColumn, row.condition, row.value]))
+  const [conditionalRows, setConditionalRows] = useState(() => initialConditional.map((row) => [mappingLabel(row.mappingColumn, values.mappingColumnLabels), row.condition, row.value]))
   const [sortError, setSortError] = useState('')
   const dialog = useRef<HTMLElement>(null)
   const closeRef = useRef(onClose)
@@ -1183,19 +1187,14 @@ function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialC
       setSortError('Choose a mapping column and comparison operator for each condition.')
       return
     }
-    const invalidCondition = conditionalRows.find(([column, , value]) => {
-      const number = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(value.trim())
-      return isDateColumn(column) ? !validIsoDate(value) && (reportSource === 'companyPayroll' || !number) : !number
-    })
+    const invalidCondition = conditionalRows.find(([column, , value]) => conditionValueError(value, conditionType(column)))
     if (invalidCondition) {
-      setSortError(isDateColumn(invalidCondition[0])
-        ? 'Enter a valid date in YYYY-MM-DD format.'
-        : 'Enter a number for each numeric condition.')
+      setSortError(conditionValueError(invalidCondition[2], conditionType(invalidCondition[0])))
       return
     }
     onSave(
       normalizeSortingPriorities(priorities),
-      conditionalRows.map(([mappingColumn, condition, value]) => ({ mappingColumn, condition, value })),
+      conditionalRows.map(([mappingColumn, condition, value]) => ({ mappingColumn, condition, value, valueType: conditionType(mappingColumn) })),
     )
   }
 
