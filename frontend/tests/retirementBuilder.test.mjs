@@ -20,8 +20,26 @@ after(async () => {
 const {
   configuredFileFormat, createJobListRequestGuard, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors,
   mergeSavedJob, normalizeSortingPriorities, sortingPriorityError, pasteEmailText, readExcelMappings, reportWorkbook,
-  validEmail, validIsoDate, validWholeNumber,
+  excelDownloadFileName, reportMimeType, validEmail, validIsoDate, validWholeNumber,
 } = await vite.ssrLoadModule('/src/retirementBuilder.ts')
+
+test('report downloads preserve bytes and use format-appropriate MIME and Excel filenames', async () => {
+  for (const [extension, mime] of [
+    ['csv', 'text/csv'], ['txt', 'text/plain'], ['tsv', 'text/tab-separated-values'],
+  ]) {
+    for (const suffix of [extension, extension.toUpperCase()]) {
+      const fileName = `Payroll.v2_000204_2026-10-15.${suffix}`
+      const content = 'PAYDATE,NAME,ID,BLANK\r\n10/15/2026,"José, Alex",000001,\r\n'
+      const blob = new Blob([content], { type: reportMimeType(fileName) })
+      assert.equal(blob.type, `${mime};charset=utf-8`)
+      assert.equal(blob.size, Buffer.byteLength(content, 'utf8'))
+      assert.equal(await blob.text(), content)
+      assert.equal(excelDownloadFileName(fileName), 'Payroll.v2_000204_2026-10-15.xlsx')
+    }
+  }
+  assert.equal(excelDownloadFileName('Payroll.v2'), 'Payroll.v2.xlsx')
+  assert.equal(reportMimeType('Historical.csv', [['Fixed    ']]), 'text/plain;charset=utf-8')
+})
 
 test('saving immediately replaces the dashboard format while retaining history and other jobs', () => {
   const jobs = [
@@ -152,7 +170,7 @@ test('date conditions require a real calendar date in ISO format', () => {
 })
 
 test('Excel downloads preserve delimited columns and treat report values as text', () => {
-  for (const delimiter of [',', '\t', ' ', ';', '|']) {
+  for (const delimiter of [',', '\t', ' ', ';', '|', '~']) {
     const columnLabels = ['Company, Name', 'Pay Date', 'Code', 'Note', 'Empty', 'Literal']
     const values = [
       `Audit${delimiter}Alpha`, '2026-11-01', '00007', 'First line\n"Second line"', '', '=1+1',

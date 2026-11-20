@@ -22,6 +22,11 @@ skill.
   supposedly read-only check: it may write data.
 - A read-only task permits inspection and unsaved form exploration only. Do not
   click Finish/Save or Run in that mode.
+- Excel workbooks are mapping-upload inputs in the user's normal workflow.
+  Routine report QA checks the generated `.csv`, `.txt` and TAB `.tsv` files and
+  their data. Do not verify generated Excel files, Download Excel, native Excel
+  opening or configured Excel import unless the user explicitly requests those
+  checks. See [the testing action notes](../../action.md).
 
 ## Strict restrictions
 
@@ -45,8 +50,9 @@ skill.
    restriction: that path can create/drop result tables. Inspect or validate it
    without saving/running, or mark it blocked. If the fresh baseline is ON, do not
    run with it ON; preserve the baseline for restoration.
-6. Preserve existing and newly generated CSV files, output reports and evidence.
-   Do not delete them as cleanup. All six export formats currently use `.csv`;
+6. Preserve existing and newly generated report files and evidence.
+   Do not delete them as cleanup. CSV uses `.csv`, TAB uses `.tsv`, and PIPE,
+   SEMICOLON, TILDE and FIXED use `.txt`. Historical files may still use `.csv`;
    determine the actual format from content and configuration, not the extension.
 7. Use `annagiri.raghunath@agilehealthtech.com` for temporary subscription test
    entries unless the user specifies otherwise. Mail still stays disabled.
@@ -168,12 +174,37 @@ blocked by the no-schema-change rule.
 
 ### Serialization and file naming
 
-- All six formats are saved with `.csv`; do not require `.txt` or rename outputs.
+The selected File Format determines the filename extension without changing the
+content. Use this required matrix; record each format separately:
+
+| File Format | Expected extension | Expected content |
+| --- | --- | --- |
+| CSV / COMMA | `.csv` | Comma-separated, quote-aware fields |
+| PIPE | `.txt` | Pipe-separated fields (`\|`) |
+| SEMICOLON | `.txt` | Semicolon-separated fields (`;`) |
+| TAB | `.tsv` | Actual U+0009 tab-separated fields |
+| TILDE | `.txt` | Tilde-separated fields (`~`) |
+| FIXED | `.txt` | Configured field positions, lengths and padding |
+
+For **each** format, verify the generated filename/extension, download link and
+downloaded bytes, readability/encoding, field positions/order, headers and data,
+blank middle/trailing fields, special characters, leading zeros, numeric precision
+and date formatting. Do not count selecting/saving the format as file coverage.
+
+- Exercise all seven Output File Name Format choices in the coverage matrix.
+  Check single/multiple-client filenames, client/date components, grouping and
+  counts; preserve the same components across extensions. Cover merged names and
+  collision suffixes without overwriting another report. Check that replacing a
+  supported final suffix does not produce `.csv.txt` or `.tsv.xlsx` names.
+- Preserve historical `.csv` reports and verify existing access/download behavior
+  where available; do not rename them. The change does not migrate old reports.
 - CSV uses comma, PIPE `|`, SEMICOLON `;`, TAB actual U+0009, and TILDE `~`.
   Parse each with its selected delimiter using a proper quote-aware parser.
 - FIXED has no separator. Recover fields using configured positions/lengths;
   verify padding, alignment, record width, overlaps, overflow and header widths.
   Do not split FIXED on arbitrary spaces or assume one space between fields.
+  Verify a 189-character layout when that is the configured scenario; do not
+  change a job's field widths merely to force that historical fixture.
 - Confirm headers and data follow the same layout and field order. Check embedded
   commas/quotes, intentional spaces, blank middle/trailing values, Unicode if
   present and consistent column counts. Consecutive delimiters can correctly
@@ -183,9 +214,68 @@ blocked by the no-schema-change rule.
   LA/RA/width behavior. Do not remove legitimate CSV quoting in expected results.
 - Verify filename components and grouping independently. Client ID is not job ID.
   Do not infer file count solely from the number of subscription rows.
-- Native Excel import/double-click behavior is a separate test. Record its chosen
-  delimiter/import settings and distinguish import behavior from malformed bytes.
-  Do not label native Excel behavior passed from a parser or download alone.
+
+### Downloads, attachments and completion detection
+
+- Normal Download Report must use the backend filename, including `.csv`, `.txt`
+  or `.tsv`, with unchanged report content. Check MIME metadata: `text/csv`,
+  `text/plain` and `text/tab-separated-values`, respectively, with UTF-8 encoding.
+  Historical FIXED output with structured fields keeps `text/plain` metadata.
+- Inspect attachment names/MIME/content through code or isolated mocked SMTP
+  tests when authorized. Cover individual and merged attachments for all six
+  formats. Actual delivery and recipient-specific live merging remain BLOCKED
+  while `MAIL_ENABLED=false`; never enable mail to satisfy this checklist.
+- Verify scheduler completion detection accepts existing `.csv`, `.txt`, `.tsv`
+  reports and `.complete`, including historical `.csv`, preventing a duplicate
+  completed-slot attempt. Use source inspection, existing evidence or isolated
+  mocks only; do not trigger the automatic scheduler or create completion files
+  in actual report folders.
+- This matrix grants no additional Save/Run, database-write, mail or scheduler
+  permission. A prohibition on all DB writes means no UI Save/Run either; normal
+  application writes are permitted only within the task's explicit UI scope.
+  If a live case needs new source records or unsafe changes, mark it BLOCKED;
+  do not seed data or bypass the restrictions.
+
+### Text report validation and Excel scope
+
+The default report deliverables under test are **`.csv`, `.txt` and `.tsv`**.
+Inspect their actual bytes and data using the configured delimiter or FIXED
+positions/lengths. Verify columns, row counts, headers/trailers, source accuracy,
+sorting, conditions, blanks, quotes, Unicode, leading zeros, dates and numeric
+precision. These checks do not require Microsoft Excel.
+
+Excel `.xlsx`/`.xls` files are used to **upload mapping columns**, not as the
+report-delivery target for this testing workflow. Test workbook import controls
+and the resulting mappings only within the authorized job 60 scope. Do not
+confuse a mapping-upload workbook with a generated report.
+
+Do not open Microsoft Excel, set up an add-in, test Text to Columns/configured
+import, or verify the optional Download Excel output during routine report QA.
+The existence of that button does not expand the user's requested test scope.
+Do not mark text-report testing BLOCKED or FAIL because Excel is unavailable.
+Leave existing Excel functionality unchanged.
+
+Only if the user **explicitly asks for Excel compatibility testing**, assess it
+separately from text-file correctness. In that case, distinguish direct Excel
+opening, configured import and downloaded `.xlsx` behavior, and do not claim a
+native Excel PASS from programmatic parsing or file generation alone. Otherwise
+record Excel output/native checks as **OUT OF SCOPE**, not pending requirements.
+
+### Existing automated evidence
+
+Review current source and tests before relying on prior results:
+[extension regressions](../../backend/tests/test_report_extensions.py),
+[serialization tests](../../backend/tests/test_retirement_results.py),
+[procedure-output tests](../../backend/tests/test_retirement_procedure.py) and
+[frontend helpers](../../frontend/tests/retirementBuilder.test.mjs).
+
+The extension implementation previously reported **142 backend tests, 18
+frontend tests, lint and build passing**. These are historical results, not tests
+executed for this documentation update. Live UI downloads, actual email delivery
+and live scheduled execution were not tested. Mocked attachment/completion checks
+and file parsing do not establish those live outcomes or native Excel behavior.
+Run tests only when the current task authorizes them and dependencies are safely
+isolated; reading this evidence does not authorize a new test execution.
 
 ### Source data and queries
 
@@ -244,6 +334,9 @@ Deliver a concise report containing:
 > and Formats, field/default/width edits, headers/trailers, multiple sort
 > priorities and conditions, and single/multiple clients. Inspect every generated
 > file and verify source data. List issues without fixing them. Preserve reports.
+> Excel workbooks are mapping-upload inputs only; validate generated .csv, .txt
+> and .tsv reports and their data. Do not test generated Excel files or native
+> Excel unless separately requested.
 > Capture a fresh baseline and restore/verify original settings afterward. Mark
 > untested or blocked scenarios honestly. If time-limited, reserve restoration
 > time and report remaining coverage instead of claiming everything was tested.

@@ -68,6 +68,11 @@ _LEGACY_FILE_FORMAT_NAMES = {
     "CSV_SEMI": "Semicolon",
     "CSV (SEMICOLON DELIMITED)": "Semicolon",
 }
+REPORT_FORMAT_EXTENSIONS = {
+    "CSV": ".csv", "COMMA": ".csv", "PIPE": ".txt", "SEMICOLON": ".txt",
+    "TAB": ".tsv", "TILDE": ".txt", "FIXED": ".txt",
+}
+REPORT_EXTENSIONS = frozenset(REPORT_FORMAT_EXTENSIONS.values())
 COMPARISONS = {
     "=": operator.eq, "==": operator.eq, "!=": operator.ne, "<>": operator.ne,
     "<": operator.lt, "<=": operator.le, ">": operator.gt, ">=": operator.ge,
@@ -197,14 +202,14 @@ def _safe_name_part(value: str, byte_limit: int) -> str:
 
 
 def _output_name(job: "RetirementBuilderJob", name_format: tuple[str, ...], group: dict[str, str]) -> str:
-    base = re.sub(r"\.csv$", "", job.general.fileName.strip(". "), flags=re.IGNORECASE)
+    base = re.sub(r"\.(csv|txt|tsv)$", "", job.general.fileName.strip(". "), flags=re.IGNORECASE)
     group_parts = {part: _safe_name_part(value, 75) or "_" for part, value in group.items()}
     base_limit = 200 - sum(len(value.encode("utf-8")) + 1 for value in group_parts.values())
     group_parts["file name"] = _safe_name_part(base, base_limit) or f"job-{job.id}"
     name = "_".join(group_parts[part] for part in name_format)
     if re.fullmatch(r"(?i:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])", name.split(".")[0]):
         name = f"_{name}"
-    return f"{name}.csv"
+    return f"{name}{report_extension(job.general.fileFormat)}"
 
 
 def _source_key(mapping: "MappingRow") -> str:
@@ -401,6 +406,14 @@ def _format_value(value: str, mapping: "MappingRow") -> str:
 def file_format_name(value: str) -> str:
     name = value.strip()
     return _LEGACY_FILE_FORMAT_NAMES.get(name.upper(), name)
+
+
+def report_extension(file_format: str) -> str:
+    return REPORT_FORMAT_EXTENSIONS.get(file_format_name(file_format).upper(), ".csv")
+
+
+def report_mime_subtype(file_name: str) -> str:
+    return {"csv": "csv", "tsv": "tab-separated-values"}.get(file_name.rsplit(".", 1)[-1].lower(), "plain")
 
 
 def is_fixed_format(value: str) -> bool:
@@ -614,11 +627,11 @@ def build_report_files(
         filename = _output_name(job, name_format, group)
         if filename.casefold() in filenames:
             group_hash = sha256(json.dumps(group, sort_keys=True).encode("utf-8")).hexdigest()[:12]
-            base = filename.removesuffix(".csv")
-            filename = f"{base}_{group_hash}.csv"
+            base, extension = filename.rsplit(".", 1)
+            filename = f"{base}_{group_hash}.{extension}"
             number = 2
             while filename.casefold() in filenames:
-                filename = f"{base}_{group_hash}_{number}.csv"
+                filename = f"{base}_{group_hash}_{number}.{extension}"
                 number += 1
         filenames.add(filename.casefold())
         results, output, excel_rows = _render_csv(rows, layouts, delimiter, job.mapping.includeHeader, remaining_bytes, fixed=fixed)
@@ -692,8 +705,9 @@ def merge_report_files(job: "RetirementBuilderJob", reports: list[ReportFile]) -
         stream = StringIO(report.csv, newline="")
         next(csv.reader(stream, delimiter=report.delimiter))
         contents.append(stream.read())
+    base, extension = _output_name(job, ("file name",), {}).rsplit(".", 1)
     return ReportFile(
-        _output_name(job, ("file name",), {}).removesuffix(".csv") + "_merged.csv",
+        f"{base}_merged.{extension}",
         [row for report in reports for row in report.rows],
         "".join(contents),
         frozenset(client for report in reports for client in report.client_ids or ()),

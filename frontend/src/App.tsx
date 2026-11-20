@@ -7,7 +7,7 @@ import { ChevronRight, CircleDot, Layers, Plus, Settings, Trash2, X } from 'luci
 import { writeFile } from 'xlsx'
 import {
   configuredFileFormat, createJobListRequestGuard, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors,
-  isExcelFile, mappingColumnType, pasteEmailText, readExcelMappings, reportEmailMessage, reportWorkbook,
+  excelDownloadFileName, isExcelFile, mappingColumnType, pasteEmailText, readExcelMappings, reportEmailMessage, reportMimeType, reportWorkbook,
   mergeSavedJob, normalizeSortingPriorities, sortingPriorityError, validEmail, validIsoDate, validWholeNumber,
   type ReportEmailDelivery, type SortingPriorityRow,
 } from './retirementBuilder'
@@ -678,7 +678,7 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
     const files = runResult?.files ?? (runResult?.fileName ? [runResult] : [])
     const links = files.map(({ fileName, csv, excelRows }) => ({
       fileName, csv, excelRows, url: URL.createObjectURL(new Blob([csv], {
-        type: excelRows != null ? 'text/plain;charset=utf-8' : 'text/csv;charset=utf-8',
+        type: reportMimeType(fileName, excelRows),
       })),
     }))
     setDownloads(links)
@@ -688,7 +688,7 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
   const downloadExcel = ({ fileName, csv, excelRows }: JobRunFile, delimiter: string) => {
     setDownloadError('')
     try {
-      writeFile(reportWorkbook(csv, delimiter, excelRows), fileName.replace(/\.csv$/i, '') + '.xlsx')
+      writeFile(reportWorkbook(csv, delimiter, excelRows), excelDownloadFileName(fileName))
     } catch {
       setDownloadError('Unable to create the Excel download. You can still download the report file.')
     }
@@ -712,7 +712,7 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
       {runResult.emailDelivery && <div>{reportEmailMessage(runResult.emailDelivery)}</div>}
       {downloads.length > 0 && <div className="report-downloads">
         {downloads.map((file) => <div className="report-download" key={file.fileName}>
-          <a href={file.url} download={file.fileName}>{downloads.length === 1 ? file.excelRows != null ? 'Download File' : 'Download CSV' : file.fileName}</a>
+          <a href={file.url} download={file.fileName}>{downloads.length === 1 ? 'Download Report' : file.fileName}</a>
           {delimiter?.length === 1 && <button type="button" className="report-excel-button"
             aria-label={downloads.length === 1 ? undefined : `Download Excel for ${file.fileName}`}
             onClick={() => downloadExcel(file, delimiter)}>Download Excel</button>}

@@ -229,7 +229,7 @@ class RetirementResultsTests(TestCase):
         source = b'Payday,Name\n2026-11-11,"A\nB"\n2026-11-12,C\n'
         reports = build_report_files(job, source)
         merged = merge_report_files(job, reports)
-        self.assertEqual(merged.file_name, "Payroll_merged.csv")
+        self.assertEqual(merged.file_name, "Payroll_merged.txt")
         self.assertEqual(merged.csv, '"Full\nName"\r\n"A\nB"\r\nC\r\n')
         job.mapping.includeHeader = False
         merged = merge_report_files(job, build_report_files(job, source))
@@ -404,13 +404,12 @@ class RetirementResultsTests(TestCase):
 
 
 class OutputExtensionTests(TestCase):
-    def test_every_file_format_is_exported_with_a_csv_extension(self):
-        # Business rule: the export file is always .csv, whatever the delimiter or FIXED layout.
-        for file_format, delimiter in (("CSV", ","), ("TAB", "\t"), ("PIPE", "|"), ("SEMICOLON", ";"), ("TILDE", "~"), ("FIXED", " ")):
+    def test_every_file_format_is_exported_with_its_configured_extension(self):
+        for file_format, delimiter, extension in (("CSV", ",", ".csv"), ("TAB", "\t", ".tsv"), ("PIPE", "|", ".txt"), ("SEMICOLON", ";", ".txt"), ("TILDE", "~", ".txt"), ("FIXED", " ", ".txt")):
             job = RetirementBuilderJob.model_validate({
                 "id": 1, "general": {"fileName": "Report", "fileFormat": file_format},
                 "mapping": {"rows": [{"field": "Name", "mappingColumn": "Name", "length": "8"}]},
             })
             with self.subTest(file_format=file_format):
                 report, = build_report_files(job, b"Name\nAlex\n", delimiter=delimiter)
-                self.assertEqual(report.file_name, "Report.csv")
+                self.assertEqual(report.file_name, "Report" + extension)

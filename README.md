@@ -486,25 +486,47 @@ four-input call contract.
 
 ### Six formats
 
-| Selection | Content | Configured `rjob.filetype` |
-| --- | --- | --- |
-| CSV / comma label | Quote-aware comma-separated fields | `,` |
-| PIPE | Pipe-separated fields | Pipe character, U+007C |
-| SEMICOLON | Semicolon-separated fields | `;` |
-| TAB | Tab-separated fields | Actual U+0009, not four spaces |
-| TILDE | Tilde-separated fields | `~` |
-| FIXED | Fixed-position/width records, no separator | One space when configured as FIXED in the lookup |
+| Selection | Extension | Content | Configured `rjob.filetype` |
+| --- | --- | --- | --- |
+| CSV / COMMA | `.csv` | Quote-aware comma-separated fields | `,` |
+| PIPE | `.txt` | Pipe-separated fields | Pipe character, U+007C |
+| SEMICOLON | `.txt` | Semicolon-separated fields | `;` |
+| TAB | `.tsv` | Tab-separated fields | Actual U+0009, not four spaces |
+| TILDE | `.txt` | Tilde-separated fields | `~` |
+| FIXED | `.txt` | Fixed-position/width records, no separator | One space when configured as FIXED in the lookup |
 
-**Every format is saved with `.csv` in this application.** Legacy labels are
-recognized. Named TAB lookup rows historically containing a space are interpreted
-as tabs; a stored space resolves to configured FIXED. This does not migrate DB data.
+The selected File Format determines the extension, using the centralized
+`REPORT_FORMAT_EXTENSIONS` mapping in
+[retirement_results.py](backend/app/retirement_results.py). This applies to
+single-client, multiple-client and merged reports, including email attachments.
+Delimiters, quoting, UTF-8 content, field order, values and FIXED layouts are
+unchanged. Historical `.csv` reports retain their filenames and existing access
+paths; no renaming, migration or deletion is required.
+
+Legacy labels are recognized. Named TAB lookup rows historically containing a
+space are interpreted as tabs; a stored space resolves to configured FIXED. This
+does not migrate DB data.
 
 Proper CSV quoting preserves embedded commas/quotes and blank fields. `a,,,d`
 contains two empty fields; deleting delimiters shifts columns. `"Last, First"`
-is one CSV field. Non-comma files require the matching Excel import delimiter.
-Download Excel uses frontend SheetJS conversion with the returned delimiter;
-FIXED also returns field arrays, avoiding arbitrary space splitting. Native Excel
-double-click behavior depends on import/locale settings.
+is one CSV field. The normal **Download Report** link uses the backend's filename
+and extension without converting the content. Download MIME types are `text/csv`
+for `.csv`, `text/tab-separated-values` for `.tsv`, and `text/plain` for `.txt`,
+with UTF-8 encoding. Historical FIXED output with structured fields uses
+`text/plain` even when its filename ends in `.csv`.
+
+Text exports do not automatically convert all six formats into Excel columns.
+Some require configured Excel import: select the matching delimiter for delimited
+files and the configured field boundaries for FIXED. Direct opening also depends
+on Excel/locale settings and can convert identifiers, dates or numbers. File-format
+correctness does not prove native Excel compatibility.
+
+The separate **Download Excel** button continues to generate `.xlsx` using
+frontend SheetJS conversion with the returned delimiter. FIXED uses returned
+field arrays, avoiding arbitrary space splitting. The filename helper replaces a
+final `.csv`, `.txt` or `.tsv` suffix with `.xlsx`; it does not change the original
+report. Native Excel direct opening, configured import and `.xlsx` opening need
+separate evidence from actual Excel testing.
 
 ### FIXED layout
 
@@ -520,7 +542,8 @@ region. FIXED is not “one space between every value.”
 
 ### Seven filename formats
 
-Examples use filename `Payroll`, client `000204`, paydate `2026-10-15`:
+Examples use CSV format, filename `Payroll`, client `000204`, paydate `2026-10-15`.
+Other formats retain the same components and use the extension listed above:
 
 | Label | Stored code | Example |
 | --- | --- | --- |
@@ -535,6 +558,11 @@ Examples use filename `Payroll`, client `000204`, paydate `2026-10-15`:
 FILENAME alone creates one report from included data. CLIENT/PAYDAY group by the
 distinct included values/combinations. File count is not necessarily subscription
 count. H/T rows with blank group metadata can apply to multiple matching groups.
+All seven naming combinations retain their existing components and grouping.
+Only the final supported `.csv`/`.txt`/`.tsv` suffix is replaced when forming the
+report name, so a base such as `Payroll.csv` does not become `Payroll.csv.txt`.
+Filename sanitization and collision suffixes remain supported in both report
+writers, as do single-client, multiple-client and merged report names.
 
 ## Scheduling, email and storage
 
@@ -546,9 +574,10 @@ monthly dates clamp to the last day of shorter months. Timezone/DST handling use
 `SCHEDULER_TIMEZONE`. Automatic calls send S plus sentinel start/end dates; a
 compatible procedure determines its own business date range.
 
-The runner locks the job and checks its UTC-slot output folder. Existing `.csv`
-files or a `.complete` marker prevent another completed-slot Run. Run only one
-scheduler against the same DB/output location. Frontend GET refresh behavior does
+The runner locks the job and checks its UTC-slot output folder. Existing `.csv`,
+`.txt` or `.tsv` files (case-insensitive suffixes), or a `.complete` marker, prevent
+another completed-slot Run. Historical `.csv` files still satisfy this check.
+Run only one scheduler against the same DB/output location. Frontend GET refresh behavior does
 not enable/disable this backend timer.
 
 ### Subscription delivery
@@ -557,6 +586,10 @@ Each file is matched to the client/company IDs it contains. A multi-client file
 is eligible only when a recipient is subscribed to **all** represented clients.
 Use CLIENT-based naming for separate client files. Leading-zero IDs are normalized
 for matching. Merge Files combines the recipient's eligible attachments afterward.
+Merged attachment names retain the configured format's extension and the existing
+`_merged` naming convention. Attachments use the generated backend filename and
+the same content and MIME rules described above; extension selection does not
+change recipient eligibility, subscriptions or delivery behavior.
 
 `emailDelivery` contains `enabled`, `matched`, `accepted`. SMTP acceptance is not
 inbox confirmation. Disabled mail, no matching recipients and SMTP rejection are
@@ -566,8 +599,8 @@ different outcomes. Explicit CSV-body override Runs do not send subscribed mail.
 
 ```text
 backend/report-input/<job-id>.csv
-backend/report-output/manual/<job-id>/<run-uuid>/<filename>.csv
-backend/report-output/scheduled/<job-id>/<UTC-slot>/<filename>.csv
+backend/report-output/manual/<job-id>/<run-uuid>/<filename>.<csv|txt|tsv>
+backend/report-output/scheduled/<job-id>/<UTC-slot>/<filename>.<csv|txt|tsv>
 ```
 
 UTC-slot folder format is `YYYYMMDDTHHMMSSZ`. Files are atomically published from
@@ -659,6 +692,19 @@ handling, serialization, scheduler/mail mocks and logging. Unit success does not
 prove live procedure execution, mail delivery or native Excel import. Tests were
 not executed merely to write this README.
 
+Previously reported verification for the file-extension implementation: **142
+backend tests and 18 frontend tests passed; lint and build passed**. These are
+prior results, not checks rerun for this documentation update. Coverage is defined
+in [test_report_extensions.py](backend/tests/test_report_extensions.py),
+[test_retirement_results.py](backend/tests/test_retirement_results.py),
+[test_retirement_procedure.py](backend/tests/test_retirement_procedure.py) and
+[retirementBuilder.test.mjs](frontend/tests/retirementBuilder.test.mjs). It includes
+all six formats, seven filename combinations, content/189-character FIXED layout,
+grouping/merging/collisions, mocked completion detection and attachment metadata,
+and download/Excel filename helpers. Live UI downloads, actual SMTP delivery and
+live scheduled execution were not tested. Native Excel compatibility was not
+established by these automated checks.
+
 ## Deployment and network access
 
 ### Same Wi-Fi
@@ -701,7 +747,7 @@ migrations automatically during deployment verification.
 | Save rejected | 422 detail fields, lookup values, positive IDs, widths, defaults and supported mappings. |
 | Slow Save | Actual PUT timing, DB latency/locks, batch execution and response reads. UI wait is not precise API time. |
 | Mapping edit exports old source | Compare mapping row and saved D SELECT; current generator preserves D expressions/aliases. |
-| Excel shows one column | Match import delimiter to actual bytes; FIXED/TAB/PIPE still end `.csv`. Use Download Excel for explicit conversion. |
+| Excel shows one column | Match import settings to actual bytes; extensions do not guarantee automatic Excel import. Use Download Excel for explicit conversion. |
 | Repeated commas/pipes | Parse positions first; blank adjacent fields require consecutive separators. |
 | FIXED error | Positive widths, zero-based nonoverlapping explicit positions, header fit and value overflow. |
 | Procedure parameter error | Current call has four named parameters; older sample procedure signatures are incompatible. |

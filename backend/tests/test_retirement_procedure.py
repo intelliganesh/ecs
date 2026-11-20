@@ -195,7 +195,7 @@ class ProcedureFileTests(TestCase):
         self.assertEqual(lines[1][16:25], "000000000")
         self.assertEqual(report.excel_rows[1], ["Doe, Alex       ", "000000000", "01/02/2020", "    7"])
         self.assertEqual(list(report.rows[1].values.values()), report.excel_rows[1])
-        self.assertEqual(report.file_name, "000719_2026-11-10.csv")
+        self.assertEqual(report.file_name, "000719_2026-11-10.txt")
         self.assertEqual([r.record_type for r in report.rows], ["H", "D"])
 
     def test_fixed_configured_header_detail_and_trailer_keep_separate_widths(self):

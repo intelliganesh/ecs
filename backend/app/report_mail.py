@@ -8,7 +8,7 @@ import ssl
 from typing import TYPE_CHECKING
 
 from app.core.config import Settings
-from app.retirement_results import ReportFile, merge_report_files
+from app.retirement_results import ReportFile, merge_report_files, report_mime_subtype
 
 if TYPE_CHECKING:
     from app.routers.retirement_builder import RetirementBuilderJob, SubscriptionsForm
@@ -123,7 +123,7 @@ def send_report_email(settings: Settings, attachments: dict[str, list[ReportFile
                 message.set_content(f"Hello,\n\nYour Retirement Builder {report_label} attached.\n\nThank you.\n")
                 for report in reports:
                     message.add_attachment(
-                        report.csv.encode("utf-8"), maintype="text", subtype="plain" if report.excel_rows is not None else "csv",
+                        report.csv.encode("utf-8"), maintype="text", subtype="plain" if report.excel_rows is not None else report_mime_subtype(report.file_name),
                         params={"charset": "utf-8"}, filename=report.file_name,
                     )
                 try:

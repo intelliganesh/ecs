@@ -76,6 +76,39 @@ application edits, database writes, report Runs or email delivery.
 - Report changes, checks, confirmed issues, limitations and remaining work. Do not
   fix newly discovered unrelated issues without scope to do so.
 
+## Retirement Builder report export contract
+
+- Preserve the centralized `REPORT_FORMAT_EXTENSIONS` mapping in
+  [retirement_results.py](backend/app/retirement_results.py): CSV/COMMA → `.csv`,
+  PIPE → `.txt`, SEMICOLON → `.txt`, TAB → `.tsv`, TILDE → `.txt`, FIXED → `.txt`.
+  The configured File Format selects the extension; do not assume all reports
+  use `.csv` or change delimiters/content to match an extension.
+- For changes to the report writers in `retirement_results.py` and
+  [retirement_procedure.py](backend/app/retirement_procedure.py), verify filenames
+  and serialization separately. Preserve H/D/T ordering, field formatting,
+  FIXED positions/widths, all seven filename combinations, single/multiple-client
+  grouping, merged names and collision handling. Replace only a supported final
+  suffix; avoid duplicate extensions and preserve historical `.csv` files/access.
+- In [report_scheduler.py](backend/app/report_scheduler.py), completion detection
+  must recognize `.csv`, `.txt`, `.tsv` and the existing `.complete` marker.
+  Verify with isolated mocks; do not trigger the scheduler incidentally.
+- In [report_mail.py](backend/app/report_mail.py), preserve backend report names
+  and attachment MIME metadata: `.csv` uses `text/csv`, `.tsv` uses
+  `text/tab-separated-values`, `.txt` uses `text/plain`, with UTF-8 encoding.
+  Historical FIXED output with structured fields retains `text/plain` metadata.
+  Do not change recipients or delivery behavior as part of filename changes.
+- In [App.tsx](frontend/src/App.tsx) and
+  [retirementBuilder.ts](frontend/src/retirementBuilder.ts), use the filename
+  supplied by the backend for normal downloads and the appropriate MIME type.
+  Preserve the separate Download Excel conversion and `.xlsx` naming for input
+  names ending in `.csv`, `.txt` or `.tsv`. Text exports do not guarantee automatic
+  Excel column separation; native Excel PASS requires actual Excel verification.
+- When changing export behavior, cover all six formats and all seven Output File
+  Name Format choices, including single/multiple clients, merges, collisions,
+  historical files and unchanged content. Follow current authorization and the
+  testing guide; this contract grants no live Save/Run/mail permission. Database
+  schemas, queries, stored procedures and mappings require explicit authorization.
+
 ## Job 60 testing workflow
 
 For an authorized Retirement Builder edit/manual-Run test of **job 60**, read

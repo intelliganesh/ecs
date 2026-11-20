@@ -12,7 +12,7 @@ from app.core.config import Settings
 from app.db import engine
 from app.report_files import report_directory
 from app.report_mail import send_subscribed_reports
-from app.retirement_results import InvalidRun, ReportDateRange
+from app.retirement_results import REPORT_EXTENSIONS, InvalidRun, ReportDateRange
 from app.routers.retirement_builder import (
     LOCK_RUN_JOB, READ_ENABLED_SCHEDULES, READ_SCHEDULE,
     _attempt_report_run, _read_full_job, _read_report_source,
@@ -64,7 +64,9 @@ def _run_scheduled_job(settings: Settings, job_id: int, slot: datetime, now: dat
     with ExitStack() as resources, engine.begin() as connection:
         if connection.execute(LOCK_RUN_JOB, {"jobid": job_id}).scalar_one_or_none() is None:
             return
-        if (run_dir / ".complete").is_file() or any(run_dir.glob("*.csv")):
+        if (run_dir / ".complete").is_file() or any(
+            path.is_file() and path.suffix.lower() in REPORT_EXTENSIONS for path in run_dir.glob("*")
+        ):
             return
         saved_schedule = connection.execute(READ_SCHEDULE, {"jobid": job_id}).mappings().first()
         if saved_schedule is None or _scheduled_slot(saved_schedule, now) != slot:

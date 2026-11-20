@@ -250,10 +250,10 @@ def build_procedure_report_files(
         if filename.casefold() in filenames:
             # Distinct client IDs can sanitize to the same filename. Never
             # overwrite another group's file.
-            base = filename.removesuffix(".csv")
+            base, extension = filename.rsplit(".", 1)
             suffix = 2
             while filename.casefold() in filenames:
-                filename = f"{base}_{suffix}.csv"
+                filename = f"{base}_{suffix}.{extension}"
                 suffix += 1
         filenames.add(filename.casefold())
         reports.append(ReportFile(filename, rows, csv_text, clients or None, delimiter=delimiter, excel_rows=excel_rows))

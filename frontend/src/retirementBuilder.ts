@@ -1,5 +1,16 @@
 import * as XLSX from 'xlsx'
 
+export function reportMimeType(fileName: string, excelRows?: string[][] | null): string {
+  const extension = fileName.split('.').pop()?.toLowerCase()
+  const type = excelRows != null ? 'text/plain'
+    : extension === 'csv' ? 'text/csv' : extension === 'tsv' ? 'text/tab-separated-values' : 'text/plain'
+  return `${type};charset=utf-8`
+}
+
+export function excelDownloadFileName(fileName: string): string {
+  return fileName.replace(/\.(csv|txt|tsv)$/i, '') + '.xlsx'
+}
+
 type SavedJobSnapshot = { id: number; general?: { enable?: boolean }; schedule?: object }
 
 export function mergeSavedJob<T extends SavedJobSnapshot>(jobs: T[], saved: T): T[] {
