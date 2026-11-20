@@ -227,3 +227,10 @@ test('Excel mapping imports preserve dataset ordering metadata and separate H D 
     { field: 'Name', recordType: 'Trailer', dataSetNo: 4, colSeqNo: 1 },
   ])
 })
+
+test('file names cannot contain characters that are invalid in file names', () => {
+  assert.equal(generalFieldErrors('Report_1', 'CSV').fileName, '')
+  for (const name of ['a/b', 'a:b', 'a*b', 'a?b', 'a"b', 'a<b', 'a>b', 'a|b', 'a\\b']) {
+    assert.match(generalFieldErrors(name, 'CSV').fileName, /cannot contain/)
+  }
+})

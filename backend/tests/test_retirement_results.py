@@ -401,3 +401,16 @@ class RetirementResultsTests(TestCase):
             build_report(job, b"Name\nToo,many,columns\n")
         with self.assertRaisesRegex(InvalidRun, "valid UTF-8"):
             build_report(job, b"Name\n\xff\n")
+
+
+class OutputExtensionTests(TestCase):
+    def test_every_file_format_is_exported_with_a_csv_extension(self):
+        # Business rule: the export file is always .csv, whatever the delimiter or FIXED layout.
+        for file_format, delimiter in (("CSV", ","), ("TAB", "\t"), ("PIPE", "|"), ("SEMICOLON", ";"), ("TILDE", "~"), ("FIXED", " ")):
+            job = RetirementBuilderJob.model_validate({
+                "id": 1, "general": {"fileName": "Report", "fileFormat": file_format},
+                "mapping": {"rows": [{"field": "Name", "mappingColumn": "Name", "length": "8"}]},
+            })
+            with self.subTest(file_format=file_format):
+                report, = build_report_files(job, b"Name\nAlex\n", delimiter=delimiter)
+                self.assertEqual(report.file_name, "Report.csv")

@@ -1,104 +1,730 @@
 # ECS Applications
 
-Two local applications are included:
+ECS is a React web application with a FastAPI backend and a Microsoft SQL Server
+database. The implemented business flow in this checkout is **Retirement Builder**:
+configure export jobs, map fields, define sorting/conditions, run reports manually
+or on a schedule, download CSV/Excel output, and optionally email reports to
+matching subscriptions.
 
-- `frontend/`: React + TypeScript + Vite
-- `backend/`: FastAPI + SQLAlchemy + Microsoft SQL Server via `pyodbc`
+This guide describes the **current source code**, reviewed on 20 November 2026.
+It does not certify the configuration or procedures installed on a live database.
+Historical migrations and audit reports may describe older behavior.
 
-## Run both applications
+## Contents
 
-From this directory:
+- [Scope and architecture](#scope-and-architecture)
+- [Repository map](#repository-map)
+- [Requirements and setup](#requirements-and-setup)
+- [Configuration](#configuration)
+- [Retirement Builder screens](#retirement-builder-screens)
+- [Database and query reference](#database-and-query-reference)
+- [Create and update lifecycle](#create-and-update-lifecycle)
+- [Query generation and execution](#query-generation-and-execution)
+- [Report formats and filenames](#report-formats-and-filenames)
+- [Scheduling, email and storage](#scheduling-email-and-storage)
+- [API reference](#api-reference)
+- [Testing and project rules](#testing-and-project-rules)
+- [Deployment and network access](#deployment-and-network-access)
+- [Troubleshooting and limitations](#troubleshooting-and-limitations)
 
-```bash
-./server.sh
+## Scope and architecture
+
+The sidebar contains Benefits, Mass Mutual Files, Process Validator, Retirement
+Builder, Prism, Services, Swipe Clock, Payroll Builder, NYS-45 and Reports.
+**Retirement Builder has the implemented dashboard/wizard/API flow.** Other sidebar
+routes currently render placeholder pages. Legacy SQL for those areas does not
+mean their full UI/API workflows are implemented.
+
+```text
+Browser: React + TypeScript
+    |
+    | /api/v1/... through Vite's development proxy
+    v
+FastAPI
+    |-- Job/options APIs ---- SQLAlchemy + pyodbc ---- SQL Server
+    |-- Report runner ------ saved CSV input OR configured report procedure
+    |-- Serializer --------- CSV/delimited/FIXED output and Excel row metadata
+    |-- Output files ------- backend/report-output (configurable)
+    |-- SMTP --------------- only when MAIL_ENABLED=true
+    `-- APScheduler -------- only when SCHEDULER_ENABLED=true
 ```
 
-The script installs dependencies on first run, creates `backend/.env`, and starts both development servers.
+Login is a **frontend demo login**, using constants in
+[`LoginPage.tsx`](frontend/src/LoginPage.tsx) and browser session storage. It is
+prefilled for local demonstration. The current FastAPI setup has no corresponding
+backend authentication/authorization layer. This is not a production identity system.
 
-- Frontend: http://localhost:5173
-- API docs: http://localhost:8000/docs
+## Repository map
 
-To test from another device on the same Wi-Fi, open `http://<host-wifi-ip>:5173` while `server.sh` is running. The frontend forwards API requests to the backend. Use the demo login for local testing with test data.
+| Path | Purpose |
+| --- | --- |
+| [AGENTS.md](AGENTS.md) | Project-wide instructions and change boundaries. |
+| [frontend/src/App.tsx](frontend/src/App.tsx) | Dashboard, wizard, controls, API calls and application-shell routing. |
+| [frontend/src/retirementBuilder.ts](frontend/src/retirementBuilder.ts) | Validation/helpers, mapping import and Excel conversion. |
+| [frontend/src/main.tsx](frontend/src/main.tsx) | React bootstrap, demo login routing and session state. |
+| [frontend/src/styles.css](frontend/src/styles.css) | Styling and responsive layouts. |
+| [frontend/public/](frontend/public/) | Mapping template and IIS frontend configuration. |
+| [frontend/tests/](frontend/tests/) | Node-based helper tests. |
+| [backend/app/main.py](backend/app/main.py) | FastAPI startup, CORS, health endpoints, errors and scheduler lifecycle. |
+| [backend/app/core/config.py](backend/app/core/config.py) | Environment settings, validation and defaults. |
+| [backend/app/db.py](backend/app/db.py) | SQLAlchemy engine, pyodbc connection and DB health check. |
+| [backend/app/routers/retirement_builder.py](backend/app/routers/retirement_builder.py) | Endpoints, validation, transactions, persistence and Run orchestration. |
+| [backend/app/retirement_query_builder.py](backend/app/retirement_query_builder.py) | Retirement H/D/T SQL-fragment generation. |
+| [backend/app/payroll_source.py](backend/app/payroll_source.py) | Payroll templates, source compatibility and procedure invocation. |
+| [backend/app/retirement_procedure.py](backend/app/retirement_procedure.py) | Procedure result-set conversion to reports. |
+| [backend/app/retirement_results.py](backend/app/retirement_results.py) | CSV-source processing, formatting, grouping, FIXED layout and result inserts. |
+| [backend/app/report_scheduler.py](backend/app/report_scheduler.py) | Scheduled job discovery/execution. |
+| [backend/app/report_mail.py](backend/app/report_mail.py) | Subscription matching, attachment merging and SMTP. |
+| [backend/app/report_files.py](backend/app/report_files.py) | Source loading and atomic output publication. |
+| [backend/app/core/error_logging.py](backend/app/core/error_logging.py) | Structured rotating logs and redaction. |
+| [backend/query.brl](backend/query.brl) | XML SQL catalog, including unrelated legacy modules. |
+| [backend/config/options.xml](backend/config/options.xml) | Filename formats, schedule choices and record-type labels. |
+| [backend/config/payroll_record_queries.json](backend/config/payroll_record_queries.json) | Approved H/D/T templates for the Company Payroll sample path. |
+| [backend/migrations/](backend/migrations/) | Historical schema/data/procedure scripts; review individually. |
+| [backend/tests/](backend/tests/) | Python unittest suites. |
+| [docs/](docs/) | Product analysis, technical explanations, audits and testing guides. |
+| [qa-results/](qa-results/), [qa-evidence/](qa-evidence/) | QA results and evidence. |
+| [service/SchedulerAppBackend.xml](service/SchedulerAppBackend.xml) | Windows backend service template. |
+| [server.sh](server.sh) | Development bootstrap/start script. |
 
-## Manual setup
+## Requirements and setup
+
+### Prerequisites
+
+- Python **3.11+**; the backend uses `datetime.UTC` and modern Python syntax.
+- Node.js/npm compatible with the lockfile. The currently locked Vite requires
+  Node **20.19+ on the Node 20 line, or 22.12+**.
+- Reachable Microsoft SQL Server, a compatible ECS schema and operation-appropriate
+  permissions. Some lookups also depend on `prism.export` data.
+- Microsoft **ODBC Driver 18 for SQL Server** and the platform ODBC runtime.
+- SMTP credentials only for separately authorized mail-enabled operation.
+
+Backend dependencies are pinned in [requirements.txt](backend/requirements.txt).
+Frontend scripts/dependencies are in [package.json](frontend/package.json), with
+resolved versions in [package-lock.json](frontend/package-lock.json).
+
+### Backend
+
+From the repository root:
 
 ```bash
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
-uvicorn app.main:app --reload
 ```
+
+For a **new local setup only**, copy `backend/.env.example` to `backend/.env` if
+the latter is absent. Do not overwrite an existing environment file. Supply the
+correct DB configuration; keep `MAIL_ENABLED=false`. For isolated manual QA,
+also keep `SCHEDULER_ENABLED=false`.
+
+Start from `backend/`, after reviewing configuration:
+
+```bash
+MAIL_ENABLED=false SCHEDULER_ENABLED=false .venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+These process overrides do not edit `.env`. Without the scheduler override, the
+configured setting applies; its code/example default is `true`, so startup can
+begin scheduled work.
+
+### Frontend
+
+From the repository root:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-The backend expects Microsoft ODBC Driver 18 for SQL Server to be installed locally. `GET /health` works without a database; `GET /health/db` verifies the database connection.
+Vite defaults to **5173** and proxies `/api` to `http://127.0.0.1:8000`. If the
+port is occupied, inspect Vite's printed URL; this project has also used **5174**.
+To request it explicitly, run `npm run dev -- --port 5174` from `frontend/`.
 
-## Run a Retirement Builder job
-
-Apply `backend/migrations/001_retirement_builder_results.sql` once to the ECS database using a SQL Server client. The migration creates `dbo.rjob_result`.
-
-Apply `backend/migrations/002_retirement_builder_mapping_columns.sql` to populate the Mapping Column dropdown. It adds missing defaults to the existing `dbo.rjob_mapping_column` table.
-
-For the local sample database, apply migrations `003` through `006` in order. The sample data uses the existing **QA Payroll Sample Company**, with example contact details and pay periods. The catalog stores source identifiers in `mapping_column` and uses `mapping_column_desc` for the labels displayed in the wizard.
-
-Apply `007_retirement_builder_file_formats.sql` to populate **File Format**. The dropdown shows labels from `dbo.rjob_file_typ`, and saving a job writes the matching delimiter character to `dbo.rjob.filetype`. Existing jobs with saved labels still use the lookup to resolve their delimiters. Source CSV input continues to use comma delimiters.
-
-The **Output File Name Format** dropdown reads its seven labels and codes from `backend/config/options.xml`. Saving a job writes the selected code to `dbo.rjob.FileNameFormat`. The **Format** dropdown on the Mapping tab reads its options from `dbo.rjobformat`.
-
-In File Settings, choose **ASC** or **DESC** and a mapping column. Sort rules apply from top to bottom.
-
-Save the job's mappings and place a UTF-8, comma-delimited source CSV named `<job-id>.csv` in `REPORT_INPUT_DIR`. Select the job on the dashboard and click **Run**. The source header should contain each mapping's source column (or the output field name when the mapping column is blank). For jobs with header or trailer mappings, include a `Record Type` column with `H`, `D`, or `T` and provide those rows in the CSV.
-
-The manual run uses the saved mappings and delimiter and offers the output for download. If **Store Results to Table** is enabled, it also saves each generated data row in `dbo.rjob_result` with the job ID, run ID, row number, record type, and mapped values as JSON. The column heading line is part of the CSV only. API clients may also send a source CSV in the run request with `Content-Type: text/csv`.
-
-The report procedure name comes from `PAYROLL_REPORT_PROCEDURE` in `backend/.env`; for the supplied retirement procedure use `PAYROLL_REPORT_PROCEDURE=dbo.rjobbuilder`. The application calls the configured name with exactly four bound inputs: `@client_id` (the selected **job ID**), `@paystartdate`, `@payenddate`, and `@runType`. Manual/ad hoc runs use `A`; scheduled runs use `S`. The Run dialog supplies the manual dates. Omitted dates and scheduled-call date inputs retain the existing `1900-01-01` sentinel; the supplied procedure calculates its own scheduled date range. The application executes the procedure directly, drains all returned result sets, and reads the existing H, D (including multiple Detail sets), and T outputs. The leading `valid_flag`, `retnum`, and `sort1` columns are metadata, not export fields; zero-validity placeholder rows produce no files. The returned export values and order are preserved without repeating mapping, formatting, filtering or sorting. `retnum`/`sort1` drive client/date filename grouping and client subscriptions. The procedure owns its configured result-table storage and run-date history; the application does not duplicate those in `rjob_result` or `rjob_history_details` on a successful procedure run (`storedRows` reports application inserts only, so it is zero on this path). Jobs with existing production H/D/T SQL fragments use this procedure path even if their legacy source flag is `csv`; plain CSV-only jobs and explicit CSV-body runs keep the file/input path. Existing query definitions, SQL scripts, mappings and save-time query generation are unchanged. Saved SQL must already match the configured procedure. The older single typed-payroll result shape remains readable, but the configured procedure must accept the four-input contract. Restart the backend after changing the procedure setting if automatic reload is not enabled. Database execution of the supplied procedure was not performed during this change.
-
-**Output File Name Format** controls how manual and scheduled runs split the output. The runtime reads code parts **FILENAME**, **CLIENT**, and **PAYDAY** in order. **FILENAME** alone creates one CSV. **CLIENT** and **PAYDAY** group the included detail rows by their respective source values. For example, `FILENAME_CLIENT_PAYDAY` can produce `Retirement_000720_2026-11-11.csv`. Legacy label values still work. Include `Client ID` and `Pay Date` in the source when the selected format uses them. Blank grouping values on header or trailer rows apply to every matching output file.
-
-## Production query generation
-
-For legacy rjob exports (the `csv` report source), create/update also generates SELECT fragments for the production `rjobbuilder_new` contract. These fragments omit `FROM`: the procedure appends `from #ret_builder_info`. With Include Header Row checked, H contains the D field names as escaped literals; otherwise H uses configured H mappings and is omitted when none exist. Configured T mappings produce a trailer projection. Without T mappings, the three-column `1900-01-01` trailer is a placeholder, not calculated totals. Existing D SQL and its aliases are preserved. New projections introduce no output aliases beyond the specified `sort1` control column. Calculated/constant D columns with Store Results to Table require confirmed aliases and are rejected until those rules are known. Unconfirmed SQL formats are rejected rather than ignored.
-
-Dataset and column sequence values survive Excel import and editing. Generated records are saved once per H/D/T type using query 31, within the existing create/update transaction; update uses query 44 to replace the old rows. Production sort fragments start with a comma because the procedure appends them to `order by RetNum`. The Company Payroll sample templates remain unchanged. This does **not** switch the application runner to production: the supplied production procedure accepts four parameters and returns separate H/D/T result sets, while the current Company Payroll runner has a different three-parameter, six-column contract. Production execution integration and output-alias rules remain separate work. No production procedure should be invoked merely to test query generation.
-
-## Schedule Retirement Builder reports and emails
-
-Backend warnings and errors are appended to `backend/logs/errors.log`, including API failures,
-validation failures, database fallback/health failures, scheduler failures, and SMTP failures.
-Each line is a JSON object with an ISO 8601 UTC timestamp (`Z`), severity, logger, source location,
-process/thread, message, and exception stack/cause when available. HTTP failures also include
-a request ID, method, path, and status; mail failures include the job ID and SMTP response code/text
-when the server provides them. Request bodies, headers, query strings, SQL statements and bound
-parameters are not logged by the error handlers. Configured database/SMTP passwords are redacted
-from file output. Existing terminal logging remains available.
-
-`ERROR_LOG_FILE` defaults to `logs/errors.log` relative to `backend/`. `ERROR_LOG_MAX_BYTES`
-defaults to 10 MiB and `ERROR_LOG_BACKUP_COUNT` to 5; backups are named `errors.log.1` through
-`errors.log.5` (newest first). The directory is created automatically and excluded from Git.
-Restart the backend after changing logging settings. Use one backend worker with this file
-rotation setup, consistent with the scheduler/service configuration. Existing terminal output
-from before logging was configured is not imported into the file.
-
-Configure these settings in `backend/.env` and restart the backend. See `backend/.env.example` for the full list of SMTP settings.
-
-| Setting | What it controls |
+| Service | Default URL |
 | --- | --- |
-| `SCHEDULER_ENABLED` | Starts APScheduler with the API when `true`. |
-| `SCHEDULER_TIMEZONE` | Time zone used for the Start Date and Time entered on the Schedule form. Use an IANA name such as `Asia/Kolkata` or `America/New_York`. |
-| `REPORT_INPUT_DIR` | Folder containing the source CSV for manual and scheduled runs. |
-| `REPORT_OUTPUT_DIR` | Folder where the API saves both manual and scheduled reports. |
-| `PAYROLL_REPORT_PROCEDURE` | SQL Server procedure used by every Company Payroll Report job. An unqualified name uses the `dbo` schema. |
-| `MAIL_ENABLED` | Emails generated CSVs to matching subscriptions when `true`, for scheduled runs and manual runs using the saved report source. File generation and database storage work with mail disabled. |
+| Login | `http://localhost:5173/login` |
+| Retirement Builder | `http://localhost:5173/retirement-builder` |
+| API docs / schema | `http://localhost:8000/docs` / `http://localhost:8000/openapi.json` |
+| Process health | `http://localhost:8000/health` |
+| DB health | `http://localhost:8000/health/db` |
 
-Paths can be absolute or relative to `backend/`. Keep the backend running and place the source CSV for job `31` at `REPORT_INPUT_DIR/31.csv`. Update the CSV before the next run if the source data changes. The scheduler reads the enabled jobs every 30 seconds and can pick up a due run within five minutes of its scheduled time. Weekly and biweekly runs use the selected weekday. Monthly runs use the day of the Start Date, or the last day of shorter months.
+`/health` does not need the DB. `/health/db` attempts `SELECT 1` and returns JSON
+status `ok` or `degraded`; check its body, not only HTTP 200.
 
-Manual files are saved under `manual/<job-id>/<run-id>/`. Scheduled files are saved under `scheduled/<job-id>/<scheduled-time-in-UTC>/`. Run one scheduler against a given ECS database and output folder. Keep the scheduled file in place during the five-minute window so a restart can recognize that the run already completed.
+### Combined startup
 
-When mail is enabled, enter each recipient under the appropriate **Payroll Company** in Subscriptions. For CSV-source jobs, include a `Client ID` in each detail row and subscribe the recipient to that client. A CSV containing multiple companies or clients is attached only if the recipient is subscribed to every one in the file. To email files to individual companies or clients, choose an Output File Name Format that includes **Client ID**. The dashboard shows the mail server's response after **Run**, and generated files remain downloadable if delivery fails. API runs that upload an override CSV return the files for download.
+```bash
+./server.sh
+```
 
+The script installs missing frontend dependencies, creates the backend virtual
+environment if needed, installs backend requirements, copies `.env.example` only
+if `.env` is absent, then starts both servers bound to `0.0.0.0`. It does not apply
+migrations or override mail/scheduler settings. Review configuration before using
+it against a shared database.
+
+### Database provisioning
+
+The repository is not a complete database bootstrap for all legacy tables and the
+external `prism.export` schema. Existing deployments need compatible tables,
+lookup data and a compatible configured report procedure.
+
+Migration files `001`–`012` cover result storage, mapping catalogs, sample payroll
+data/contacts, file formats, filename formats/codes and sample query/date contracts.
+They can change data, schema and procedures. **Do not apply the directory blindly
+to an existing/shared DB.** Review each script against the deployment and obtain
+authorization. Migration `012` defines an older three-parameter sample procedure;
+it does not match the current four-input runtime contract below.
+
+## Configuration
+
+Pydantic Settings loads `backend/.env` with process environment overrides. Names
+are case-insensitive; extra fields are ignored. Settings are cached per process:
+restart the backend after changing environment values. Do not commit real secrets.
+
+### Application and database settings
+
+| Variable | Purpose / code default |
+| --- | --- |
+| `APP_NAME` | FastAPI title; `ECS API`. |
+| `ENVIRONMENT` | Environment label; `development`. |
+| `API_V1_PREFIX` | `/api/v1`; frontend currently uses that prefix directly, so changing the backend alone breaks the pairing. |
+| `CORS_ORIGINS` | Comma-separated origins for direct API access. Code default is `http://localhost:5173`; example also includes `127.0.0.1:5173`. |
+| `DB_HOST`, `DB_PORT` | SQL Server address/port; defaults `127.0.0.1`, `1433`. |
+| `DB_NAME` | Database name; `ecs`. |
+| `DB_USER`, `DB_PASSWORD` | SQL Server credentials; example values are placeholders, not deployment credentials. |
+| `MSSQL_DRIVER` | `ODBC Driver 18 for SQL Server`. |
+| `MSSQL_TRUST_SERVER_CERTIFICATE` | Connection-string `TrustServerCertificate`; default `true`. Configure for the target deployment. |
+| `DB_DIALECT` | Compatibility field; the current URL builder still constructs `mssql+pyodbc`. This alone does not switch DB engines. |
+
+There is no built-in DB administration website or universal “DB link.” Use a SQL
+Server client with the configured host/port/database and separately shared
+credentials. Database access is separate from frontend access.
+
+### Reports, scheduler and logs
+
+| Variable | Purpose / code default |
+| --- | --- |
+| `PAYROLL_REPORT_PROCEDURE` | Procedure name; `dbo.usp_CompanyPayrollReport`. Accepts `procedure` or `schema.procedure`; omitted schema becomes `dbo`. The installed signature/result contract must match the runner. |
+| `SCHEDULER_ENABLED` | Start scheduler with API; `true`. Use false for isolated manual QA. |
+| `SCHEDULER_TIMEZONE` | IANA timezone for due-slot evaluation; `UTC`. |
+| `REPORT_INPUT_DIR` | Source CSV folder; `report-input`. |
+| `REPORT_OUTPUT_DIR` | Generated reports; `report-output`. |
+| `ERROR_LOG_FILE` | Structured log; `logs/errors.log`. |
+| `ERROR_LOG_MAX_BYTES` | Rotation threshold; `10485760` (10 MiB). |
+| `ERROR_LOG_BACKUP_COUNT` | Rotated backups; `5`. |
+
+Relative report/log paths resolve against `backend/`; absolute paths also work.
+Default reports, logs, `.env`, virtual environments, dependencies and builds are
+excluded by `.gitignore`.
+
+### Email
+
+| Variable | Purpose / code default |
+| --- | --- |
+| `MAIL_ENABLED` | Master switch; **false**. Keep false for QA. |
+| `MAIL_MAILER` | Supported transport: `smtp`. |
+| `MAIL_HOST`, `MAIL_PORT` | SMTP endpoint; `smtp.gmail.com`, `465`. |
+| `MAIL_ENCRYPTION` | `ssl` or `tls` (STARTTLS); `ssl`. |
+| `MAIL_USERNAME`, `MAIL_PASSWORD` | SMTP credentials; blank by default. |
+| `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | Sender; name defaults to `ECS Retirement Builder`. |
+
+Enabling mail requires nonblank host, username, password and sender address.
+Successful file generation is separate from subscription matching, SMTP acceptance
+and inbox delivery. “Run succeeded” alone does not prove mail was received.
+
+## Retirement Builder screens
+
+### Dashboard
+
+The enabled-job table shows File Name, Description, Modified On, Last Run Date,
+Run Day, Run Time, Schedule Type, File Type, Is Active and Status. It has column
+filters/sorting and **client-side pagination with 10 jobs per page**. The API still
+returns the full enabled-job list; pagination is not server-side.
+
+- **Template:** downloads [the mapping workbook](frontend/public/mapped_payroll_columns_HDT.xlsx).
+- **Add:** opens a new job wizard.
+- **Edit / filename click:** loads the selected job into the edit wizard.
+- **Run:** opens Start Date / End Date for one selected job.
+
+The current frontend loads jobs on dashboard entry and updates/refreshes state
+around operations; it does not use a two-second jobs-list polling interval. This
+is separate from the backend scheduler. React StrictMode can cause extra effect
+setup/cleanup in development; inspect actual completed requests before diagnosing
+periodic polling.
+
+### General
+
+Sets filename, description, File Format, Output File Name Format, enabled state,
+Store Results to Table and mapping-workbook selection. A job ID identifies a job;
+a subscription client ID identifies whose report data is included.
+
+The Add UI starts text/select fields and mapping/subscription rows empty, with UI
+defaults for boolean controls. Backend model defaults are separate. New UI jobs
+use `companyPayroll`; legacy jobs can retain a `csv` report-source flag.
+
+### Schedule
+
+Sets start date, Daily/Weekly/Bi-Weekly/Monthly frequency, hour/minute/AM-PM and
+weekday where applicable. A completely blank schedule is manual-only. An enabled
+job can run manually without having a schedule.
+
+Schedule date/time fields are returned from DB values without browser local-time
+conversion. Automatic due-slot evaluation still uses `SCHEDULER_TIMEZONE`; the
+stored clock display and the scheduler's timezone interpretation are distinct.
+
+### Mapping and File Settings
+
+Mappings define output Field Name, source Mapping Column, Record Type, Default
+Value, Format, Start Position, Length, DataSetNo and ColSeqNo. Source keys and
+display labels are distinct; saves use source keys. A blank Mapping Column
+resolves to the field name when saved.
+
+Excel import accepts `.xlsx`/`.xls`, reads the **first worksheet in the browser**,
+and creates mapping definitions, not payroll data. A field/column-name list may
+include Record Type, DataSetNo and ColSeqNo. Otherwise its header row becomes
+Detail mappings. Selecting the workbook does not upload a report-source CSV or
+run a job; the filename is retained as form state.
+
+Header/Detail/Trailer labels persist as **H/D/T**. Include Header Row persists in
+`rjob.includeHeader`. ON derives column-header values from D output field names;
+this differs from a manually configured business H record.
+
+File Settings contains numeric **Order By** priorities 1,2,3 and Mapping Columns.
+These numbers are precedence, not ASC/DESC choices. Priorities are sorted and
+normalized on save. Conditions contain a column, comparison and value. Current
+form processing supports numeric thresholds and ISO dates (`YYYY-MM-DD`), not
+arbitrary text predicates or raw SQL. Multiple rules combine with AND; incomplete
+rules fail validation.
+
+### Subscriptions and drafts
+
+Subscriptions contain client/company IDs and email tags. Supported custom numeric
+client inputs must be positive. Sample payroll company IDs are modeled separately.
+Merge Files combines a recipient's eligible **emailed attachments**, not generated
+report files/downloads. With mail disabled, Save/reopen tests persistence only.
+
+Wizard drafts use browser `sessionStorage` for refresh recovery. Open edit from
+the dashboard with a selected job; `/jobs/edit/general` alone does not identify
+the job without navigation/draft context.
+
+## Database and query reference
+
+### Active tables
+
+| Table | Data / notable columns |
+| --- | --- |
+| `dbo.rjob` | Job ID/name/description, `filetype`, `includeHeader`, `FileNameFormat`, enabled/merge/store flags and timestamps. |
+| `dbo.rjob_schedule_info` | Start date/time, frequency, weekday, hour/minute/session and schedule metadata. |
+| `dbo.rjob_file_detail` | Output `jobclientcolumn`, source `jobfieldmapping`, defaults/formats, `jobrectype`, position/width, DataSetNo/ColSeqNo. |
+| `dbo.rjob_client_detail` | `jobclientid` / `jobemailind` subscriptions. |
+| `dbo.rjob_file_sorting_details` | Priority `sort_order` and `mapping_column`. |
+| `dbo.rjob_file_condition_details` | Column, comparison and threshold/date representation. |
+| `dbo.rjob_query` | `jobid`, H/D/T `recttype`, `Query`, `Conditions`, `Sort_Order`. |
+| `dbo.rjob_history` | Trigger status/message/timestamps. |
+| `dbo.rjob_history_details` | Run type/date ranges and procedure-owned date details where applicable. |
+| `dbo.rjob_result` | Optional application-managed CSV/typed-source result rows. |
+| `dbo.rjob_file_typ` | File-format labels and delimiters. |
+| `dbo.rjob_mapping_column` | Source keys, descriptions and declared types. |
+| `dbo.rjobformat` | Format codes, categories and descriptions. |
+| `prism.export.Client_Details` | Active client lookup used by query 43. |
+| `dbo.companies`, `dbo.employees`, `dbo.payroll` | Sample Company Payroll source/company catalog. |
+
+This is an application reference, not the full schema of external procedures or
+all legacy catalog entries. Application job saves do not populate
+`msrepl_tran_version` explicitly.
+
+### Dropdown sources
+
+| UI choice | Source |
+| --- | --- |
+| File Format | Query 32, `rjob_file_typ`. |
+| Mapping Column | Query 30, `rjob_mapping_column`; sample payroll keys also exist in `payroll_source.py`. |
+| Mapping Format | Query 53, `rjobformat`, grouped by supported type. Query 33 remains in the catalog but is not the current all-format loader. |
+| Clients | Query 43, nonterminated `prism.export.Client_Details` entries. |
+| Output File Name Format | Seven choices in `backend/config/options.xml`. |
+| Frequencies, time, weekdays, record labels | `backend/config/options.xml`. |
+| Comparison operators | `COMPARISONS` in `retirement_results.py`. |
+
+Some options lookups fall back to empty collections on DB errors. Empty choices
+can indicate a failed lookup rather than missing UI options. The separate Clients
+endpoint reports 503 when its DB read fails.
+
+### Important query IDs
+
+| ID | Purpose |
+| --- | --- |
+| 30 / 32 / 43 / 53 | Mapping catalog, file types, clients, formats. |
+| 31 | Insert H/D/T configuration in `rjob_query`. |
+| 35 / 36 | Insert mapping details / create main job and return its identity. |
+| 37 / 38 | Insert subscriptions / schedule. |
+| 42 | Enabled-job dashboard query joining jobs, schedules and history. |
+| 44 | Delete related configuration before normal update reinserts it; does not delete the main job. |
+| 45 | Legacy main-row update, retained unchanged. Current PUT uses SQLAlchemy configuration update to avoid its `joblastrun=GETDATE()` assignment. |
+| 52 | Update Run history status. |
+| 54 / 55 | Insert sort priorities / conditions. |
+
+The router also defines SELECTs for full edit details and due schedules, plus run
+locks/history statements. Not all executed SQL has a `query.brl` ID.
+
+## Create and update lifecycle
+
+### Create
+
+1. UI validates the wizard and sends sections to POST jobs.
+2. Backend validates/normalizes values and opens one transaction.
+3. Query 36 creates `rjob`; `filetype` receives the resolved delimiter.
+4. Query generation and detail writes save H/D/T queries, schedule, mappings,
+   subscriptions, sort priorities and conditions.
+5. The saved job is read back and committed. Failure rolls back the transaction.
+
+Create supports `Idempotency-Key`: reuse with a different payload returns 409.
+The bounded one-hour cache is in-memory, not durable across workers/restarts.
+
+### Update
+
+1. PUT reads the existing job and preserves omitted fields.
+2. Main configuration and `joblastmodified` are updated; saving configuration does
+   not deliberately advance `joblastrun`.
+3. Existing query 44 removes related configuration for the same job.
+4. Validated/generated rows are reinserted, using batched statements to reduce
+   DB round trips; the updated job is read back.
+5. All changes share a transaction and roll back on failure.
+
+Normal UI Save **writes/replaces configuration data**, even without manual SQL.
+It does not execute a report or send mail. Legacy creation/query behavior can
+affect timestamp values already present; do not repair those during analysis.
+
+## Query generation and execution
+
+### Query families
+
+**Company Payroll sample** uses approved H/D/T templates from
+`backend/config/payroll_record_queries.json`, marked `/* company payroll */`.
+Conditions/sort-column lists are saved with D.
+
+**Retirement export fragments** come from `retirement_query_builder.py`. They are
+SELECT fragments without FROM for a compatible production-style procedure to
+attach to its staging source. New output aliases are not invented beyond `sort1`.
+
+- Include Header Row ON builds H from ordered D names as escaped literals.
+- OFF uses H mappings; if none exist, H is omitted.
+- D is generated from mappings if no saved D SELECT exists. **Current code
+  preserves an existing D SELECT and its aliases.** A source-mapping edit can
+  persist without changing that SELECT, so verify exported source values.
+- T comes from configured T mappings. Without them, the fallback is
+  `SELECT DISTINCT valid_flag, retnum, '01/01/1900' AS sort1`: metadata placeholder,
+  not business totals.
+- Query rows are saved once per type in H/D/T order; mappings follow DataSetNo and
+  ColSeqNo. SQL literals and identifiers are escaped/quoted.
+
+For production-style D sorting, `Sort_Order` starts with a comma, for example
+`, paydate, lastname, firstname`, because the procedure appends it after its own
+initial ordering. It is not form-generated `ORDER BY ... ASC`. Identifiers needing
+quoting are quoted. Separate detail rows store normalized priorities 1,2,3.
+Date conditions use a `date:` symbol prefix and compact stored date, decoded on read.
+
+### Current procedure contract: four inputs
+
+The runtime calls the name configured in `PAYROLL_REPORT_PROCEDURE` as:
+
+```sql
+EXEC [schema].[procedure]
+    @client_id = ?, @paystartdate = ?, @payenddate = ?, @runType = ?
+```
+
+| Parameter | Meaning |
+| --- | --- |
+| `@client_id` | **Job ID**, despite the name; not subscription client ID. |
+| `@paystartdate` | Manual start date or `1900-01-01` sentinel. |
+| `@payenddate` | Manual end date or `1900-01-01` sentinel. |
+| `@runType` | `A` manual/ad hoc; `S` scheduled. |
+
+`@templates_only` is not sent. The older three-input sample migration does not
+match this runner. Changing the environment procedure name takes effect after
+reload/restart; it does not adapt incompatible signatures, query fragments or
+result shapes automatically.
+
+### Manual execution and source selection
+
+1. Select one enabled job, open Run and enter optional dates.
+2. UI sends POST Run with `start_date`/`end_date` query parameters. Blank sides
+   become sentinel dates; reversed bounded ranges return 422.
+3. Backend locks the job, reads configuration and resolves the output delimiter.
+4. With no request body, `companyPayroll` jobs **or jobs with production H/D/T
+   queries** use the configured procedure. A legacy `csv` flag alone does not
+   prove file input is used.
+5. Other saved-source jobs read `REPORT_INPUT_DIR/<job-id>.csv`. An explicit
+   `text/csv` body overrides the source for that Run.
+6. Reports and eligible history/result writes are committed. Saved-source Runs
+   then attempt subscribed mail only when enabled.
+7. Response includes run ID, Detail count, app-stored count, delimiter,
+   filenames/content and optional email status.
+
+CSV **input** is UTF-8 comma-delimited regardless of output format. It needs source
+column headers; a Record Type column distinguishes supplied H/D/T rows. The
+CSV-source renderer applies mappings, formatting, filters, dates and sorting.
+
+### Procedure results
+
+The cursor drains all result sets/trailing statements. Production-style H/D/T
+sets lead with `valid_flag`, `retnum`, `sort1`: eligibility/client/paydate metadata,
+not business output fields. Invalid placeholders are ignored. Multiple D sets are
+supported. A set without business fields does not invent an empty trailer row.
+
+The procedure determines returned source columns, filtering and ordering. The
+application aligns output with mapping layouts and applies supported presentation,
+defaults, dates/SSNs/name cleanup and width handling before serialization. It does
+not rebuild a saved procedure SELECT merely because a UI mapping changed. The
+older single typed-payroll result shape remains readable with the same current
+four-input call contract.
+
+## Report formats and filenames
+
+### Six formats
+
+| Selection | Content | Configured `rjob.filetype` |
+| --- | --- | --- |
+| CSV / comma label | Quote-aware comma-separated fields | `,` |
+| PIPE | Pipe-separated fields | Pipe character, U+007C |
+| SEMICOLON | Semicolon-separated fields | `;` |
+| TAB | Tab-separated fields | Actual U+0009, not four spaces |
+| TILDE | Tilde-separated fields | `~` |
+| FIXED | Fixed-position/width records, no separator | One space when configured as FIXED in the lookup |
+
+**Every format is saved with `.csv` in this application.** Legacy labels are
+recognized. Named TAB lookup rows historically containing a space are interpreted
+as tabs; a stored space resolves to configured FIXED. This does not migrate DB data.
+
+Proper CSV quoting preserves embedded commas/quotes and blank fields. `a,,,d`
+contains two empty fields; deleting delimiters shifts columns. `"Last, First"`
+is one CSV field. Non-comma files require the matching Excel import delimiter.
+Download Excel uses frontend SheetJS conversion with the returned delimiter;
+FIXED also returns field arrays, avoiding arbitrary space splitting. Native Excel
+double-click behavior depends on import/locale settings.
+
+### FIXED layout
+
+Length is the reserved **character width**, including padding; allowed widths are
+1–1,000. If all Start Positions are zero, fields are sequential. If any is nonzero,
+all positions are explicit zero-based offsets and must not overlap/move backwards.
+Gaps are spaces. LA pads right; RA pads left. Overflow is rejected, not truncated.
+Automatic header names must fit their widths too.
+
+Example: PAYDATE length 10 starts at 0 and occupies offsets 0–9. WORK PHONE length
+15 starts at 10 and occupies 10–24. It does not start inside the date's reserved
+region. FIXED is not “one space between every value.”
+
+### Seven filename formats
+
+Examples use filename `Payroll`, client `000204`, paydate `2026-10-15`:
+
+| Label | Stored code | Example |
+| --- | --- | --- |
+| File Name | `FILENAME` | `Payroll.csv` |
+| Client ID | `CLIENT` | `000204.csv` |
+| Payday | `PAYDAY` | `2026-10-15.csv` |
+| File Name + Client ID | `FILENAME_CLIENT` | `Payroll_000204.csv` |
+| File Name + Payday | `FILENAME_PAYDAY` | `Payroll_2026-10-15.csv` |
+| Client ID + Payday | `CLIENT_PAYDAY` | `000204_2026-10-15.csv` |
+| File Name + Client ID + Payday | `FILENAME_CLIENT_PAYDAY` | `Payroll_000204_2026-10-15.csv` |
+
+FILENAME alone creates one report from included data. CLIENT/PAYDAY group by the
+distinct included values/combinations. File count is not necessarily subscription
+count. H/T rows with blank group metadata can apply to multiple matching groups.
+
+## Scheduling, email and storage
+
+### Automatic execution
+
+APScheduler checks enabled nonblank schedules every **30 seconds**, with a
+**five-minute due window**. Daily, weekly, biweekly and monthly slots are supported;
+monthly dates clamp to the last day of shorter months. Timezone/DST handling uses
+`SCHEDULER_TIMEZONE`. Automatic calls send S plus sentinel start/end dates; a
+compatible procedure determines its own business date range.
+
+The runner locks the job and checks its UTC-slot output folder. Existing `.csv`
+files or a `.complete` marker prevent another completed-slot Run. Run only one
+scheduler against the same DB/output location. Frontend GET refresh behavior does
+not enable/disable this backend timer.
+
+### Subscription delivery
+
+Each file is matched to the client/company IDs it contains. A multi-client file
+is eligible only when a recipient is subscribed to **all** represented clients.
+Use CLIENT-based naming for separate client files. Leading-zero IDs are normalized
+for matching. Merge Files combines the recipient's eligible attachments afterward.
+
+`emailDelivery` contains `enabled`, `matched`, `accepted`. SMTP acceptance is not
+inbox confirmation. Disabled mail, no matching recipients and SMTP rejection are
+different outcomes. Explicit CSV-body override Runs do not send subscribed mail.
+
+### Files and DB effects
+
+```text
+backend/report-input/<job-id>.csv
+backend/report-output/manual/<job-id>/<run-uuid>/<filename>.csv
+backend/report-output/scheduled/<job-id>/<UTC-slot>/<filename>.csv
+```
+
+UTC-slot folder format is `YYYYMMDDTHHMMSSZ`. Files are atomically published from
+temporary files. Failed attempts can roll back newly published output. Preserve
+completed reports during QA; do not manually delete old reports as cleanup.
+
+For CSV/typed-source output, Store Results inserts application-managed rows into
+`rjob_result`. For `ProcedureSource` output, the application does not duplicate
+those inserts; the procedure owns its result-table/date-detail behavior. The app
+still records Run status and avoids duplicating procedure-owned date details.
+`storedRows=0` reports app inserts, not proof that a procedure made no DB writes.
+
+Attempts use transactions/savepoints and record failures when possible. Mail
+disabled does not mean read-only. Procedure Store Results behavior can create/drop
+tables; keep it outside no-schema-change QA.
+
+### Limits and logs
+
+The report code defines 5 MiB source/procedure-output limits, 10,000 source rows,
+100 columns and a 10 MiB output budget; specific enforcement depends on the source
+path. FIXED widths are at most 1,000 characters. SQL Server datetime schedules
+must fit its range, starting 1753-01-01.
+
+Warnings/errors are JSON lines in `backend/logs/errors.log`: UTC time, severity,
+logger/source, message and available exceptions. HTTP failures add request context
+and IDs; SMTP failures include available server codes. Rotation defaults to 10 MiB
+with five backups. Configured DB/SMTP passwords are redacted; error handlers do
+not automatically include request bodies, SQL or bound parameters. Keep logs private.
+
+## API reference
+
+Default prefix: **`/api/v1/retirement-builder`**. The health paths below are outside
+that prefix. FastAPI `/docs` and `/openapi.json` describe detailed schemas.
+
+| Method / path | Purpose / effects |
+| --- | --- |
+| `GET /health` | Process health, outside prefix. |
+| `GET /health/db` | DB SELECT health check, outside prefix. |
+| `GET /options` | DB/XML choices and labels. |
+| `GET /clients` | Query 43 client catalog. |
+| `GET /jobs` | Enabled jobs; no server pagination parameters. |
+| `POST /jobs` | Create configuration; optional `Idempotency-Key`. |
+| `GET /jobs/{job_id}` | Full edit configuration; 404 if absent. |
+| `PUT /jobs/{job_id}` | Transactional configuration update/replacement. |
+| `POST /jobs/{job_id}/run?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` | Manual Run; writes reports/history and can call a writing procedure/email path. |
+
+There is no job DELETE or backend mapping-upload endpoint in this router. Mapping
+template download/import is frontend functionality.
+
+Payload sections are `general`, `schedule`, `mapping`, `subscriptions`,
+`fileSettings` and optional `queryConfiguration`. PUT preserves omitted fields;
+the wizard normally sends a full editable form. Run uses an empty body for saved
+source or `text/csv` for an override. Other nonempty content types return 415;
+oversized input returns 413.
+
+Other common statuses: 422 invalid form/run data, 404 missing job, 409 disabled
+job/idempotency conflict, 503 unavailable client list, 500 DB/file-output failure.
+Read response `detail` and the corresponding structured log.
+
+## Testing and project rules
+
+Read [AGENTS.md](AGENTS.md) for project-wide boundaries and
+[SKILLS.md](docs/retirement-builder-testing/SKILLS.md) for job 60 QA. The latter requires:
+
+- Existing job 60 only; no new job or manual DB/SQL/schema changes.
+- UI Save/Run only when authorized; `MAIL_ENABLED=false`, no email.
+- Fresh baseline and verified restoration of original editable settings.
+- All six formats/seven names, applicable mappings/formats, sorting/conditions,
+  single/multiple clients and actual generated-file checks.
+- Honest PASS/FAIL/BLOCKED/NOT TESTED reporting and report preservation.
+
+Relevant automated checks, only when authorized and safe:
+
+```bash
+# From backend/; inspect tests and keep external dependencies mocked.
+MAIL_ENABLED=false SCHEDULER_ENABLED=false .venv/bin/python -m unittest discover -s tests
+```
+
+```bash
+# From frontend/
+npm run lint
+npm run build
+node --test tests/*.test.mjs
+```
+
+`lint` is TypeScript checking, not ESLint. Build runs TypeScript/Vite and writes
+`frontend/dist`. Suites cover helpers, validation, query generation, procedure
+handling, serialization, scheduler/mail mocks and logging. Unit success does not
+prove live procedure execution, mail delivery or native Excel import. Tests were
+not executed merely to write this README.
+
+## Deployment and network access
+
+### Same Wi-Fi
+
+For an authorized trusted-network session, bind the frontend to `0.0.0.0`
+(`server.sh` does this). A colleague opens
+`http://<host-wifi-ip>:<actual-vite-port>/retirement-builder`, not `localhost`,
+which points to their own machine. The host must allow incoming traffic and the
+devices must be reachable on the network. Through Vite's proxy the browser need
+not connect directly to SQL Server.
+
+Direct cross-origin API requests additionally require appropriate backend binding
+and `CORS_ORIGINS`. CORS is not authentication. Do not expose this demo-auth app
+publicly as if it had production access controls.
+
+### Static frontend / Windows service
+
+`npm run build` produces static assets. The hosting server must handle SPA routes
+and forward `/api` to FastAPI; Vite's proxy is not bundled into static output.
+[frontend/public/web.config](frontend/public/web.config) is an IIS template.
+
+[service/SchedulerAppBackend.xml](service/SchedulerAppBackend.xml) uses absolute
+`C:\projects\scheduler_app\backend` paths, virtual-environment Python, Uvicorn on
+`127.0.0.1:8000`, **one worker**, automatic startup and restart/log settings. Adapt
+paths for the target machine. This template is not proof the service is installed.
+
+Production use also needs real authentication/authorization, deployment TLS and
+routing, appropriate DB permissions/secret management, compatible procedures and
+a deliberate single-scheduler setup. Do not enable mail or apply historical
+migrations automatically during deployment verification.
+
+## Troubleshooting and limitations
+
+| Symptom | Check |
+| --- | --- |
+| Frontend works, API fails | Backend/port, Vite `/api` proxy, configured prefix, network. |
+| DB unavailable | `/health/db` body; host/port, ODBC driver, credentials, certificates and network. |
+| Empty dropdown / No matches | `/options` or `/clients`, DB lookup data/query 43, XML and logs. |
+| Edit redirects / missing job | Open from dashboard with job context; check GET ID and browser draft. |
+| Save rejected | 422 detail fields, lookup values, positive IDs, widths, defaults and supported mappings. |
+| Slow Save | Actual PUT timing, DB latency/locks, batch execution and response reads. UI wait is not precise API time. |
+| Mapping edit exports old source | Compare mapping row and saved D SELECT; current generator preserves D expressions/aliases. |
+| Excel shows one column | Match import delimiter to actual bytes; FIXED/TAB/PIPE still end `.csv`. Use Download Excel for explicit conversion. |
+| Repeated commas/pipes | Parse positions first; blank adjacent fields require consecutive separators. |
+| FIXED error | Positive widths, zero-based nonoverlapping explicit positions, header fit and value overflow. |
+| Procedure parameter error | Current call has four named parameters; older sample procedure signatures are incompatible. |
+| Source CSV missing | Confirm file-input path is selected, then input folder, job-ID filename and permissions. |
+| No report files | Validity flags, date/condition matches, result sets and grouping metadata. |
+| Report exists, no email | Effective mail setting, client/company eligibility, SMTP status and `emailDelivery`. |
+| Scheduler does not fire | Enabled/nonblank schedule, backend running, scheduler setting/timezone, five-minute window and slot files/marker. |
+| Unexpected Last Run Date | Distinguish modified date, `rjob.joblastrun`, history trigger values and legacy behavior; do not repair DB values without authorization. |
+
+Current limits include demo-only authentication, client-side pagination, external
+DB/procedure dependencies, preserved D projections on existing mapping edits and
+validation restrictions for calculated/duplicate aliases when Store Results needs
+valid unique column names. Prior QA findings require a fresh retest before being
+called current failures.
+
+Further reading:
+
+- [Retirement Builder analysis index](docs/retirement-builder-analysis/README.md)
+- [Complete user flow](docs/retirement-builder-analysis/02-complete-user-flow.md)
+- [Dropdown sources](docs/retirement-builder-analysis/04-dropdown-data-sources.md)
+- [Persistence analysis](docs/retirement-builder-analysis/08-state-and-data-persistence.md)
+- [Project instructions](AGENTS.md)
+- [Job 60 testing workflow](docs/retirement-builder-testing/SKILLS.md)
+
+Historical analysis can differ from current code. State what was actually verified
+and keep DB/query/report effects within the user's authorized task.

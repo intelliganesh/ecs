@@ -585,6 +585,8 @@ def _validate_payload(payload: RetirementBuilderJobInput, *, creating: bool = Fa
             value = getattr(general, field)
             if field in ("fileName", "fileFormat") and not value.strip():
                 _field_error(["general", field], "This field is required.")
+            if field == "fileName" and re.search(r'[\\/:*?"<>|\x00-\x1f]', value):
+                _field_error(["general", field], 'File Name cannot contain \\ / : * ? " < > | or control characters.')
             _check_length(value, maximum, ["general", field])
 
     schedule = payload.schedule
@@ -699,6 +701,8 @@ def _api_job_from_row(
         response["runtime"] = " ".join(filter(None, [f"{hour_minute[0]}:{minute}", meridiem]))
     response.update({
         "id": job_id,
+        # The stored value is the delimiter character; expose the configured format name instead.
+        "filetype": _file_format_label(file_formats, row.get("filetype")),
         "general": {
             "fileName": row.get("jobfilename") or "",
             "fileFormat": _file_format_label(file_formats, row.get("filetype")),
@@ -948,7 +952,14 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
             for kind in ("H", "D", "T"):
                 layout = [row for row in mappings if row.recordType == kind]
                 if layout and not (kind == "H" and payload.mapping.includeHeader):
-                    fixed_layout(layout)
+                    widths = fixed_layout(layout)
+                    if kind == "D" and payload.mapping.includeHeader:
+                        # The automatic header row writes each field name into its FIXED width.
+                        for row, (_, width) in zip(layout, widths, strict=True):
+                            if len(row.field.strip()) > width:
+                                raise InvalidRun(
+                                    f'Column "{row.field}" needs a FIXED length of at least {len(row.field.strip())} '
+                                    "characters to fit its header name.")
     except InvalidRun as exc:
         _field_error(["mapping"], str(exc))
     sorting = [row.model_copy(update={
@@ -1305,9 +1316,15 @@ def _execute_report_run(
 ) -> tuple[RetirementBuilderRun, list[ReportFile]]:
     run_id = uuid4()
     run_dir = output if scheduled else output / str(run_id)
-    delimiter = _file_format_delimiter(_file_formats(connection), job.general.fileFormat)
+    formats = _file_formats(connection)
+    delimiter = _file_format_delimiter(formats, job.general.fileFormat)
     if delimiter is None:
         raise InvalidRun("Select a configured file format for this job.")
+    # The stored filetype is the delimiter. A FIXED job is stored as a space, so map it
+    # back to its configured name or it would be written as a space-delimited CSV.
+    file_format = _file_format_label(formats, job.general.fileFormat)
+    if file_format != job.general.fileFormat:
+        job = job.model_copy(update={"general": job.general.model_copy(update={"fileFormat": file_format})})
     source = read_source(job)
     procedure_output = isinstance(source, ProcedureSource)
     if procedure_output:
@@ -1328,14 +1345,16 @@ def _execute_report_run(
         resources.enter_context(publish_report(run_dir / ".complete", ""))
 
     rows = [row for report in reports for row in report.rows]
+    # Header and trailer lines are not data rows; report only the Detail count.
+    detail_rows = sum(1 for row in rows if row.record_type == "D")
     outputs = [RetirementBuilderOutput(fileName=report.file_name, csv=report.csv, excelRows=report.excel_rows) for report in reports]
     # rjobbuilder manages its own configured result table and history dates.
     # Do not duplicate those writes in the application's CSV storage path.
     stored_rows = store_results(connection, job.id, run_id, rows) if job.general.storeResultsToTable and not procedure_output else 0
-    message = f"Generated {len(rows)} rows. Stored {stored_rows} rows." if reports else "No matching records. No files generated."
+    message = f"Generated {detail_rows} rows. Stored {stored_rows} rows." if reports else "No matching records. No files generated."
     _record_run(connection, job.id, "Success", message, date_range, scheduled=scheduled, dates_recorded=procedure_output)
     run = RetirementBuilderRun(
-        runId=run_id, rowCount=len(rows), storedRows=stored_rows, delimiter=delimiter,
+        runId=run_id, rowCount=detail_rows, storedRows=stored_rows, delimiter=delimiter,
         fileName=outputs[0].fileName if outputs else "", csv=outputs[0].csv if outputs else "", files=outputs,
         excelRows=outputs[0].excelRows if outputs else None,
     )

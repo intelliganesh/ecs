@@ -1075,3 +1075,60 @@ class JobIdempotencyTests(TestCase):
             self.assertEqual(rb.create_retirement_builder_job(self.payload).id, 4)
             self.assertEqual(rb.create_retirement_builder_job(self.payload).id, 5)
             self.assertEqual(write.call_count, 4)
+
+
+class FixedRunFormatTests(TestCase):
+    def test_run_treats_a_job_stored_with_a_space_delimiter_as_fixed(self):
+        # The run path reads the raw stored filetype (a space for FIXED) with no lookup table.
+        from contextlib import ExitStack
+        from tempfile import TemporaryDirectory
+
+        job = rb.RetirementBuilderJob.model_validate({
+            "id": 31, "general": {"fileName": "Fixed", "fileFormat": " "},
+            "mapping": {"includeHeader": False, "rows": [
+                {"field": "Name", "mappingColumn": "name", "startPosition": "0", "length": "8"},
+            ]},
+        })
+        with (
+            TemporaryDirectory() as directory, ExitStack() as resources,
+            patch.object(rb, "_file_formats", return_value={"TAB": "\t", "FIXED": " "}),
+            patch.object(rb, "_mapping_catalog", return_value={}),
+            patch.object(rb, "_record_run"),
+        ):
+            _, reports = rb._execute_report_run(
+                Mock(), job, lambda _: b"Client ID,Name\n1,Ann\n", Path(directory), resources,
+            )
+        self.assertEqual(reports[0].csv, "Ann     \r\n")
+
+
+class AppSideValidationTests(TestCase):
+    def test_file_name_rejects_characters_that_cannot_be_in_a_file_name(self):
+        for name in ("bad/name", "bad:name", "bad*name", 'bad"name', "bad|name", "bad\\name", "bad\x01name"):
+            with self.subTest(name=name), patch.object(rb.engine, "begin") as begin:
+                payload = input_job(general={"fileName": name, "fileFormat": "CSV"}, mapping={"rows": [{"field": "Name"}]})
+                with self.assertRaises(HTTPException) as error:
+                    rb._create_job(payload)
+                self.assertEqual(error.exception.status_code, 422)
+                self.assertEqual(error.exception.detail[0]["loc"][-1], "fileName")
+                begin.assert_not_called()
+
+    def test_fixed_length_must_fit_the_header_name_when_the_header_is_included(self):
+        connection = MagicMock()
+        payload = input_job(
+            general={"fileName": "Fixed", "fileFormat": "FIXED"},
+            mapping={"includeHeader": True, "rows": [{"field": "HIGHLY COMPENSATED", "length": "12", "recordType": "Detail"}]},
+        )
+        with patch.object(rb, "_mapping_catalog", return_value={}):
+            with self.assertRaises(HTTPException) as error:
+                rb._write_job_details(connection, 60, payload, batch=True)
+        self.assertEqual(error.exception.status_code, 422)
+        self.assertIn("header name", str(error.exception.detail))
+        payload.mapping.includeHeader = False
+        with patch.object(rb, "_mapping_catalog", return_value={}), patch.object(rb, "_execute_query_batch"):
+            rb._write_job_details(connection, 60, payload, batch=True)
+
+    def test_jobs_list_exposes_the_format_name_instead_of_the_delimiter(self):
+        formats = {"TAB": "\t", "FIXED": " "}
+        for delimiter, label in (("\t", "TAB"), (" ", "FIXED")):
+            with self.subTest(label=label):
+                self.assertEqual(rb._api_job_from_row({"jobid": 60, "filetype": delimiter}, formats)["filetype"], label)

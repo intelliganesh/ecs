@@ -89,7 +89,7 @@ function screenFromPath(path: string): Screen { if (path === '/retirement-builde
 
 function SearchableSelect({
   options, optionLabels, defaultValue = '', value: controlledValue, onValueChange, ariaLabel, errorId,
-  clearLabel, allowCustom = false, includeSavedOption = true, canAddCustom, searchPlaceholder, optionsLoading, optionsError,
+  clearLabel, allowCustom = false, includeSavedOption = true, canAddCustom, searchPlaceholder, optionsLoading, optionsError, placeholder = placeholderFormat,
 }: {
   options: string[]
   optionLabels?: Record<string, string>
@@ -100,6 +100,7 @@ function SearchableSelect({
   errorId?: string
   clearLabel?: string
   allowCustom?: boolean
+  placeholder?: string
   canAddCustom?: (value: string) => boolean
   searchPlaceholder?: string
   includeSavedOption?: boolean
@@ -111,7 +112,7 @@ function SearchableSelect({
   const apiOptions = ariaLabel === 'File format' ? runtimeOptions.fileFormats : ariaLabel === 'Build frequency' ? runtimeOptions.buildFrequencies : ariaLabel === 'Hour' ? runtimeOptions.hours : ariaLabel === 'Minute' ? runtimeOptions.minutes : ariaLabel === 'AM or PM' ? runtimeOptions.meridiems : ariaLabel === 'Week' ? runtimeOptions.weekDays : ariaLabel.endsWith('record type') ? runtimeOptions.recordTypes : options
   const effectiveOptions = [...new Set([
     ...(clearLabel ? [''] : []),
-    ...(includeSavedOption && controlledValue ? [controlledValue] : []),
+    ...(includeSavedOption && controlledValue && !apiOptions.includes(controlledValue) ? [controlledValue] : []),
     ...apiOptions,
   ])]
   const optionLabel = (option: string) => option ? optionLabels?.[option] ?? option : clearLabel ?? ''
@@ -133,7 +134,7 @@ function SearchableSelect({
     <button type="button" ref={trigger} className="searchable-select-trigger" aria-haspopup="listbox" aria-expanded={open}
       aria-controls={open ? listId : undefined} aria-label={ariaLabel} aria-invalid={!!errorId} aria-describedby={errorId}
       onKeyDown={onTriggerKeyDown} onClick={() => { if (open) setOpen(false); else openMenu() }}>
-      <span className={value ? '' : 'placeholder'}>{optionLabel(value) || 'Select Format'}</span>
+      <span className={value ? '' : 'placeholder'}>{optionLabel(value) || placeholder}</span>
       <span className="select-chevron" aria-hidden="true">⌄</span>
     </button>
     {open && createPortal(
@@ -358,6 +359,8 @@ export default function App({ userEmail }: { userEmail: string }) {
     const step = wizardSteps[index]
     setValidatedSteps((current) => ({ ...current, [step]: true }))
     routerNavigate((edit ? editPaths : addPaths)[step])
+    // Errors can sit above the viewport; scroll to the first one once the step has rendered.
+    window.setTimeout(() => document.querySelector('[aria-invalid="true"], .field-error')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 150)
     return false
   }
 
@@ -875,7 +878,7 @@ function GeneralStep({
         <div className="general-options">
           {isEdit && <label className="general-option">
             <input type="checkbox" checked={enable} onChange={(event) => onEnableChange(event.target.checked)} />
-            <span>{enable ? 'Enable' : 'Disable'}</span>
+            <span>Enable</span>
           </label>}
           <label className="general-option"><input type="checkbox" checked={storeResultsToTable} onChange={(event) => onStoreResultsChange(event.target.checked)} /><span>Store Results to Table</span></label>
         </div>
@@ -939,9 +942,9 @@ function ScheduleStep({ schedule, storedStartDateTime, errors, onChange, onBack,
         <fieldset className="schedule-time-field">
           <legend>Run Time</legend>
           <div className="time-row">
-            <SearchableSelect options={[]} value={schedule.hour} onValueChange={(hour) => onChange({ hour })} ariaLabel="Hour" clearLabel="Hour" errorId={errors?.hour ? 'retirement-hour-error' : undefined} />
-            <SearchableSelect options={[]} value={schedule.minute} onValueChange={(minute) => onChange({ minute })} ariaLabel="Minute" clearLabel="Minute" errorId={errors?.minute ? 'retirement-minute-error' : undefined} />
-            <SearchableSelect options={[]} value={schedule.meridiem} onValueChange={(meridiem) => onChange({ meridiem })} ariaLabel="AM or PM" clearLabel="AM/PM" errorId={errors?.meridiem ? 'retirement-meridiem-error' : undefined} />
+            <SearchableSelect options={[]} value={schedule.hour} onValueChange={(hour) => onChange({ hour })} ariaLabel="Hour" placeholder="Hour" errorId={errors?.hour ? 'retirement-hour-error' : undefined} />
+            <SearchableSelect options={[]} value={schedule.minute} onValueChange={(minute) => onChange({ minute })} ariaLabel="Minute" placeholder="Minute" errorId={errors?.minute ? 'retirement-minute-error' : undefined} />
+            <SearchableSelect options={[]} value={schedule.meridiem} onValueChange={(meridiem) => onChange({ meridiem })} ariaLabel="AM or PM" placeholder="AM/PM" errorId={errors?.meridiem ? 'retirement-meridiem-error' : undefined} />
           </div>
           <FieldError id="retirement-hour-error" message={errors?.hour} />
           <FieldError id="retirement-minute-error" message={errors?.minute} />
@@ -986,7 +989,9 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
   const typeFor = (column: string) => mappingColumnType(columnLabel(column), values.mappingColumnTypes)
   const formatsFor = (type: string) => {
     const buckets = ['phone', 'email', 'ssn'].includes(type) ? [type, 'text', 'all'] : [type, 'all']
-    return Array.from(new Set(buckets.flatMap((bucket) => values.mappingFormatsByType[bucket] ?? [])))
+    // Left/right justification pads any value, so it stays selectable (and survives a column change) for numbers and dates too.
+    const padding = (values.mappingFormatsByType.text ?? []).filter((code) => code === 'RA' || code === 'LA')
+    return Array.from(new Set([...buckets.flatMap((bucket) => values.mappingFormatsByType[bucket] ?? []), ...padding]))
   }
 
   return <div className="form-step mapping-step">
@@ -998,12 +1003,12 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
             <input type="checkbox" checked={includeHeader} onChange={(event) => onHeaderChange(event.target.checked)} />Include Header Row
           </label>
           <button type="button" className="icon-button" onClick={onOpenSettings} aria-label="Manage dataset settings" title="Manage dataset settings"><Settings aria-hidden="true" /></button>
-          <button className="icon-button" onClick={onOpenSettings} aria-label="Add file setting rule" title="Add file setting rule"><ToolIcon name="plus" /></button>
+          <button className="icon-button" onClick={onOpenSettings} aria-label="Add file setting rule" title="Add a sort or condition rule (opens File Settings)"><ToolIcon name="plus" /></button>
         </div>
       </div>
       <div className="mapping-table-wrap">
         <table className="mapping-table">
-          <thead><tr>{['Field Name', 'Start Position', 'Length', 'Record Type', 'Default Value', 'Mapping Column', 'Format', 'Action'].map((heading) => <th scope="col" key={heading}>{heading}</th>)}</tr></thead>
+          <thead><tr>{['Field Name', 'Start Position', 'Length', 'Record Type', 'Default Value', 'Mapping Column', 'Format', 'Action'].map((heading) => <th scope="col" key={heading} title={heading === 'Start Position' ? 'FIXED format only. Zero-based: 0 is the first character of the line.' : undefined}>{heading}</th>)}</tr></thead>
           <tbody>{rows.map((row, index) => {
             const label = row.field || 'New'
             const fixedLengthRequired = fixed && !(includeHeader && ['H', 'HEADER'].includes(row.recordType.trim().toUpperCase()))
@@ -1102,7 +1107,7 @@ function SubscriptionsStep({
 
   return <div className="form-step subscriptions-step">
     <div className="subscription-toolbar">
-      <label className="check-label"><input type="checkbox" checked={mergeFiles} onChange={(event) => onMergeChange(event.target.checked)} />Merge Files</label>
+      <label className="check-label" title="Combines each recipient's emailed attachments into one file. Generated report files are not changed."><input type="checkbox" checked={mergeFiles} onChange={(event) => onMergeChange(event.target.checked)} />Merge Files <small className="general-field-help">(emailed attachments only)</small></label>
       <button className="button button-primary" onClick={onAdd}><span className="button-icon"><ToolIcon name="plus" /></span>Add Row</button>
     </div>
     {error && <p className="dashboard-action-message" role="alert">{error}</p>}
@@ -1119,12 +1124,12 @@ function SubscriptionsStep({
                   const companyId = parseClientId(value)
                   if (companyId !== null) onCompanyChange(subscription.id, companyId)
                 }}
-                ariaLabel={`Payroll company ${index + 1}`} searchPlaceholder="Search payroll companies…" />
+                ariaLabel={`Payroll company ${index + 1}`} searchPlaceholder="Search payroll companies…" placeholder="Select company" />
               {subscription.client && <small className="general-field-help">Select a payroll company to enable email for this row.</small>}
             </> : <SearchableSelect options={clientOptions} optionLabels={clientLabels} includeSavedOption={false}
               optionsLoading={clientCatalog.loading} optionsError={clientCatalog.error}
               value={String(parseClientId(subscription.client) ?? '')} onValueChange={(client) => onClientChange(subscription.id, client)}
-              ariaLabel={`Client ${index + 1}`} allowCustom
+              ariaLabel={`Client ${index + 1}`} allowCustom placeholder="Select client"
               searchPlaceholder="Search or enter a client ID…"
               canAddCustom={(value) => {
                 const id = /^[0-9]+$/.test(value) ? parseClientId(value) : null
@@ -1139,7 +1144,7 @@ function SubscriptionsStep({
         })}</tbody>
       </table>
     </div>
-    <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onFinish} disabled={saving}>Finish</button></div>
+    <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onFinish} disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : 'Finish'}</button></div>
   </div>
 }
 function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialConditional, onSave, onClose }: {
@@ -1160,7 +1165,7 @@ function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialC
   const isDateColumn = (column: string) => reportSource === 'companyPayroll'
     ? column.trim().toLowerCase() === 'pay date'
     : mappingColumnType(column, values.mappingColumnTypes) === 'date'
-  const [sortingRows, setSortingRows] = useState(() => initialSorting.map((row, index) => [row.orderBy || String(index + 1), row.mappingColumn]))
+  const [sortingRows, setSortingRows] = useState(() => initialSorting.map((row, index) => [row.orderBy || String(index + 1), mappingLabel(row.mappingColumn, values.mappingColumnLabels)]))
   const [conditionalRows, setConditionalRows] = useState(() => initialConditional.map((row) => [row.mappingColumn, row.condition, row.value]))
   const [sortError, setSortError] = useState('')
   const dialog = useRef<HTMLElement>(null)

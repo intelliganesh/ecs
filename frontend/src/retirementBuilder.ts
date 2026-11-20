@@ -76,7 +76,8 @@ export function reportEmailMessage({ enabled, matched, accepted }: ReportEmailDe
 
 export function generalFieldErrors(fileName: string, fileFormat: string) {
   return {
-    fileName: !fileName.trim() ? 'Enter a file name.' : fileName.length > 255 ? 'Use at most 255 characters.' : '',
+    fileName: !fileName.trim() ? 'Enter a file name.' : fileName.length > 255 ? 'Use at most 255 characters.'
+      : /[\\/:*?"<>|\u0000-\u001f]/.test(fileName) ? 'File Name cannot contain \\ / : * ? " < > | or control characters.' : '',
     fileFormat: !fileFormat.trim() ? 'Select a file format.' : '',
   }
 }

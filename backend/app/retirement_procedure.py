@@ -13,7 +13,8 @@ from io import StringIO
 from typing import TYPE_CHECKING
 
 from app.retirement_results import (
-    DATE_FORMATS, SSN_FORMATS, MAX_COLUMNS, MAX_OUTPUT_BYTES, InvalidRun, ReportFile, ResultRow,
+    DATE_FORMATS, NUMBER_FORMATS, NUMERIC_MASK_PATTERN, PHONE_FORMATS, SSN_FORMATS, TEXT_FORMATS,
+    MAX_COLUMNS, MAX_OUTPUT_BYTES, InvalidRun, ReportFile, ResultRow,
     _clean_name_value, _fixed_record, _format_value, _is_name_mapping, _name_format,
     _output_name, _parse_date, is_fixed_format, record_type_code,
 )
@@ -43,6 +44,21 @@ def uses_retirement_queries(job: "RetirementBuilderJob") -> bool:
     )
 
 
+_PADDING_FORMATS = {"LA", "LA - Left Justified", "RA", "RA - Right Justified"}
+
+
+def _is_value_format(name: str) -> bool:
+    """Presentation formats applied to returned values: number masks, phone, text case and padding."""
+    return (
+        name in NUMBER_FORMATS or bool(NUMERIC_MASK_PATTERN.fullmatch(name)) or name in PHONE_FORMATS
+        or name in TEXT_FORMATS or name in _PADDING_FORMATS
+    )
+
+
+def _is_presentational(row: "MappingRow") -> bool:
+    return _is_name_mapping(row) or bool(row.defaultValue) or _is_value_format(row.format.strip())
+
+
 def _payday(value: str) -> str:
     return _parse_date(value, "sort1").isoformat() if value.strip() else ""
 
@@ -52,7 +68,7 @@ def _export_layouts(job: "RetirementBuilderJob", kinds: list[str], source: Proce
     layouts: list[list[MappingRow]] = [[] for _ in kinds]
     fixed = is_fixed_format(job.general.fileFormat)
     if not fixed and not any(row.format.strip() in DATE_FORMATS or row.format.strip() in SSN_FORMATS
-                             or _is_name_mapping(row) for row in job.mapping.rows):
+                             or _is_presentational(row) for row in job.mapping.rows):
         return layouts
     mappings = ordered_mappings(
         row.model_copy(update={"recordType": record_type_code(row.recordType or "D")})
@@ -65,7 +81,7 @@ def _export_layouts(job: "RetirementBuilderJob", kinds: list[str], source: Proce
             continue
         columns = [row for row in mappings if row.recordType == ("D" if auto_header else kind)]
         strict = fixed or any(row.format.strip() in DATE_FORMATS or row.format.strip() in SSN_FORMATS for row in columns)
-        if not strict and not any(_is_name_mapping(row) for row in columns):
+        if not strict and not any(_is_presentational(row) for row in columns):
             continue
         positions = [index for index, value in enumerate(kinds) if value == kind]
         datasets: dict[int, list[MappingRow]] = {}
@@ -88,6 +104,15 @@ def _export_layouts(job: "RetirementBuilderJob", kinds: list[str], source: Proce
     return layouts
 
 
+def _apply_value_format(value: str, mapping: "MappingRow") -> str:
+    try:
+        return _format_value(value, mapping)
+    except InvalidRun:
+        # The saved SQL may already have applied this presentation (for example a number mask),
+        # which cannot be parsed a second time. Keep the returned value instead of failing the run.
+        return value
+
+
 def _format_values(values: tuple[str, ...], layout: list["MappingRow"]) -> tuple[str, ...]:
     if not layout:
         return values
@@ -95,11 +120,16 @@ def _format_values(values: tuple[str, ...], layout: list["MappingRow"]) -> tuple
     for index, mapping in enumerate(layout):
         name = mapping.format.strip()
         value = _clean_name_value(values[index], mapping)
+        if not value.strip() and mapping.defaultValue:
+            value = mapping.defaultValue
         if name in SSN_FORMATS:
             formatted[index] = _format_value(value.strip(), mapping)
             continue
         pattern = DATE_FORMATS.get(name)
-        if pattern is None or not value:
+        if pattern is None:
+            formatted[index] = _apply_value_format(value, mapping) if value and _is_value_format(name) else value
+            continue
+        if not value:
             formatted[index] = value
             continue
         # Existing SQL can already return the selected display format. Parse it
@@ -174,14 +204,20 @@ def build_procedure_report_files(
         group = dict(zip(dimensions, key, strict=True))
         clients = frozenset(record[0] for record in details if record[0])
 
+        # A client's file may span several pay dates; only keep header/trailer rows for
+        # pay dates that still have Detail rows (a condition can remove a whole date).
+        detail_dates = {_payday(record[1]) for record in details if record[1]}
+
         def belongs(record) -> bool:
             client, payday, _, _ = record
             if client and client not in clients:
                 return False
-            if "payday" not in group or not payday:
+            if not payday:
                 return True
             date = _payday(payday)
-            return date in {"1900-01-01", group["payday"]}
+            if "payday" in group:
+                return date in {"1900-01-01", group["payday"]}
+            return date == "1900-01-01" or date in detail_dates
 
         selected = {
             "H": records["H"] if job.mapping.includeHeader else [row for row in records["H"] if belongs(row)],
