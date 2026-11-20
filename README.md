@@ -209,6 +209,7 @@ credentials. Database access is separate from frontend access.
 | Variable | Purpose / code default |
 | --- | --- |
 | `PAYROLL_REPORT_PROCEDURE` | Procedure name; `dbo.usp_CompanyPayrollReport`. Accepts `procedure` or `schema.procedure`; omitted schema becomes `dbo`. The installed signature/result contract must match the runner. |
+| `RETIREMENT_HEADER_SOURCE` | Automatic procedure-output header policy; `DETAIL_ALIGNED` by default. `SAVED_H` restores the previous H-result behavior. Restart the backend after changing it. |
 | `SCHEDULER_ENABLED` | Start scheduler with API; `true`. Use false for isolated manual QA. |
 | `SCHEDULER_TIMEZONE` | IANA timezone for due-slot evaluation; `UTC`. |
 | `REPORT_INPUT_DIR` | Source CSV folder; `report-input`. |
@@ -292,6 +293,24 @@ run a job; the filename is retained as form state.
 Header/Detail/Trailer labels persist as **H/D/T**. Include Header Row persists in
 `rjob.includeHeader`. ON derives column-header values from D output field names;
 this differs from a manually configured business H record.
+
+**Why automatic headers follow D:** an H query can retain a different column order
+from the D SELECT. Its labels can then describe the wrong values even when both
+sets have the same number of columns. With the default
+`RETIREMENT_HEADER_SOURCE=DETAIL_ALIGNED`, the file writer confirms the association
+between actual D output columns and mapping labels using returned names and
+supported saved SELECT expressions/explicit aliases. It emits one aligned header
+per file and applies field formats in that same D order. It does not guess alias
+conventions or trust column counts alone; ambiguous/unsupported associations
+produce validation instead of a silently mislabeled report. Detail datasets in
+one file must share a compatible header/layout. Plain source-CSV exports already
+derive their labels and values from the same mapping layout.
+
+When the checkbox is OFF, configured H output remains unchanged. H queries are
+still saved/read for procedure compatibility; no DB or SP migration is needed.
+To restore the previous checked-header behavior, set
+`RETIREMENT_HEADER_SOURCE=SAVED_H` and restart the backend. This changes the file
+writer's policy only; it does not rewrite saved H/D/T queries or existing reports.
 
 File Settings contains numeric **Order By** priorities 1,2,3 and Mapping Columns.
 These numbers are precedence, not ASC/DESC choices. Priorities are sorted and

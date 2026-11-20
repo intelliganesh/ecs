@@ -78,6 +78,13 @@ application edits, database writes, report Runs or email delivery.
 
 ## Retirement Builder report export contract
 
+- Automatic headers use `RETIREMENT_HEADER_SOURCE=DETAIL_ALIGNED` by default.
+  When Include Header Row is checked, labels and field formatting follow the
+  confirmed D output column order so a stale/reordered H query cannot mislabel
+  Detail values. Preserve validation for ambiguous mappings; never invent aliases.
+  Unchecked retains configured H output. `SAVED_H` restores the former H-result
+  behavior after backend restart. Existing H queries and the SP contract remain
+  intact; this is a file-rendering policy, not a DB/query migration.
 - Preserve the centralized `REPORT_FORMAT_EXTENSIONS` mapping in
   [retirement_results.py](backend/app/retirement_results.py): CSV/COMMA → `.csv`,
   PIPE → `.txt`, SEMICOLON → `.txt`, TAB → `.tsv`, TILDE → `.txt`, FIXED → `.txt`.

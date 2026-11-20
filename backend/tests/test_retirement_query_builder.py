@@ -23,6 +23,18 @@ def generate(payload, saved=()):
 
 
 class ExportQueryGenerationTests(TestCase):
+    def test_generated_numeric_formats_use_required_decimal_places_in_all_record_types(self):
+        payload = job([
+            {"field": "Header", "mappingColumn": "amount", "format": "######.##", "recordType": "H"},
+            {"field": "Detail", "mappingColumn": "amount", "format": "$######.##", "recordType": "D"},
+            {"field": "Trailer", "mappingColumn": "amount", "format": "########", "recordType": "T"},
+        ], include_header=False)
+        header, detail, trailer = generate(payload)
+        self.assertIn(", '0.00', 'en-US')", header["query"])
+        self.assertIn(", '$0.00;-$0.00;$0.00', 'en-US')", detail["query"])
+        self.assertIn(", '0', 'en-US')", trailer["query"])
+        self.assertNotIn("0.##", header["query"] + detail["query"])
+
     def test_imported_detail_names_become_header_literals_in_dataset_sequence_order(self):
         payload = job([
             {"field": "FIRSTNAME", "mappingColumn": "firstname", "recordType": "D", "dataSetNo": 2, "colSeqNo": 2},

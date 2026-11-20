@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     error_log_max_bytes: int = Field(10 * 1024 * 1024, ge=1024)
     error_log_backup_count: int = Field(5, ge=1)
     payroll_report_procedure: str = "dbo.usp_CompanyPayrollReport"
+    retirement_header_source: Literal["DETAIL_ALIGNED", "SAVED_H"] = "DETAIL_ALIGNED"
     mail_enabled: bool = False
     mail_mailer: Literal["smtp"] = "smtp"
     mail_host: str = "smtp.gmail.com"

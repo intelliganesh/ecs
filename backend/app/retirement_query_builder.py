@@ -88,7 +88,7 @@ def _expression(row: "MappingRow") -> tuple[str, bool]:
         places, grouping = NUMBER_FORMATS[name] if mask is None else (len(mask[2] or ""), "")
         if places > 18:
             raise InvalidRun("SQL export numeric formats support at most 18 decimal places.")
-        pattern = ("#,##0" if grouping else "0") + ("." + ("#" if mask else "0") * places if places else "")
+        pattern = ("#,##0" if grouping else "0") + ("." + "0" * places if places else "")
         if mask and mask[1]:
             pattern = f"${pattern};-${pattern};${pattern}"
         expression = f"FORMAT(ROUND(CONVERT(decimal(38,18), {expression}), {places}), {sql_literal(pattern)}, 'en-US')"

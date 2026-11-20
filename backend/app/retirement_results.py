@@ -379,8 +379,7 @@ def _format_value(value: str, mapping: "MappingRow") -> str:
         except (InvalidOperation, InvalidRun) as exc:
             raise InvalidRun(f'Column "{mapping.field}" contains a value that cannot be formatted as a number.') from exc
         formatted = format(rounded, f"{grouping}.{places}f")
-        if mask and places:
-            formatted = formatted.rstrip("0").rstrip(".")
+        # Export masks specify the exact decimal width, including zero values.
         if mask and mask[1]:
             return f"-${formatted[1:]}" if formatted.startswith("-") else f"${formatted}"
         return formatted

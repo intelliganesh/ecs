@@ -184,6 +184,9 @@ class ProcedureFileTests(TestCase):
             rb.MappingRow(field="HIRE", mappingColumn="last_hire_date", format="MM/DD/YYYY", length="10", recordType="D", colSeqNo=3),
             rb.MappingRow(field="COUNT", mappingColumn="count", format="RA", length="5", recordType="D", colSeqNo=4),
         ]
+        next(row for row in report_job.queryConfiguration if row.recttype == "D").query = (
+            "SELECT valid_flag, retnum, paydate AS sort1, emp_formatted_name, ssn, last_hire_date, count"
+        )
         columns = ("valid_flag", "retnum", "sort1", "", "", "", "")
         source = ProcedureSource((result([(1, "000719", "2026-11-10", "NAME", "SSN", "HIRE", "COUNT")], columns),
                                   result([(1, "000719", "2026-11-10", '"Doe, Alex"', "000-00-0000", "2020-01-02", "7")], columns),
@@ -219,6 +222,9 @@ class ProcedureFileTests(TestCase):
             rb.MappingRow(field="Name", mappingColumn="name", format="Uppercase", recordType="D", colSeqNo=2),
             rb.MappingRow(field="PAYDATE", mappingColumn="paydate", format="MM/DD/YYYY", recordType="D", colSeqNo=1),
         ]
+        next(row for row in report_job.queryConfiguration if row.recttype == "D").query = (
+            "SELECT valid_flag, retnum, paydate AS sort1, paydate, name"
+        )
         source = ProcedureSource((
             result([(1, "000719", "2026-11-10", "PAYDATE", "Name")], ("valid_flag", "retnum", "sort1", "", "")),
             result([(1, "000719", "2026-11-10", "2026-11-10", "Mixed Case")], ("valid_flag", "retnum", "sort1", "", "")),
@@ -392,6 +398,19 @@ class ProcedurePresentationFormatTests(TestCase):
             rb.MappingRow(field="Code", format="LA", length="5"),
         ], ("mixed Case", "67500.25", "7168884838", "ab"))
         self.assertEqual(report.csv, "MIXED CASE,$67500.25,  7168884838,ab   \r\n")
+
+    def test_numeric_masks_keep_decimal_zeros_in_procedure_output(self):
+        report = self.build([
+            rb.MappingRow(field="Zero", format="######.##"),
+            rb.MappingRow(field="SQL formatted zero", format="######.##"),
+            rb.MappingRow(field="Whole", format="######.##"),
+            rb.MappingRow(field="Fraction", format="######.##"),
+            rb.MappingRow(field="Negative", format="######.##"),
+            rb.MappingRow(field="Blank", format="######.##"),
+            rb.MappingRow(field="Default", format="######.##", defaultValue="0"),
+            rb.MappingRow(field="Integer", format="########"),
+        ], ("0", "0.00", "25", "25.5", "-25.5", "", "", "0"))
+        self.assertEqual(report.csv, "0.00,0.00,25.00,25.50,-25.50,,0.00,0\r\n")
 
     def test_default_value_replaces_blank_values_only(self):
         report = self.build([

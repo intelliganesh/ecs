@@ -66,6 +66,40 @@ def expected_content(delimiter, *, fixed=False, copies=1):
 
 
 class ReportExtensionTests(TestCase):
+    def test_decimal_mask_keeps_zero_and_fraction_width_in_all_six_formats(self):
+        for file_format, delimiter, extension in FORMATS:
+            with self.subTest(file_format=file_format):
+                job = sample_job(file_format)
+                job.mapping.rows[5].format = "######.##"
+                raw_values = [list(VALUES), list(VALUES)]
+                raw_values[0][5], raw_values[1][5] = "0", "25.5"
+                stream = StringIO(newline="")
+                writer = csv.writer(stream)
+                writer.writerow(["clientid", "paydate", *HEADERS[1:]])
+                for client, values in zip(("000204", "000719"), raw_values, strict=True):
+                    writer.writerow([client, *values])
+                source = procedure_source()
+                sets = list(source.result_sets)
+                sets[1] = ProcedureResultSet(sets[1].columns, tuple(
+                    ("1", client, "2026-10-15", *values)
+                    for client, values in zip(("000204", "000719"), raw_values, strict=True)
+                ))
+                for reports in (build_report_files(job, stream.getvalue().encode(), delimiter=delimiter),
+                                build_procedure_report_files(job, ProcedureSource(tuple(sets)), delimiter)):
+                    self.assertEqual(len(reports), 2)
+                    for report, expected in zip(reports, ("0.00", "25.50"), strict=True):
+                        self.assertTrue(report.file_name.endswith(extension))
+                        if file_format == "FIXED":
+                            data = report.csv.splitlines()[1]
+                            offset = sum(WIDTHS[:5])
+                            self.assertEqual(data[offset:offset + WIDTHS[5]].strip(), expected)
+                            self.assertEqual(len(data), sum(WIDTHS))
+                        else:
+                            rows = list(csv.reader(StringIO(report.csv), delimiter=delimiter))
+                            self.assertEqual(rows[0], HEADERS)
+                            self.assertEqual(rows[1][5], expected)
+                            self.assertEqual(len(rows[1]), len(HEADERS))
+
     def test_both_writers_keep_content_and_client_names_for_all_six_formats(self):
         for file_format, delimiter, extension in FORMATS:
             with self.subTest(file_format=file_format):

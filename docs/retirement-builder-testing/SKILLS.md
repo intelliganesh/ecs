@@ -8,6 +8,14 @@ skill.
 
 ## Scope and permitted actions
 
+Automatic-header design note: with Include Header Row checked, the default
+`RETIREMENT_HEADER_SOURCE=DETAIL_ALIGNED` uses confirmed D output order for labels
+and field formatting. We chose D to prevent a separately ordered/stale H query
+from placing the wrong label above a Detail value. Ambiguous associations fail
+validation; aliases are not invented. Unchecked keeps configured H output.
+`SAVED_H` restores H-result behavior after backend restart, without changing saved
+H queries, DB data or the procedure contract.
+
 - Test the existing **job 60 only** at
   `http://localhost:5174/retirement-builder`. Confirm the job ID before editing
   or running; its filename can change and is not a reliable identifier.

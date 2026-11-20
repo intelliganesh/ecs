@@ -12,6 +12,8 @@ from datetime import datetime
 from io import StringIO
 from typing import TYPE_CHECKING
 
+from app.core.config import get_settings
+from app.retirement_headers import aligned_detail_layout
 from app.retirement_results import (
     DATE_FORMATS, NUMBER_FORMATS, NUMERIC_MASK_PATTERN, PHONE_FORMATS, SSN_FORMATS, TEXT_FORMATS,
     MAX_COLUMNS, MAX_OUTPUT_BYTES, InvalidRun, ReportFile, ResultRow,
@@ -63,7 +65,8 @@ def _payday(value: str) -> str:
     return _parse_date(value, "sort1").isoformat() if value.strip() else ""
 
 
-def _export_layouts(job: "RetirementBuilderJob", kinds: list[str], source: ProcedureSource) -> list[list["MappingRow"]]:
+def _export_layouts(job: "RetirementBuilderJob", kinds: list[str], source: ProcedureSource, *,
+                    detail_headers: bool = False) -> list[list["MappingRow"]]:
     """Align configured columns by dataset/sequence, without assuming SQL aliases."""
     layouts: list[list[MappingRow]] = [[] for _ in kinds]
     fixed = is_fixed_format(job.general.fileFormat)
@@ -77,7 +80,7 @@ def _export_layouts(job: "RetirementBuilderJob", kinds: list[str], source: Proce
     for kind in ("H", "D", "T"):
         # An automatic header contains literal column labels, not dates.
         auto_header = kind == "H" and job.mapping.includeHeader
-        if auto_header and not fixed:
+        if auto_header and (detail_headers or not fixed):
             continue
         columns = [row for row in mappings if row.recordType == ("D" if auto_header else kind)]
         strict = fixed or any(row.format.strip() in DATE_FORMATS or row.format.strip() in SSN_FORMATS for row in columns)
@@ -165,9 +168,30 @@ def build_procedure_report_files(
     if not kinds or "D" not in kinds or len(kinds) != len(source.result_sets):
         raise InvalidRun("The procedure result sets do not match the saved H, D and T queries.")
 
+    detail_headers = job.mapping.includeHeader and get_settings().retirement_header_source == "DETAIL_ALIGNED"
+    if detail_headers and not any(
+        row[0].strip() in {"1", "1.0", "True"} and len(row) > 3
+        for kind, result in zip(kinds, source.result_sets, strict=True) if kind == "D" for row in result.rows
+    ):
+        return []
+
     # Keep values positional: SQL permits unnamed and duplicate output columns.
     records: dict[str, list[tuple[str, str, list[MappingRow], tuple[str, ...]]]] = {"H": [], "D": [], "T": []}
-    layouts = _export_layouts(job, kinds, source)
+    layouts = _export_layouts(job, kinds, source, detail_headers=detail_headers)
+    if detail_headers:
+        mappings = ordered_mappings(row.model_copy(update={"recordType": record_type_code(row.recordType or "D")})
+                                    for row in job.mapping.rows)
+        detail_mappings = [row for row in mappings if row.recordType == "D"]
+        datasets = {}
+        for row in detail_mappings:
+            datasets.setdefault(row.dataSetNo, []).append(row)
+        positions = [index for index, kind in enumerate(kinds) if kind == "D"]
+        groups = [detail_mappings] if len(positions) == 1 else list(datasets.values())
+        detail_queries = [row.query for row in job.queryConfiguration if row.recttype.strip().upper() == "D" and row.query.strip()]
+        if len(groups) != len(positions):
+            raise InvalidRun("The Detail datasets do not match the mappings needed for automatic headers.")
+        for index, group, query in zip(positions, groups, detail_queries, strict=True):
+            layouts[index] = aligned_detail_layout(source.result_sets[index].columns, group, query)
     fixed = is_fixed_format(job.general.fileFormat)
     for kind, result, layout in zip(kinds, source.result_sets, layouts, strict=True):
         names = tuple(name.casefold() for name in result.columns[:3])
@@ -175,6 +199,8 @@ def build_procedure_report_files(
             raise InvalidRun("The procedure must return valid_flag, retnum and sort1 before the export columns.")
         if len(result.columns) - 3 > MAX_COLUMNS:
             raise InvalidRun(f"Use at most {MAX_COLUMNS} export columns per procedure result set.")
+        if detail_headers and kind == "H":
+            continue  # Drain/validate the SP's H set, but derive the file header from D.
         for row in result.rows:
             if row[0].strip() not in {"1", "1.0", "True"}:
                 continue
@@ -224,6 +250,15 @@ def build_procedure_report_files(
             "D": details,
             "T": [row for row in records["T"] if belongs(row)],
         }
+        if detail_headers:
+            layout = details[0][2]
+            header = tuple(row.field for row in layout)
+            signature = lambda rows: [(row.field, row.startPosition, row.length,
+                                       row.format.startswith("RA")) for row in rows]
+            if any(tuple(row.field for row in record[2]) != header or
+                   (fixed and signature(record[2]) != signature(layout)) for record in details):
+                raise InvalidRun("Detail datasets in one file need the same confirmed automatic header and field layout.")
+            selected["H"] = [("", "", layout, header)]
         output = StringIO(newline="")
         writer = csv.writer(output, delimiter=delimiter)
         rows = []
