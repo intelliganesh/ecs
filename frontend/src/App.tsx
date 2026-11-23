@@ -26,7 +26,7 @@ type ApiSubscription = { client?: string; email?: string; companyId?: number | n
 type Subscription = { id: number; client: string; email: string; emailDraft?: string; companyId?: number }
 type ClientOption = { id: number; label: string }
 type TableFilters = Record<number, string>
-type DashboardJob = { id: number; values: string[] }
+type DashboardJob = { id: number; enabled: boolean; values: string[] }
 type JobRunFile = { fileName: string; csv: string; excelRows?: string[][] | null }
 type JobRun = JobRunFile & {
   runId: string; rowCount: number; storedRows: number; delimiter?: string; files?: JobRunFile[];
@@ -55,6 +55,7 @@ function toDashboardJob(job: RetirementBuilderApiJob): DashboardJob {
   const lastRunDate = job.joblastrun?.slice(0, 10) || ''
   return {
     id: job.id,
+    enabled: general.enable !== false,
     values: [
       general.fileName || `Job ${job.id}`, general.description || '', job.joblastmodified?.slice(0, 10) || '',
       lastRunDate === '1900-01-01' ? '' : lastRunDate, schedule.week || '', displayRunTime(schedule.hour, schedule.minute, schedule.meridiem),
@@ -587,6 +588,8 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
   const headings = ['File Name', 'Description', 'Modified On', 'Last Run Date', 'Run Day', 'Run Time', 'Schedule Type', 'File Type', 'Is Active', 'Status']
   const [sort, setSort] = useState<{ index: number; direction: 'asc' | 'desc' } | null>(null)
   const [page, setPage] = useState(1)
+  const [jobScope, setJobScope] = useState<'active' | 'disabled'>('active')
+  const tabsId = useId()
   const tableScroll = useRef<HTMLDivElement>(null)
   const [selectedJobs, setSelectedJobs] = useState<number[]>([])
   const [runTarget, setRunTarget] = useState<DashboardJob | null>(null)
@@ -603,7 +606,7 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
     const activeFilters = Object.entries(filters)
       .map(([index, value]) => [Number(index), value.trim().toLowerCase()] as const)
       .filter(([, value]) => value)
-    const matches = jobs.filter((job) => activeFilters.every(([index, value]) =>
+    const matches = jobs.filter((job) => job.enabled === (jobScope === 'active') && activeFilters.every(([index, value]) =>
       valueFor(job, index).toLowerCase().includes(value)
     ))
     if (sort) {
@@ -613,7 +616,7 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
       })
     }
     return matches
-  }, [jobs, filters, sort, valueFor])
+  }, [jobs, jobScope, filters, sort, valueFor])
   const pageCount = Math.max(1, Math.ceil(sortedJobs.length / jobsPerPage))
   const currentPage = Math.min(page, pageCount)
   const firstJobIndex = (currentPage - 1) * jobsPerPage
@@ -631,6 +634,12 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
     setRunResult(null)
     setRunError('')
     tableScroll.current?.scrollTo({ top: 0 })
+  }
+  const changeJobScope = (nextScope: 'active' | 'disabled') => {
+    if (nextScope === jobScope) return
+    setJobScope(nextScope)
+    onFilterChange(8, '') // The tab now supplies the active/disabled filter.
+    goToPage(1)
   }
   const toggleSort = (index: number) => {
     setSort((current) => current?.index === index
@@ -695,8 +704,25 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
   }
 
   return <section className="dashboard-card">
-    <div className="dashboard-actions">
-      <p className="dashboard-scope">Showing enabled jobs only.</p>
+    <div className="dashboard-actions jobs-actions">
+      <div className="job-status-tabs" role="tablist" aria-label="Job status">
+        {(['active', 'disabled'] as const).map((scope) => <button key={scope} type="button" role="tab"
+          id={`${tabsId}-${scope}`} aria-controls={`${tabsId}-panel`} aria-selected={jobScope === scope}
+          aria-label={`${scope === 'active' ? 'Active Jobs' : 'Disabled Jobs'} (${jobs.filter((job) => job.enabled === (scope === 'active')).length})`}
+          tabIndex={jobScope === scope ? 0 : -1} disabled={running} data-job-scope={scope}
+          className={jobScope === scope ? 'selected' : ''} onClick={() => changeJobScope(scope)}
+          onKeyDown={(event) => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+            event.preventDefault()
+            const next = event.key === 'Home' ? 'active' : event.key === 'End' ? 'disabled'
+              : scope === 'active' ? 'disabled' : 'active'
+            changeJobScope(next)
+            event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`[data-job-scope="${next}"]`)?.focus()
+          }}>
+          <span>{scope === 'active' ? 'Active Jobs' : 'Disabled Jobs'}</span>
+          <span className="job-status-count" aria-hidden="true">{jobs.filter((job) => job.enabled === (scope === 'active')).length}</span>
+        </button>)}
+      </div>
       <a className="button button-primary" href="/mapped_payroll_columns_HDT.xlsx" download="mapped_payroll_columns_HDT.xlsx">Template <span aria-hidden="true">⇩</span></a>
       <button className="button button-primary" onClick={onAdd}>Add</button>
       <button className="button button-primary" disabled={!selected} onClick={() => selected && onEdit(selected.id)}>Edit</button>
@@ -720,7 +746,8 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
       </div>}
     </div>}
     {downloadError && <p className="dashboard-action-message" role="alert">{downloadError}</p>}
-    <div className="jobs-table-wrap" ref={tableScroll}>
+    <div className="jobs-table-wrap" ref={tableScroll} role="tabpanel" id={`${tabsId}-panel`}
+      aria-labelledby={`${tabsId}-${jobScope}`} tabIndex={0}>
       <table className="jobs-table">
         <caption className="sr-only">Retirement Builder scheduled jobs</caption>
         <thead><tr>

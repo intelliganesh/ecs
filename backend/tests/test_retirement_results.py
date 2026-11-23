@@ -278,6 +278,20 @@ class RetirementResultsTests(TestCase):
             with self.subTest(value=value):
                 self.assertEqual(file_name_format_code(value), "FILENAME")
 
+    def test_production_filename_spellings_preserve_grouping_parts(self):
+        cases = {
+            "File Name": "FILENAME", "FILENAME": "FILENAME", "CLIENT": "CLIENT",
+            "PayDate": "PAYDAY", "File Name-ClientId": "FILENAME_CLIENT",
+            "File Name-PayDate": "FILENAME_PAYDAY", "ClientId-PayDate": "CLIENT_PAYDAY",
+            "File Name-ClientId-PayDate": "FILENAME_CLIENT_PAYDAY",
+        }
+        for stored, code in cases.items():
+            with self.subTest(stored=stored):
+                self.assertEqual(file_name_format_code(stored), code)
+                self.assertEqual(file_name_format_code(f" {stored.lower()}  "), code)
+        for invalid in ("File Name-PayDate-PayDate", "File Name-Unknown", "File Name-", "--"):
+            self.assertEqual(file_name_format_code(invalid), "FILENAME")
+
     def test_grouped_reports_share_headers_and_select_client_trailers(self):
         job = RetirementBuilderJob.model_validate({
             "id": 1, "general": {"fileFormat": "CSV", "outputFileNameFormat": "Client ID + Payday"},

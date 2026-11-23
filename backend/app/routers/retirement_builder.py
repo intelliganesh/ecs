@@ -32,6 +32,7 @@ from app.report_mail import EMAIL_PATTERN, ReportEmailDelivery, send_subscribed_
 from app.retirement_procedure import ProcedureSource, build_procedure_report_files, uses_retirement_queries
 from app.retirement_query_builder import export_record_queries, ordered_mappings, sql_identifier
 from app.retirement_conditions import parsed_conditions
+from app.retirement_listing import READ_ALL_JOBS
 from app.retirement_results import (
     COMPARISONS, FILE_NAME_FORMAT_CODES, MAX_SOURCE_BYTES, RECORD_TYPES, SSN_FORMATS,
     InvalidRun, ReportDateRange, ReportFile, UNBOUNDED_RUN_DATE, build_report_files, condition_date, file_format_name,
@@ -395,11 +396,22 @@ def _file_format_label(formats: dict[str, str] | None, file_format: str | None) 
 def _output_file_name_formats(root: ET.Element) -> list[OutputFileNameFormatOption]:
     formats = []
     for option in root.findall("outputFileNameFormats/option"):
-        code = option.get("value", "").strip().upper()
+        code = file_name_format_code(option.get("value", "")) if parse_file_name_format(option.get("value", "")) else ""
         label = (option.text or "").strip()
         if code in FILE_NAME_FORMAT_CODES and label:
             formats.append(OutputFileNameFormatOption(label=label, value=code))
     return formats
+
+
+def _stored_file_name_format(value: str) -> str:
+    """Keep API codes stable while saving the production spelling from XML."""
+    code = file_name_format_code(value)
+    root = ET.parse(OPTIONS_FILE).getroot()
+    for option in root.findall("outputFileNameFormats/option"):
+        stored = option.get("value", "").strip()
+        if parse_file_name_format(stored) and file_name_format_code(stored) == code:
+            return stored
+    raise ValueError(f"Output filename format {code} is not configured in options.xml")
 
 
 def _mapping_format_options(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, list[str]], dict[str, str]]:
@@ -691,6 +703,14 @@ def _api_job_from_row(
 ) -> dict[str, Any]:
     job_id = int(row["jobid"])
     response = dict(row)
+    if "schedule_hr" in row:
+        hour, minute = row.get("schedule_hr"), row.get("schedule_min")
+        session = str(row.get("schedules_session") or "").strip()
+        response.update(
+            runtime=f"{hour}:{int(minute):02d} {session}".strip() if hour is not None and minute is not None else "",
+            runday=_week_label(row.get("ScheduleWeek")),
+            ScheduleType=_schedule_label(str(row.get("ScheduleType") or "").strip()),
+        )
     if manual_only:
         response.update(runday="", runtime="", ScheduleType="")
     runtime = str(response.get("runtime") or "")
@@ -729,7 +749,7 @@ def _api_job_from_row(
 
 
 def _job_rows(connection: Any) -> list[dict[str, Any]]:
-    return [dict(row) for row in connection.execute(text(QUERY_42)).mappings().all()]
+    return [dict(row) for row in connection.execute(READ_ALL_JOBS).mappings().all()]
 
 
 def _schedule_label(value: Any) -> str:
@@ -1179,8 +1199,7 @@ def list_retirement_builder_jobs() -> list[dict[str, object]]:
         with engine.connect() as connection:
             rows = _job_rows(connection)
             file_formats = _file_formats(connection)
-            scheduled_ids = set(connection.execute(READ_ENABLED_SCHEDULES).scalars())
-        return [_api_job_from_row(row, file_formats, manual_only=row["jobid"] not in scheduled_ids) for row in rows]
+        return [_api_job_from_row(row, file_formats, manual_only=row.get("startDateTime") is None) for row in rows]
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=500, detail="Unable to load Retirement Builder jobs from the database") from exc
 
@@ -1203,7 +1222,7 @@ def _create_job(payload: RetirementBuilderJobInput) -> RetirementBuilderJob:
                 "ismerge": subscriptions.mergeFiles,
                 "mergeemail": ", ".join(row.email for row in subscriptions.rows if row.email),
                 "includeHRecord": payload.mapping.includeHeader,
-                "fileNameFormat": file_name_format_code(general.outputFileNameFormat),
+                "fileNameFormat": _stored_file_name_format(general.outputFileNameFormat),
                 "isEnabled": general.enable,
                 "StoreResult": general.storeResultsToTable,
                 "enddate": None,
@@ -1301,7 +1320,7 @@ def update_retirement_builder_job(job_id: int, payload: RetirementBuilderJobInpu
                 ismerge=subscriptions.mergeFiles,
                 mergeemail=", ".join(row.email for row in subscriptions.rows if row.email),
                 includeHeader=effective_payload.mapping.includeHeader,
-                FileNameFormat=file_name_format_code(general.outputFileNameFormat),
+                FileNameFormat=_stored_file_name_format(general.outputFileNameFormat),
                 isEnabled=general.enable,
                 StoreResults=general.storeResultsToTable,
             ))

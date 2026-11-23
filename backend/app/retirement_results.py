@@ -175,14 +175,18 @@ FILE_NAME_FORMAT_CODES = frozenset({
 })
 _FILE_NAME_CODE_PARTS = {"FILENAME": "file name", "CLIENT": "client id", "PAYDAY": "payday"}
 _FILE_NAME_PART_CODES = {part: code for code, part in _FILE_NAME_CODE_PARTS.items()}
+_FILE_NAME_PART_ALIASES = {
+    "filename": "file name", "client": "client id", "clientid": "client id",
+    "payday": "payday", "paydate": "payday",
+}
 SourceRows = dict[str, list[dict[str, str]]]
 
 
 def parse_file_name_format(value: str) -> tuple[str, ...] | None:
-    if "+" in value or value.strip().casefold() in ("file name", "client id", "pay date"):
-        parts = tuple(part.strip().casefold().replace("pay date", "payday") for part in value.split("+"))
-    else:
-        parts = tuple(_FILE_NAME_CODE_PARTS.get(code.strip().upper(), "") for code in value.split("_"))
+    # Production uses File Name-ClientId-PayDate; older local jobs use
+    # FILENAME_CLIENT_PAYDAY or the dropdown labels with '+' separators.
+    parts = tuple(_FILE_NAME_PART_ALIASES.get(re.sub(r"\s+", "", part).casefold(), "")
+                  for part in re.split(r"[+_\-]", value))
     if len(parts) == len(set(parts)) and all(part in FILE_NAME_FORMAT_PARTS for part in parts):
         return parts
     return None

@@ -5,6 +5,15 @@
   --sidebar: #111c31; --sidebar-active: #223352; --canvas: #f4f6fa;
   --border: #e3e8f0; --control-border: #cbd5e1; --radius: 4px; --sidebar-width: 248px;
 }
+.jobs-actions { flex-wrap: wrap; }
+.job-status-tabs { display: flex; gap: 24px; margin-right: auto; border-bottom: 1px solid var(--border); }
+.job-status-tabs button { display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 10px 2px 12px; border: 0; border-radius: 0; color: var(--muted-dark); background: transparent; box-shadow: inset 0 -2px transparent; font-size: 15px; font-weight: 600; white-space: nowrap; transition: color .15s, box-shadow .15s; }
+.job-status-tabs button:hover { color: var(--primary); }
+.job-status-tabs button.selected { color: var(--primary); box-shadow: inset 0 -2px var(--primary); }
+.job-status-tabs button:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 3px; }
+.job-status-count { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; padding: 2px 7px; border-radius: 999px; color: var(--muted-dark); background: #f1f5f9; font-size: 12px; line-height: 18px; font-weight: 600; }
+.job-status-tabs button.selected .job-status-count { color: var(--primary-dark); background: #eaf1ff; }
+.job-status-tabs button:disabled { cursor: default; opacity: .65; }
 * { box-sizing: border-box; }
 html { font-size: 100%; }
 body { min-width: 320px; margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font); font-size: 1.125rem; line-height: 1.5; font-synthesis: none; text-rendering: optimizeLegibility; }

@@ -14,7 +14,7 @@ from app.report_mail import send_report_email
 from app.report_scheduler import _run_scheduled_job
 from app.retirement_procedure import ProcedureResultSet, ProcedureSource, build_procedure_report_files
 from app.retirement_results import _output_name, build_report_files, merge_report_files, report_extension
-from app.routers.retirement_builder import RetirementBuilderJob
+from app.routers.retirement_builder import RetirementBuilderJob, _stored_file_name_format
 
 
 FORMATS = (("CSV", ",", ".csv"), ("PIPE", "|", ".txt"), ("SEMICOLON", ";", ".txt"),
@@ -151,14 +151,15 @@ class ReportExtensionTests(TestCase):
         }
         for file_format, delimiter, extension in FORMATS:
             for name_format, stems in names.items():
-                with self.subTest(file_format=file_format, name_format=name_format):
-                    job = sample_job(file_format, name_format)
-                    for reports in (build_report_files(job, source_csv(), delimiter=delimiter),
-                                    build_procedure_report_files(job, procedure_source(), delimiter)):
-                        self.assertEqual([r.file_name for r in reports], [stem + extension for stem in stems])
-                        for report in reports:
-                            self.assertEqual(report.csv, expected_content(
-                                delimiter, fixed=file_format == "FIXED", copies=2 if len(stems) == 1 else 1))
+                for spelling in (name_format, _stored_file_name_format(name_format)):
+                    with self.subTest(file_format=file_format, name_format=spelling):
+                        job = sample_job(file_format, spelling)
+                        for reports in (build_report_files(job, source_csv(), delimiter=delimiter),
+                                        build_procedure_report_files(job, procedure_source(), delimiter)):
+                            self.assertEqual([r.file_name for r in reports], [stem + extension for stem in stems])
+                            for report in reports:
+                                self.assertEqual(report.csv, expected_content(
+                                    delimiter, fixed=file_format == "FIXED", copies=2 if len(stems) == 1 else 1))
 
     def test_configured_header_detail_and_trailer_content_remains_in_order(self):
         trailer = ["END"] * len(HEADERS)

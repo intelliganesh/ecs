@@ -853,16 +853,16 @@ class JobValidationTests(TestCase):
 
     def test_job_list_hides_schedule_defaults_when_the_job_has_no_start_date(self):
         saved_defaults = {"runday": "Thursday", "runtime": "4:00 AM", "ScheduleType": "Weekly", "Job_Last_Status": "Success"}
-        rows = [{"jobid": 62, **saved_defaults}, {"jobid": 63, **saved_defaults}]
+        rows = [{"jobid": 62, "startDateTime": None, **saved_defaults},
+                {"jobid": 63, "startDateTime": datetime(2026, 11, 1), **saved_defaults}]
         with (
             patch.object(rb.engine, "connect") as connect,
             patch.object(rb, "_job_rows", return_value=rows),
             patch.object(rb, "_file_formats", return_value={}),
         ):
             connection = connect.return_value.__enter__.return_value
-            connection.execute.return_value.scalars.return_value = [63]
             manual, scheduled = rb.list_retirement_builder_jobs()
-            connection.execute.assert_called_once_with(rb.READ_ENABLED_SCHEDULES)
+            connection.execute.assert_not_called()
         self.assertEqual(manual["schedule"], {
             "startDate": None, "week": "", "hour": "", "minute": "", "meridiem": "", "buildFrequency": "",
         })
@@ -881,6 +881,42 @@ class JobValidationTests(TestCase):
 
 
 class ConfigurationSaveTests(TestCase):
+    def test_production_filename_formats_round_trip_and_save_using_xml_values(self):
+        cases = (
+            ("FILENAME", "File Name"), ("CLIENT", "CLIENT"), ("PAYDAY", "PayDate"),
+            ("FILENAME_CLIENT", "File Name-ClientId"),
+            ("FILENAME_PAYDAY", "File Name-PayDate"),
+            ("CLIENT_PAYDAY", "ClientId-PayDate"),
+            ("FILENAME_CLIENT_PAYDAY", "File Name-ClientId-PayDate"),
+        )
+        for code, stored in cases:
+            for submitted in (code, stored):
+                with self.subTest(code=code, submitted=submitted):
+                    payload = input_job(general={"fileName": "Payroll", "fileFormat": "CSV",
+                                                 "outputFileNameFormat": submitted},
+                                        mapping={"rows": [{"field": "Name", "recordType": "D"}]})
+                    saved = rb.RetirementBuilderJob(id=60, **payload.model_dump())
+                    with (patch.object(rb.engine, "begin") as begin,
+                          patch.object(rb, "_file_formats", return_value={"CSV": ","}),
+                          patch.object(rb, "_execute_identity_query", return_value=60) as insert,
+                          patch.object(rb, "_write_job_details"),
+                          patch.object(rb, "_read_full_job", return_value=saved),
+                          patch.object(rb, "_read_edit_job", return_value=saved)):
+                        rb._create_job(payload)
+                        self.assertEqual(insert.call_args.args[2]["fileNameFormat"], stored)
+                        rb.update_retirement_builder_job(60, payload)
+                        connection = begin.return_value.__enter__.return_value
+                        update = connection.execute.call_args_list[0].args[0].compile(dialect=mssql.dialect())
+                        self.assertEqual(update.params["FileNameFormat"], stored)
+                    reopened = rb._job_from_rows(
+                        {"jobid": 60, "jobfilename": "Payroll", "jobdesc": "", "filetype": "CSV",
+                         "isEnabled": True, "StoreResults": False, "includeHeader": True,
+                         "ismerge": False, "FileNameFormat": stored},
+                        {"rbJobTypeChk": "Weekly", "schedules_session": "AM", "ScheduleWeek": "4"},
+                        [], [], [], [], [], {},
+                    )
+                    self.assertEqual(reopened.general.outputFileNameFormat, code)
+
     def test_save_updates_modified_fields_without_writing_last_run_or_history(self):
         payload = input_job(general={
             "fileName": "Unchanged name", "fileFormat": "FIXED", "description": "Edited description",

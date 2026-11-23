@@ -380,7 +380,7 @@ endpoint reports 503 when its DB read fails.
 | 31 | Insert H/D/T configuration in `rjob_query`. |
 | 35 / 36 | Insert mapping details / create main job and return its identity. |
 | 37 / 38 | Insert subscriptions / schedule. |
-| 42 | Enabled-job dashboard query joining jobs, schedules and history. |
+| 42 | Legacy enabled-only job listing, retained unchanged. The dashboard uses the read-only `READ_ALL_JOBS` query in `retirement_listing.py` to include disabled jobs and jobs without schedules. |
 | 44 | Delete related configuration before normal update reinserts it; does not delete the main job. |
 | 45 | Legacy main-row update, retained unchanged. Current PUT uses SQLAlchemy configuration update to avoid its `joblastrun=GETDATE()` assignment. |
 | 52 | Update Run history status. |
@@ -564,15 +564,22 @@ region. FIXED is not “one space between every value.”
 Examples use CSV format, filename `Payroll`, client `000204`, paydate `2026-10-15`.
 Other formats retain the same components and use the extension listed above:
 
-| Label | Stored code | Example |
+| Label | Stored value (from options.xml) | Example |
 | --- | --- | --- |
-| File Name | `FILENAME` | `Payroll.csv` |
+| File Name | `File Name` | `Payroll.csv` |
 | Client ID | `CLIENT` | `000204.csv` |
-| Payday | `PAYDAY` | `2026-10-15.csv` |
-| File Name + Client ID | `FILENAME_CLIENT` | `Payroll_000204.csv` |
-| File Name + Payday | `FILENAME_PAYDAY` | `Payroll_2026-10-15.csv` |
-| Client ID + Payday | `CLIENT_PAYDAY` | `000204_2026-10-15.csv` |
-| File Name + Client ID + Payday | `FILENAME_CLIENT_PAYDAY` | `Payroll_000204_2026-10-15.csv` |
+| Payday | `PayDate` | `2026-10-15.csv` |
+| File Name + Client ID | `File Name-ClientId` | `Payroll_000204.csv` |
+| File Name + Payday | `File Name-PayDate` | `Payroll_2026-10-15.csv` |
+| Client ID + Payday | `ClientId-PayDate` | `000204_2026-10-15.csv` |
+| File Name + Client ID + Payday | `File Name-ClientId-PayDate` | `Payroll_000204_2026-10-15.csv` |
+
+Create/update saves use the production spelling in the XML `value` attribute.
+API/dropdown values remain normalized codes (such as `FILENAME_PAYDAY`). Reading
+and rendering also accept existing local codes, production hyphenated values,
+and labels with `+` separators. Existing records need no migration; a later
+authorized Save uses the configured spelling. These setting values do not change
+the underscores between components in actual downloaded filenames.
 
 FILENAME alone creates one report from included data. CLIENT/PAYDAY group by the
 distinct included values/combinations. File count is not necessarily subscription
@@ -660,7 +667,7 @@ that prefix. FastAPI `/docs` and `/openapi.json` describe detailed schemas.
 | `GET /health/db` | DB SELECT health check, outside prefix. |
 | `GET /options` | DB/XML choices and labels. |
 | `GET /clients` | Query 43 client catalog. |
-| `GET /jobs` | Enabled jobs; no server pagination parameters. |
+| `GET /jobs` | All jobs, enabled and disabled; no server pagination parameters. The dashboard separates Active Jobs and Disabled Jobs tabs, with Active Jobs selected initially. Disabled jobs remain available for editing/re-enabling and retain their configured schedule display. Scheduler eligibility still requires enabled jobs. |
 | `POST /jobs` | Create configuration; optional `Idempotency-Key`. |
 | `GET /jobs/{job_id}` | Full edit configuration; 404 if absent. |
 | `PUT /jobs/{job_id}` | Transactional configuration update/replacement. |

@@ -20,7 +20,6 @@ export function mergeSavedJob<T extends SavedJobSnapshot>(jobs: T[], saved: T): 
     general: { ...previous?.general, ...saved.general },
     schedule: { ...previous?.schedule, ...saved.schedule },
   } as T
-  if (merged.general?.enable === false) return jobs.filter((job) => job.id !== saved.id)
   return previous ? jobs.map((job) => job.id === saved.id ? merged : job) : [merged, ...jobs]
 }
 
