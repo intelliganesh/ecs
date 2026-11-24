@@ -10,4 +10,4 @@ __pycache__/
 /backend/report-output/
 /backend/logs/
 .DS_Store
-
+/logs/*

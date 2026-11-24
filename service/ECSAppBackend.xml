@@ -1,11 +1,11 @@
 <service>
-  <id>SchedulerAppBackend</id>
-  <name>Scheduler App Backend</name>
+  <id>ECSAppBackend</id>
+  <name>ECS App Backend</name>
   <description>FastAPI backend and report scheduler for Scheduler App</description>
 
-  <executable>C:\projects\scheduler_app\backend\.venv\Scripts\python.exe</executable>
+  <executable>C:\projects\scheduler_app\ecs\backend\.venv\Scripts\python.exe</executable>
   <arguments>-m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1</arguments>
-  <workingdirectory>C:\projects\scheduler_app\backend</workingdirectory>
+  <workingdirectory>C:\projects\scheduler_app\ecs\backend</workingdirectory>
 
   <env name="PYTHONUNBUFFERED" value="1" />
 
@@ -17,7 +17,7 @@
   <onfailure action="restart" delay="10 sec" />
   <resetfailure>1 hour</resetfailure>
 
-  <logpath>C:\projects\scheduler_app\logs\service</logpath>
+  <logpath>C:\projects\scheduler_app\ecs\logs\service</logpath>
   <log mode="roll-by-size">
     <sizeThreshold>10240</sizeThreshold>
     <keepFiles>8</keepFiles>

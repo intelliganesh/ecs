@@ -9,7 +9,9 @@ from app.retirement_results import MAX_SOURCE_BYTES, InvalidRun
 
 @contextmanager
 def publish_report(path: Path, csv: str):
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    # Windows report directories inherit access from the configured output root.
+    # Mode 0o700 creates a restricted ACL there and drops inherited reader access.
+    path.parent.mkdir(mode=0o777 if os.name == "nt" else 0o700, parents=True, exist_ok=True)
     temporary = NamedTemporaryFile(dir=path.parent, delete=False)
     temporary_path = Path(temporary.name)
     try:
