@@ -78,6 +78,19 @@ application edits, database writes, report Runs or email delivery.
 
 ## Retirement Builder report export contract
 
+- Multiple Detail datasets have separate cards and `DataSetNo`/`ColSeqNo` order.
+  Each card collapses independently, retains its visible field count when closed,
+  and opens when Add Row is used.
+  New D SELECTs carry a reserved fourth metadata projection (`__ecs_dataset_N`),
+  removed before export, so SP cursor order is never used as dataset identity.
+  Preserve business aliases and H/D/T record types: one H/T query per job and
+  one D per dataset. Legacy results require unique confirmed query/column
+  evidence; do not infer calculated field names or ambiguous result order.
+  Automatic headers label each populated section, separated by a blank line.
+  Shared H/T and File Settings remain job-level. Multiple datasets require the
+  rjobbuilder source with Store Results to Table OFF; reject unsupported paths
+  before invoking the SP. Generated-query metadata is an application contract,
+  not a schema, query.brl or stored-procedure modification.
 - Automatic headers use `RETIREMENT_HEADER_SOURCE=DETAIL_ALIGNED` by default.
   When Include Header Row is checked, labels and field formatting follow the
   confirmed D output column order so a stale/reordered H query cannot mislabel

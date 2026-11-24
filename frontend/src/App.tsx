@@ -8,7 +8,7 @@ import { writeFile } from 'xlsx'
 import {
   configuredFileFormat, conditionValueError, createJobListRequestGuard, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors, manualRunDateHelp,
   excelDownloadFileName, isExcelFile, mappingColumnType, pasteEmailText, readExcelMappings, reportEmailMessage, reportMimeType, reportWorkbook,
-  mergeSavedJob, normalizeSortingPriorities, sortingPriorityError, validEmail, validIsoDate, validWholeNumber,
+  mergeSavedJob, mappingDatasets, normalizeDatasetSequences, nextMappingPosition, normalizeSortingPriorities, sortingPriorityError, validEmail, validIsoDate, validWholeNumber,
   type ConditionValueType, type ReportEmailDelivery, type SortingPriorityRow,
 } from './retirementBuilder'
 
@@ -515,7 +515,10 @@ export default function App({ userEmail }: { userEmail: string }) {
   }
   const updateFilter = (index: number, value: string) => setFilters((current) => value ? { ...current, [index]: value } : Object.fromEntries(Object.entries(current).filter(([key]) => Number(key) !== index)))
   const updateMappingRow = (id: number, patch: Partial<MappingRow>) => setMappingRows((rows) => rows.map((row) => row.id === id ? { ...row, ...patch } : row))
-  const addMappingRow = () => setMappingRows((rows) => [...rows, toMappingRow(isEditFlow ? { startPosition: '0', length: '0' } : {})])
+  const addMappingRow = (dataset?: number) => setMappingRows((current) => {
+    const rows = normalizeDatasetSequences(current)
+    return [...rows, toMappingRow({ ...nextMappingPosition(rows, dataset), recordType: 'Detail', startPosition: '0', length: '0' })]
+  })
   const pageTitle = screen === 'placeholder' ? menuTitles[location.pathname] ?? '' : 'Retirement Builder'; const title = screen === 'dashboard' || screen === 'placeholder' ? '' : isEditFlow ? 'Edit Job' : 'Add New Job'; const userName = userEmail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
   const content = (() => {
     if (screen === 'dashboard') return <Dashboard jobs={dashboardJobs} status={jobsStatus} filters={filters} onFilterChange={updateFilter} onAdd={startAdd} onEdit={startEdit}
@@ -552,6 +555,7 @@ export default function App({ userEmail }: { userEmail: string }) {
       onBack={() => navigate('general')} onNext={() => navigate('mapping')}
     />
     if (screen === 'mapping') return <MappingStep requiresDefault={requiresMappingDefault} includeHeader={includeHeader} rows={mappingRows} fixed={fixedFormat}
+      onAddRow={addMappingRow}
       validate={!!validatedSteps.mapping} onHeaderChange={setIncludeHeader} onRowChange={updateMappingRow}
       onDelete={(id) => setMappingRows((rows) => rows.filter((row) => row.id !== id))}
       onOpenSettings={() => setShowSettings(true)} onBack={() => navigate('schedule')} onNext={() => navigate('subscriptions')}
@@ -566,7 +570,7 @@ export default function App({ userEmail }: { userEmail: string }) {
       onBack={() => navigate('mapping')} onFinish={saveJob}
     />
   })()
-  return <OptionsContext.Provider value={options}><div className={`app-shell ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}><header className="topbar"><div className="brand">ECS</div><button className="menu-button" onClick={() => setSidebarOpen((open) => !open)} aria-label="Toggle navigation">☰</button><div className="user-name">{userName}</div></header><div className="workspace"><Sidebar active={screen} onNavigate={navigate} onNavigatePath={routerNavigate} /><main className="main-content"><div className="page-heading"><h1>{pageTitle}</h1><div className="breadcrumb"><CircleDot className="breadcrumb-icon" aria-hidden="true" /><button type="button" className="breadcrumb-link" onClick={() => navigate('dashboard')}>SYD</button><ChevronRight className="breadcrumb-chevron" aria-hidden="true" /><span>{title}</span></div></div>{screen === 'dashboard' || screen === 'placeholder' ? content : <WizardCard title={title} activeStep={screen} stepsDisabled={awaitingJob} onCancel={() => navigate('dashboard')} onNavigate={navigate} headerActions={screen === 'mapping' ? <button type="button" className="button button-primary" onClick={addMappingRow}><span className="button-icon"><ToolIcon name="plus" /></span>Add Dataset</button> : screen === 'general' && isEditFlow ? <button type="button" className="button button-light" onClick={() => navigate('dashboard')}>Cancel</button> : undefined}>{content}</WizardCard>}<footer><span>Copyright © 2026</span><strong>Employer Services Corporation.</strong><span>All rights reserved.</span></footer></main></div>{showSettings && <FileSettingsModal reportSource={reportSource} mappingRows={mappingRows} initialSorting={fileSettings.sortingOrder} initialConditional={fileSettings.conditionalStatements} onSave={(sortingOrder, conditionalStatements) => { setFileSettings({ sortingOrder, conditionalStatements }); setShowSettings(false) }} onClose={() => setShowSettings(false)} />}</div></OptionsContext.Provider>
+  return <OptionsContext.Provider value={options}><div className={`app-shell ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}><header className="topbar"><div className="brand">ECS</div><button className="menu-button" onClick={() => setSidebarOpen((open) => !open)} aria-label="Toggle navigation">☰</button><div className="user-name">{userName}</div></header><div className="workspace"><Sidebar active={screen} onNavigate={navigate} onNavigatePath={routerNavigate} /><main className="main-content"><div className="page-heading"><h1>{pageTitle}</h1><div className="breadcrumb"><CircleDot className="breadcrumb-icon" aria-hidden="true" /><button type="button" className="breadcrumb-link" onClick={() => navigate('dashboard')}>SYD</button><ChevronRight className="breadcrumb-chevron" aria-hidden="true" /><span>{title}</span></div></div>{screen === 'dashboard' || screen === 'placeholder' ? content : <WizardCard title={title} activeStep={screen} stepsDisabled={awaitingJob} onCancel={() => navigate('dashboard')} onNavigate={navigate} headerActions={screen === 'mapping' ? <button type="button" className="button button-primary" disabled={awaitingJob} onClick={() => addMappingRow()}><span className="button-icon"><ToolIcon name="plus" /></span>Add Dataset</button> : screen === 'general' && isEditFlow ? <button type="button" className="button button-light" onClick={() => navigate('dashboard')}>Cancel</button> : undefined}>{content}</WizardCard>}<footer><span>Copyright © 2026</span><strong>Employer Services Corporation.</strong><span>All rights reserved.</span></footer></main></div>{showSettings && <FileSettingsModal reportSource={reportSource} mappingRows={mappingRows} initialSorting={fileSettings.sortingOrder} initialConditional={fileSettings.conditionalStatements} onSave={(sortingOrder, conditionalStatements) => { setFileSettings({ sortingOrder, conditionalStatements }); setShowSettings(false) }} onClose={() => setShowSettings(false)} />}</div></OptionsContext.Provider>
 }
 
 function MenuIcon({ name }: { name: SideIcon }) { if (name === 'file') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.5h9l5 5V20.5H5z" /><path d="M14 3.5v5h5" /></svg>; if (name === 'copy') return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6.5" width="11" height="13" rx="1.5" /><path d="M8 6.5V4.8A1.8 1.8 0 0 1 9.8 3h9a1.8 1.8 0 0 1 1.8 1.8v9A1.8 1.8 0 0 1 18.8 15H15" /></svg>; return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.7 3.2 3.2-.7L18.8 6.7a2.2 2.2 0 0 0-3.1-3.1z" /><path d="m14.7 5.3 4 4" /></svg> }
@@ -998,7 +1002,7 @@ function MappingNumber({ label, value, onChange, validate, minimum = 0, maximum 
     <FieldError id={errorId} message={invalid ? `Enter a whole number from ${minimum} to ${maximum}.` : undefined} /></>
 }
 
-function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, onHeaderChange, onRowChange, onDelete, onOpenSettings, onBack, onNext }: {
+function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, onHeaderChange, onRowChange, onDelete, onAddRow, onOpenSettings, onBack, onNext }: {
   requiresDefault: (source: string) => boolean
   includeHeader: boolean
   rows: MappingRow[]
@@ -1007,10 +1011,13 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
   onHeaderChange: (checked: boolean) => void
   onRowChange: (id: number, patch: Partial<MappingRow>) => void
   onDelete: (id: number) => void
+  onAddRow: (dataset: number) => void
   onOpenSettings: () => void
   onBack: () => void
   onNext: () => void
 }) {
+  const [collapsedDatasets, setCollapsedDatasets] = useState<number[]>([])
+  const datasetPanelId = useId()
   const { values } = useContext(OptionsContext)
   const columnLabel = (column: string) => mappingLabel(column, values.mappingColumnLabels)
   const typeFor = (column: string) => mappingColumnType(columnLabel(column), values.mappingColumnTypes)
@@ -1030,13 +1037,27 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
             <input type="checkbox" checked={includeHeader} onChange={(event) => onHeaderChange(event.target.checked)} />Include Header Row
           </label>
           <button type="button" className="icon-button" onClick={onOpenSettings} aria-label="Manage dataset settings" title="Manage dataset settings"><Settings aria-hidden="true" /></button>
-          <button className="icon-button" onClick={onOpenSettings} aria-label="Add file setting rule" title="Add a sort or condition rule (opens File Settings)"><ToolIcon name="plus" /></button>
         </div>
       </div>
+      <p className="dataset-help">Each dataset is a separate report section. Header, trailer and File Settings apply to the job.</p>
+      {mappingDatasets(rows).map(({ number, rows: datasetRows }) => <section className="dataset-card" key={number} aria-label={`Dataset ${number}`}>
+        <div className="dataset-card-heading"><h3><button type="button" className="dataset-toggle"
+          aria-expanded={!collapsedDatasets.includes(number)} aria-controls={`${datasetPanelId}-${number}`}
+          aria-label={`${collapsedDatasets.includes(number) ? 'Expand' : 'Collapse'} Dataset ${number}`}
+          onClick={() => setCollapsedDatasets((current) => current.includes(number) ? current.filter((value) => value !== number) : [...current, number])}>
+          <ChevronRight aria-hidden="true" size={18} />Dataset {number} <span>{datasetRows.length} fields</span>
+        </button></h3>
+          <button type="button" className="button button-light" onClick={() => {
+            setCollapsedDatasets((current) => current.filter((value) => value !== number))
+            onAddRow(number)
+          }} aria-label={`Add row to Dataset ${number}`}><Plus aria-hidden="true" size={16} /> Add Row</button>
+        </div>
+      <div id={`${datasetPanelId}-${number}`} hidden={collapsedDatasets.includes(number)}>
       <div className="mapping-table-wrap">
         <table className="mapping-table">
           <thead><tr>{['Field Name', 'Start Position', 'Length', 'Record Type', 'Default Value', 'Mapping Column', 'Format', 'Action'].map((heading) => <th scope="col" key={heading} title={heading === 'Start Position' ? 'FIXED format only. Zero-based: 0 is the first character of the line.' : undefined}>{heading}</th>)}</tr></thead>
-          <tbody>{rows.map((row, index) => {
+          <tbody>{datasetRows.map((row) => {
+            const index = rows.indexOf(row)
             const label = row.field || 'New'
             const fixedLengthRequired = fixed && !(includeHeader && ['H', 'HEADER'].includes(row.recordType.trim().toUpperCase()))
             const type = typeFor(row.mapping || row.field)
@@ -1078,11 +1099,13 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
                 ariaLabel={`${label} format`} clearLabel="No format" includeSavedOption={false} /></td>
               <td><button className="icon-button trash" onClick={() => onDelete(row.id)} aria-label={`Delete ${row.field} mapping`} title={`Delete ${row.field} mapping`}><ToolIcon name="trash" /></button></td>
             </tr>
-          })}{!rows.length && <tr><td colSpan={8}>
+          })}{!datasetRows.length && <tr><td colSpan={8}>
             {validate ? <span className="field-error" role="alert">Add at least one dataset mapping.</span> : 'No mappings added.'}
           </td></tr>}</tbody>
         </table>
       </div>
+      </div>
+      </section>)}
     </div>
     <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onNext}>Next</button></div>
   </div>

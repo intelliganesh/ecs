@@ -590,6 +590,38 @@ report name, so a base such as `Payroll.csv` does not become `Payroll.csv.txt`.
 Filename sanitization and collision suffixes remain supported in both report
 writers, as do single-client, multiple-client and merged report names.
 
+### Multiple Detail datasets
+
+**Add Dataset** creates a separate mapping card. **Add Row** adds a field only to
+that card and opens it if collapsed. Click a dataset heading to collapse or expand
+its fields; the field count remains visible while closed. Dataset/column order is
+retained through `DataSetNo` and `ColSeqNo`.
+Include Header Row, configured H/T mappings, sorting and conditions remain
+job-level settings. With automatic headers enabled, each Detail section gets its
+own confirmed field labels, with a blank line between populated sections. Fields
+are dynamic; there are no job-specific or hardcoded business column names.
+
+Normal Save generates one `D` SELECT per dataset using existing query 31, retaining
+one H and one T query. Each new D SELECT includes a reserved technical fourth
+projection, for example `2 AS [__ecs_dataset_2]`. This identifies even empty
+results without depending on the unchanged `rjobbuilder` cursor order. The
+application removes the marker before header alignment, formatting and export;
+it never appears as a report field. Business aliases are preserved, not invented.
+
+Legacy multiple D queries are matched by confirmed query/result-column metadata.
+An unmapped legacy dataset can be shown read-only when all its source identifiers
+are explicit and unique. Calculated, duplicate or indistinguishable legacy output
+requires mapping review rather than positional guesses. Viewing a job does not
+persist derived mappings or migrate its queries; an authorized Save does.
+
+Multiple datasets use `rjobbuilder` result sets. Store Results to Table is blocked
+for this flow because the unchanged SP inserts into one target table; direct CSV
+Run uploads and the legacy Company Payroll template source are not supported for
+multiple dataset cards. Automatic multi-dataset headers require
+`RETIREMENT_HEADER_SOURCE=DETAIL_ALIGNED`; `SAVED_H` remains available for existing
+single-dataset jobs. Existing row/byte limits still apply across the procedure
+output. No SP, schema or existing `query.brl` definition change is required.
+
 ## Scheduling, email and storage
 
 ### Automatic execution

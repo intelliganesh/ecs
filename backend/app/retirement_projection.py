@@ -57,8 +57,6 @@ def replace_detail_projection(query: str, old_rows, new_rows, expression) -> str
         return query
     # Changing the layout of an opaque legacy SELECT could silently pair the
     # wrong source/alias with an output field. Reject instead of exporting stale data.
-    if old_positions.keys() != new_positions.keys():
-        raise InvalidRun("Changing the saved Detail query layout requires confirmed column and alias mappings.")
     tokens = list(_top_level_tokens(query))
     prefix = re.match(r"\s*SELECT\s+(?:DISTINCT\s+)?(?:TOP\s+(?:\d+|\(\s*\d+\s*\))\s+)?", query, re.IGNORECASE)
     if prefix is None or any(word in {"FROM", "UNION", "INTO"} for word, _, _ in tokens):
@@ -67,6 +65,23 @@ def replace_detail_projection(query: str, old_rows, new_rows, expression) -> str
     starts, ends = [prefix.end(), *[pos + 1 for pos in commas]], [*commas, len(query)]
     if len(starts) != 3 + len(old_rows):
         raise InvalidRun("The saved Detail query columns do not match its mappings; review it before saving changes.")
+    if old_positions.keys() != new_positions.keys():
+        previous = {(row.dataSetNo, row.colSeqNo): (row, query[start:end].strip())
+                    for row, start, end in zip(old_rows, starts[3:], ends[3:], strict=True)}
+        fields = []
+        for row in new_rows:
+            old = previous.get((row.dataSetNo, row.colSeqNo))
+            if old is None:
+                fields.append(expression(row))
+            elif signature(old[0]) == signature(row):
+                fields.append(old[1])
+            else:
+                part = old[1]
+                aliases = [start for word, start, _ in _top_level_tokens(part) if word == "AS"]
+                if not aliases and not re.fullmatch(r'\s*(?:[A-Za-z_][A-Za-z0-9_]*|\[(?:[^\]]|\]\])+\]|"(?:[^"]|"")+"|\x27(?:[^\x27]|\x27\x27)*\x27)\s*', part):
+                    raise InvalidRun("The changed Detail column needs a confirmed alias before saving.")
+                fields.append(expression(row) + (" " + part[aliases[-1]:] if aliases else ""))
+        return query[:starts[3]] + " " + ", ".join(fields)
     replacements = []
     for index, (old, row) in enumerate(zip(old_rows, new_rows, strict=True), start=3):
         if signature(old) == signature(row):

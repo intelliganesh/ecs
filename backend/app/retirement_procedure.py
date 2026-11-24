@@ -21,6 +21,7 @@ from app.retirement_results import (
     _output_name, _parse_date, is_fixed_format, record_type_code,
 )
 from app.retirement_query_builder import ordered_mappings
+from app.retirement_datasets import ordered_dataset_source
 
 if TYPE_CHECKING:
     from app.routers.retirement_builder import MappingRow, RetirementBuilderJob
@@ -163,12 +164,16 @@ def build_procedure_report_files(
     if flagged and all(flag in {"0", "0.0", "False", ""} for flag in flagged):
         return []
 
+    job, source, dataset_sections = ordered_dataset_source(job, source)
+
     queries = [row.recttype.strip().upper() for row in job.queryConfiguration if row.query.strip()]
     kinds = (["H"] if "H" in queries else []) + ["D"] * queries.count("D") + (["T"] if "T" in queries else [])
     if not kinds or "D" not in kinds or len(kinds) != len(source.result_sets):
         raise InvalidRun("The procedure result sets do not match the saved H, D and T queries.")
 
     detail_headers = job.mapping.includeHeader and get_settings().retirement_header_source == "DETAIL_ALIGNED"
+    if dataset_sections and job.mapping.includeHeader and not detail_headers:
+        raise InvalidRun("Multiple dataset headers require RETIREMENT_HEADER_SOURCE=DETAIL_ALIGNED.")
     if detail_headers and not any(
         row[0].strip() in {"1", "1.0", "True"} and len(row) > 3
         for kind, result in zip(kinds, source.result_sets, strict=True) if kind == "D" for row in result.rows
@@ -178,7 +183,7 @@ def build_procedure_report_files(
     # Keep values positional: SQL permits unnamed and duplicate output columns.
     records: dict[str, list[tuple[str, str, list[MappingRow], tuple[str, ...]]]] = {"H": [], "D": [], "T": []}
     layouts = _export_layouts(job, kinds, source, detail_headers=detail_headers)
-    if detail_headers:
+    if detail_headers or dataset_sections:
         mappings = ordered_mappings(row.model_copy(update={"recordType": record_type_code(row.recordType or "D")})
                                     for row in job.mapping.rows)
         detail_mappings = [row for row in mappings if row.recordType == "D"]
@@ -255,28 +260,39 @@ def build_procedure_report_files(
             header = tuple(row.field for row in layout)
             signature = lambda rows: [(row.field, row.startPosition, row.length,
                                        row.format.startswith("RA")) for row in rows]
-            if any(tuple(row.field for row in record[2]) != header or
+            if not dataset_sections and any(tuple(row.field for row in record[2]) != header or
                    (fixed and signature(record[2]) != signature(layout)) for record in details):
                 raise InvalidRun("Detail datasets in one file need the same confirmed automatic header and field layout.")
-            selected["H"] = [("", "", layout, header)]
+            selected["H"] = [] if dataset_sections else [("", "", layout, header)]
         output = StringIO(newline="")
         writer = csv.writer(output, delimiter=delimiter)
         rows = []
         excel_rows = [] if fixed else None
+        def write_entry(kind, layout, values):
+            if fixed:
+                record, fields = _fixed_record(values, layout)
+                output.write(record)
+                excel_rows.append(fields)
+                values = tuple(fields)
+            else:
+                writer.writerow(values)
+            if output.tell() > remaining:
+                raise InvalidRun("The generated report exceeds the 10 MB limit.")
+            rows.append(ResultRow(kind, {str(index): value for index, value in enumerate(values, 1)}))
+
+        previous_dataset = None
         for kind, entries in selected.items():
             for _, _, layout, values in entries:
-                if fixed:
-                    record, fields = _fixed_record(values, layout)
-                    output.write(record)
-                    excel_rows.append(fields)
-                    values = tuple(fields)
-                else:
-                    writer.writerow(values)
-                if output.tell() > remaining:
-                    raise InvalidRun("The generated report exceeds the 10 MB limit.")
-                # Keys are internal record positions, not SQL aliases. This
-                # preserves duplicate/unnamed returned columns without loss.
-                rows.append(ResultRow(kind, {str(index): value for index, value in enumerate(values, 1)}))
+                if kind == "D" and dataset_sections:
+                    dataset = layout[0].dataSetNo
+                    if previous_dataset is not None and dataset != previous_dataset:
+                        output.write("\r\n")
+                        if fixed:
+                            excel_rows.append([])
+                    if dataset != previous_dataset and detail_headers:
+                        write_entry("H", layout, tuple(row.field for row in layout))
+                    previous_dataset = dataset
+                write_entry(kind, layout, values)
         csv_text = output.getvalue()
         remaining -= len(csv_text.encode("utf-8"))
         if remaining < 0:

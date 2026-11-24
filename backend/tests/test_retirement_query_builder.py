@@ -43,10 +43,11 @@ class ExportQueryGenerationTests(TestCase):
             {"field": "PAYDATE", "mappingColumn": "paydate", "recordType": "D", "dataSetNo": 1, "colSeqNo": 1},
         ])
         queries = generate(payload)
-        self.assertEqual([row["recttype"] for row in queries], ["H", "D", "T"])
-        self.assertEqual(queries[0]["query"], "SELECT TOP 1 valid_flag, retnum, paydate AS sort1, 'PAYDATE', 'WORK PHONE', 'LASTNAME', 'FIRSTNAME'")
-        self.assertEqual(queries[1]["query"], "SELECT valid_flag, retnum, paydate AS sort1, [paydate], [workphone], [lastname], [firstname]")
-        self.assertEqual(queries[2]["query"], "SELECT DISTINCT valid_flag, retnum, '01/01/1900' AS sort1")
+        self.assertEqual([row["recttype"] for row in queries], ["H", "D", "D", "T"])
+        self.assertEqual(queries[0]["query"], "SELECT TOP 1 valid_flag, retnum, paydate AS sort1, 'PAYDATE', 'WORK PHONE'")
+        self.assertEqual(queries[1]["query"], "SELECT valid_flag, retnum, paydate AS sort1, 1 AS [__ecs_dataset_1], [paydate], [workphone]")
+        self.assertEqual(queries[2]["query"], "SELECT valid_flag, retnum, paydate AS sort1, 2 AS [__ecs_dataset_2], [lastname], [firstname]")
+        self.assertEqual(queries[3]["query"], "SELECT DISTINCT valid_flag, retnum, '01/01/1900' AS sort1")
         self.assertTrue(all(" FROM " not in row["query"] for row in queries))
 
     def test_configured_h_and_t_use_defaults_formats_and_safe_identifiers_without_aliases(self):
@@ -78,7 +79,7 @@ class ExportQueryGenerationTests(TestCase):
         detail = queries[1]
         self.assertEqual(detail["query"], original.query)
         self.assertEqual(detail["conditions"], original.conditions)
-        with self.assertRaisesRegex(InvalidRun, "Multiple distinct detail queries"):
+        with self.assertRaisesRegex(InvalidRun, "confirmed dataset identities"):
             generate(job([{"field": "LASTNAME", "mappingColumn": "lastname", "recordType": "D"}]),
                      [original, original.model_copy(update={"query": "different SQL"})])
 

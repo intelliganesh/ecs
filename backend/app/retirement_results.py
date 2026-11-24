@@ -489,6 +489,8 @@ def build_report_files(
     job: "RetirementBuilderJob", source: bytes, *, from_payroll_procedure: bool = False, delimiter: str | None = None,
     source_labels: dict[str, str] | None = None, date_range: ReportDateRange = ReportDateRange(),
 ) -> list[ReportFile]:
+    if len({row.dataSetNo for row in job.mapping.rows if row.recordType.strip().upper() in {"D", "DETAIL", ""}}) > 1:
+        raise InvalidRun("Multiple datasets require rjobbuilder result sets; a CSV Run upload is not supported.")
     fixed = is_fixed_format(job.general.fileFormat)
     if delimiter is None:
         delimiter = " " if fixed else _LEGACY_DELIMITERS.get(file_format_name(job.general.fileFormat))

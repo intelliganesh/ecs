@@ -19,9 +19,24 @@ after(async () => {
 })
 const {
   configuredFileFormat, conditionValueError, createJobListRequestGuard, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors, manualRunDateHelp,
-  mergeSavedJob, normalizeSortingPriorities, sortingPriorityError, pasteEmailText, readExcelMappings, reportWorkbook,
+  mergeSavedJob, mappingDatasets, normalizeDatasetSequences, nextMappingPosition, normalizeSortingPriorities, sortingPriorityError, pasteEmailText, readExcelMappings, reportWorkbook,
   excelDownloadFileName, reportMimeType, validEmail, validIsoDate, validWholeNumber,
 } = await vite.ssrLoadModule('/src/retirementBuilder.ts')
+
+test('dataset cards group arbitrary fields by identity and retain independent column sequences', () => {
+  const rows = normalizeDatasetSequences([
+    { id: 1, field: 'Region', dataSetNo: 3, colSeqNo: 7 },
+    { id: 2, field: 'Amount', dataSetNo: 1 },
+    { id: 3, field: 'Region', dataSetNo: 3 },
+  ])
+  assert.deepEqual(mappingDatasets(rows).map(({ number, rows }) => [number, rows.map(row => row.id)]), [[1, [2]], [3, [1, 3]]])
+  assert.deepEqual(rows.map(row => row.colSeqNo), [7, 1, 8])
+  assert.deepEqual(nextMappingPosition(rows), { dataSetNo: 4, colSeqNo: 1 })
+  assert.deepEqual(nextMappingPosition(rows, 3), { dataSetNo: 3, colSeqNo: 9 })
+  assert.deepEqual(nextMappingPosition([]), { dataSetNo: 1, colSeqNo: 1 })
+  assert.equal(mappingDatasets([])[0].number, 1)
+  assert.throws(() => nextMappingPosition([{ dataSetNo: 2147483647 }]), /integer limit/)
+})
 
 test('conditions validate by data type and blank manual dates describe the existing sentinel contract', () => {
   for (const value of ["O'Brien AND Sons", '000000001', '2026-10-15', 'text, with | delimiters']) {

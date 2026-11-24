@@ -33,6 +33,7 @@ from app.retirement_procedure import ProcedureSource, build_procedure_report_fil
 from app.retirement_query_builder import export_record_queries, ordered_mappings, sql_identifier
 from app.retirement_conditions import parsed_conditions
 from app.retirement_listing import READ_ALL_JOBS
+from app.retirement_datasets import expand_legacy_datasets, split_dataset_query
 from app.retirement_results import (
     COMPARISONS, FILE_NAME_FORMAT_CODES, MAX_SOURCE_BYTES, RECORD_TYPES, SSN_FORMATS,
     InvalidRun, ReportDateRange, ReportFile, UNBOUNDED_RUN_DATE, build_report_files, condition_date, file_format_name,
@@ -125,6 +126,7 @@ class QueryConfigurationRow(BaseModel):
     query: str = ""
     conditions: str = ""
     sortOrder: str = ""
+    dataSetNo: int | None = Field(default=None, ge=0, le=2_147_483_647)
 
 
 class RetirementBuilderJob(BaseModel):
@@ -895,7 +897,7 @@ def _job_from_rows(
             "mappingColumn": row["mapping_column"],
             "direction": "DESC" if row["sort_order"] < 0 else "ASC",
         } for row in sorted(sorting, key=lambda rule: _sort_priority(rule["sort_order"]))]
-    return RetirementBuilderJob.model_validate({
+    job = RetirementBuilderJob.model_validate({
         "id": int(main["jobid"]),
         "general": {
             "fileName": main.get("jobfilename"),
@@ -952,6 +954,7 @@ def _job_from_rows(
             "sortOrder": row.get("Sort_Order"),
         } for row in query_configuration],
     })
+    return expand_legacy_datasets(job)
 
 
 def _merge_missing_fields(current: BaseModel, original: BaseModel, fields: tuple[str, ...]) -> BaseModel:
@@ -1006,18 +1009,26 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
         }))
     try:
         mappings = ordered_mappings(mappings)
+        dataset_numbers = sorted({row.dataSetNo for row in mappings if row.recordType == "D"})
+        if len(dataset_numbers) > 1:
+            if general.storeResultsToTable:
+                raise InvalidRun("Turn off Store Results to Table for multiple datasets.")
+            if uses_payroll:
+                raise InvalidRun("Multiple dataset cards require the rjobbuilder report source.")
+            if payload.mapping.includeHeader and get_settings().retirement_header_source != "DETAIL_ALIGNED":
+                raise InvalidRun("Multiple dataset headers require RETIREMENT_HEADER_SOURCE=DETAIL_ALIGNED.")
         if is_fixed_format(general.fileFormat):
             for kind in ("H", "D", "T"):
-                layout = [row for row in mappings if row.recordType == kind]
-                if layout and not (kind == "H" and payload.mapping.includeHeader):
-                    widths = fixed_layout(layout)
-                    if kind == "D" and payload.mapping.includeHeader:
-                        # The automatic header row writes each field name into its FIXED width.
-                        for row, (_, width) in zip(layout, widths, strict=True):
-                            if len(row.field.strip()) > width:
-                                raise InvalidRun(
-                                    f'Column "{row.field}" needs a FIXED length of at least {len(row.field.strip())} '
-                                    "characters to fit its header name.")
+                for dataset in (dataset_numbers if kind == "D" else [None]):
+                    layout = [row for row in mappings if row.recordType == kind and (dataset is None or row.dataSetNo == dataset)]
+                    if layout and not (kind == "H" and payload.mapping.includeHeader):
+                        widths = fixed_layout(layout)
+                        if kind == "D" and payload.mapping.includeHeader:
+                            for row, (_, width) in zip(layout, widths, strict=True):
+                                if len(row.field.strip()) > width:
+                                    raise InvalidRun(
+                                        f'Column "{row.field}" needs a FIXED length of at least {len(row.field.strip())} '
+                                        "characters to fit its header name.")
     except InvalidRun as exc:
         _field_error(["mapping"], str(exc))
     sorting = [row.model_copy(update={
@@ -1094,9 +1105,13 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
             queries.append(QueryConfigurationRow(recttype="D", sortOrder=sort_clause))
     unique_queries = {}
     for row in queries:
-        if row.recttype in unique_queries and row != unique_queries[row.recttype]:
-            _field_error(["queryConfiguration"], "Keep one query per H, D, or T record type.")
-        unique_queries[row.recttype] = row
+        dataset = split_dataset_query(row.query)[0] if row.recttype == "D" else None
+        key = (row.recttype, dataset)
+        if key in unique_queries and row != unique_queries[key]:
+            _field_error(["queryConfiguration"], "Keep one H/T query and one D query per dataset.")
+        unique_queries[key] = row
+    if ("D", None) in unique_queries and sum(kind == "D" for kind, _ in unique_queries) > 1:
+        _field_error(["queryConfiguration"], "Multiple D queries need explicit dataset identities.")
     pending: list[tuple[str, dict[str, Any]]] = []
 
     def write(query: str, parameters: dict[str, Any]) -> None:
@@ -1106,16 +1121,15 @@ def _write_job_details(connection: Any, job_id: int, payload: RetirementBuilderJ
             connection.execute(*_prepared_query(query, parameters))
 
     for kind in ("H", "D", "T"):
-        if kind not in unique_queries:
-            continue
-        row = unique_queries[kind]
-        write(QUERY_31, {
-            "jobid": job_id,
-            "recttype": row.recttype,
-            "Query": row.query,
-            "conditionalStmt": row.conditions,
-            "sortOrder": row.sortOrder,
-        })
+        for row in sorted((row for row in unique_queries.values() if row.recttype == kind),
+                          key=lambda row: row.dataSetNo if row.dataSetNo is not None else -1):
+            write(QUERY_31, {
+                "jobid": job_id,
+                "recttype": row.recttype,
+                "Query": row.query,
+                "conditionalStmt": row.conditions,
+                "sortOrder": row.sortOrder,
+            })
     write(QUERY_38, {
         "jobid": job_id,
         "jobName": general.fileName,
@@ -1291,6 +1305,8 @@ def get_retirement_builder_job(job_id: int) -> dict[str, object]:
             job = _read_edit_job(connection, job_id)
     except (SQLAlchemyError, OdbcError) as exc:
         raise HTTPException(status_code=500, detail="Unable to load Retirement Builder job from the database") from exc
+    except InvalidRun as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Retirement Builder job not found")
     return job.model_dump()

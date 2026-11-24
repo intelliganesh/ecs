@@ -12,6 +12,7 @@ from sqlalchemy.engine import Connection
 
 from app.core.config import SQL_IDENTIFIER, get_settings
 from app.retirement_procedure import ProcedureResultSet, ProcedureSource, uses_retirement_queries
+from app.retirement_datasets import multiple_datasets
 from app.retirement_conditions import condition_fragment, parsed_conditions
 from app.retirement_results import (
     MAX_ROWS, MAX_SOURCE_BYTES, RECORD_TYPES, InvalidRun, ReportDateRange, _name_format, _source_key,
@@ -193,6 +194,11 @@ def load_payroll_source(
     connection: Connection, job: "RetirementBuilderJob", date_range: ReportDateRange = ReportDateRange(),
     *, run_type: Literal["A", "S"] = "A",
 ) -> bytes | ProcedureSource:
+    if multiple_datasets(job):
+        if job.general.storeResultsToTable:
+            raise InvalidRun("Turn off Store Results to Table for multiple datasets.")
+        if job.mapping.includeHeader and get_settings().retirement_header_source != "DETAIL_ALIGNED":
+            raise InvalidRun("Multiple dataset headers require RETIREMENT_HEADER_SOURCE=DETAIL_ALIGNED.")
     if run_type not in ("A", "S"):
         raise InvalidRun("Choose A for a manual run or S for a scheduled run.")
     production_queries = uses_retirement_queries(job)

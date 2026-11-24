@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from app.retirement_results import COMPARISONS, DATE_FORMATS, NUMBER_FORMATS, NUMERIC_MASK_PATTERN, SSN_FORMATS, InvalidRun, _format_value, condition_date
 from app.retirement_projection import replace_detail_projection
+from app.retirement_datasets import split_dataset_query, tag_dataset_query
 
 if TYPE_CHECKING:
     from app.routers.retirement_builder import MappingRow, QueryConfigurationRow, RetirementBuilderJobInput
@@ -128,6 +129,39 @@ def export_record_queries(job: "RetirementBuilderJobInput", mappings: list["Mapp
         replace_conditions = "conditionalStatements" in job.fileSettings.model_fields_set
     layouts = {kind: [row for row in mappings if row.recordType == kind] for kind in ("H", "D", "T")}
     details = [row for row in saved if row.recttype == "D" and row.query.strip()]
+    datasets = sorted({row.dataSetNo for row in layouts["D"]})
+    if len(datasets) > 1 or any(split_dataset_query(row.query)[0] is not None for row in details) or len({row.query for row in details}) > 1:
+        if job.general.storeResultsToTable:
+            raise InvalidRun("Turn off Store Results to Table for multiple datasets.")
+        previous = {}
+        original_numbers = {row.dataSetNo for row in (original_mappings or []) if row.recordType == "D"}
+        for row in details:
+            dataset, query = split_dataset_query(row.query)
+            if dataset is None:
+                dataset = row.dataSetNo
+            if dataset is None and len(details) == 1 and len(original_numbers) == 1:
+                dataset = next(iter(original_numbers))
+            if dataset is None or dataset in previous:
+                raise InvalidRun("Existing Detail queries need confirmed dataset identities before adding datasets.")
+            previous[dataset] = row.model_copy(update={"query": query})
+        sections = []
+        for dataset in datasets:
+            section_rows = [row for row in mappings if row.recordType != "D" or row.dataSetNo == dataset]
+            section = export_record_queries(
+                job.model_copy(update={"mapping": job.mapping.model_copy(update={"rows": section_rows})}),
+                section_rows, [previous[dataset]] if dataset in previous else [],
+                replace_conditions=replace_conditions,
+                original_mappings=[row for row in original_mappings if row.recordType == "D" and row.dataSetNo == dataset]
+                if dataset in previous and original_mappings is not None else None,
+            )
+            sections.append(section)
+        if not sections:
+            raise InvalidRun("Add at least one Detail dataset.")
+        return ([row for row in sections[0] if row["recttype"] == "H"]
+                + [dict(row, query=tag_dataset_query(row["query"], dataset), dataSetNo=dataset)
+                   for dataset, section in zip(datasets, sections, strict=True)
+                   for row in section if row["recttype"] == "D"]
+                + [row for row in sections[0] if row["recttype"] == "T"])
     distinct_details = {(row.query, row.conditions) for row in details}
     if len(distinct_details) > 1:
         raise InvalidRun("Multiple distinct detail queries cannot be merged without confirmed dataset and alias rules.")

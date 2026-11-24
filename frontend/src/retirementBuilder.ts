@@ -1,5 +1,32 @@
 import * as XLSX from 'xlsx'
 
+type DatasetPosition = { dataSetNo?: number; colSeqNo?: number }
+
+export function mappingDatasets<T extends DatasetPosition>(rows: T[]) {
+  const numbers = [...new Set(rows.map((row) => row.dataSetNo ?? 1))].sort((a, b) => a - b)
+  return (numbers.length ? numbers : [1]).map((number) => ({
+    number, rows: rows.filter((row) => (row.dataSetNo ?? 1) === number),
+  }))
+}
+
+export function normalizeDatasetSequences<T extends DatasetPosition>(rows: T[]): T[] {
+  const maximum = new Map<number, number>()
+  rows.forEach((row) => maximum.set(row.dataSetNo ?? 1, Math.max(maximum.get(row.dataSetNo ?? 1) ?? 0, row.colSeqNo ?? 0)))
+  return rows.map((row) => {
+    const dataset = row.dataSetNo ?? 1
+    const sequence = row.colSeqNo ?? (maximum.get(dataset) ?? 0) + 1
+    maximum.set(dataset, Math.max(maximum.get(dataset) ?? 0, sequence))
+    return { ...row, dataSetNo: dataset, colSeqNo: sequence }
+  })
+}
+
+export function nextMappingPosition(rows: DatasetPosition[], dataset?: number) {
+  const number = dataset ?? (rows.length ? Math.max(...rows.map((row) => row.dataSetNo ?? 1)) + 1 : 1)
+  const sequence = Math.max(0, ...rows.filter((row) => (row.dataSetNo ?? 1) === number).map((row) => row.colSeqNo ?? 0)) + 1
+  if (number > 2147483647 || sequence > 2147483647) throw new Error('The dataset or column sequence exceeds the integer limit.')
+  return { dataSetNo: number, colSeqNo: sequence }
+}
+
 export function reportMimeType(fileName: string, excelRows?: string[][] | null): string {
   const extension = fileName.split('.').pop()?.toLowerCase()
   const type = excelRows != null ? 'text/plain'
