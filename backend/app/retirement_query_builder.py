@@ -190,7 +190,8 @@ def export_record_queries(job: "RetirementBuilderJobInput", mappings: list["Mapp
                     value = f"COALESCE(NULLIF(CONVERT(varchar(max), {value}), ''), {sql_literal(row.defaultValue)})"
                 return value
             query = replace_detail_projection(query, [row for row in original_mappings if row.recordType == "D"],
-                                              layouts["D"], detail_expression)
+                                              layouts["D"], detail_expression,
+                                              formatted_expression=lambda row: _expression(row)[0])
         detail = {"recttype": "D", "query": query,
                   "conditions": _conditions(job) if replace_conditions else details[0].conditions}
     elif layouts["D"]:

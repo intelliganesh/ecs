@@ -201,6 +201,11 @@ export function validWholeNumber(value: string, minimum = 0, maximum = 214748364
   return /^[0-9]+$/.test(value.trim()) && Number(value) >= minimum && Number(value) <= maximum
 }
 
+export function mappingLengthLimits(format: string, fixedLengthRequired: boolean) {
+  const padding = ['LA', 'LA - Left Justified', 'RA', 'RA - Right Justified'].includes(format.trim())
+  return { minimum: fixedLengthRequired ? 1 : 0, maximum: fixedLengthRequired || padding ? 1000 : 2147483647 }
+}
+
 export type SortingPriorityRow = { orderBy: string; mappingColumn: string }
 
 export function sortingPriorityError(rows: SortingPriorityRow[]) {

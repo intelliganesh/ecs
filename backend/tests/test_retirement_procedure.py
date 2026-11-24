@@ -390,6 +390,26 @@ class ProcedurePresentationFormatTests(TestCase):
         report, = build_procedure_report_files(report_job, source, delimiter)
         return report
 
+    def test_invalid_padding_is_not_silently_ignored_in_any_delimited_format(self):
+        for delimiter in (",", "|", ";", "\t", "~"):
+            for format_name in ("LA", "RA", "LA - Left Justified", "RA - Right Justified"):
+                for value in ("sample text", ""):
+                    with self.subTest(delimiter=delimiter, format=format_name, value=value):
+                        with self.assertRaisesRegex(InvalidRun, "padding length from 0 to 1000"):
+                            self.build([rb.MappingRow(field="Text", format=format_name, length="1001")], (value,), delimiter=delimiter)
+
+    def test_padding_boundaries_preserve_empty_values_and_justify_text(self):
+        for format_name in ("LA", "RA", "LA - Left Justified", "RA - Right Justified"):
+            for length in ("0", "1", "1000"):
+                with self.subTest(format=format_name, length=length):
+                    report = self.build([rb.MappingRow(field="Text", format=format_name, length=length)], ("ABC",))
+                    value = next(csv.reader(StringIO(report.csv)))[0]
+                    self.assertEqual(len(value), max(3, int(length)))
+                    self.assertEqual(value.strip(), "ABC")
+                    self.assertTrue(value.endswith("ABC") if format_name.startswith("RA") else value.startswith("ABC"))
+            report = self.build([rb.MappingRow(field="Text", format=format_name, length="1000")], ("",))
+            self.assertEqual(next(csv.reader(StringIO(report.csv))), [""])
+
     def test_text_number_and_padding_formats_are_applied_to_returned_values(self):
         report = self.build([
             rb.MappingRow(field="Name", format="Uppercase"),

@@ -35,7 +35,7 @@ from app.retirement_conditions import parsed_conditions
 from app.retirement_listing import READ_ALL_JOBS
 from app.retirement_datasets import expand_legacy_datasets, split_dataset_query
 from app.retirement_results import (
-    COMPARISONS, FILE_NAME_FORMAT_CODES, MAX_SOURCE_BYTES, RECORD_TYPES, SSN_FORMATS,
+    COMPARISONS, FILE_NAME_FORMAT_CODES, MAX_SOURCE_BYTES, MAX_PADDING_LENGTH, PADDING_FORMATS, RECORD_TYPES, SSN_FORMATS,
     InvalidRun, ReportDateRange, ReportFile, UNBOUNDED_RUN_DATE, build_report_files, condition_date, file_format_name,
     file_name_format_code, fixed_layout, format_sort_columns, is_fixed_format,
     parse_file_name_format, parse_sort_order, record_type_code, store_results,
@@ -625,6 +625,8 @@ def _validate_payload(payload: RetirementBuilderJobInput, *, creating: bool = Fa
             _field_error([*path, "field"], "Enter a field name for this mapping.")
         if row.recordType.strip() and row.recordType.strip().casefold() not in RECORD_TYPES:
             _field_error([*path, "recordType"], "Choose Header, Detail, or Trailer.")
+        if row.format.strip() in PADDING_FORMATS and row.length.strip():
+            _check_integer(row.length, 0, MAX_PADDING_LENGTH, [*path, "length"])
         if is_fixed_format(general.fileFormat) and not (
             payload.mapping.includeHeader and RECORD_TYPES.get(row.recordType.strip().casefold()) == "H"
         ):

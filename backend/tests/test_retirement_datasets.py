@@ -58,6 +58,74 @@ def dataset_source(*, tagged=True, empty_second=False, reverse=True):
 
 
 class DatasetExportTests(TestCase):
+    def test_trailers_follow_only_their_dataset_in_all_formats_and_filename_modes(self):
+        for file_format, delimiter, extension in FORMATS:
+            for naming in NAMES:
+                for targets in ((), (1,), (2,), (1, 2)):
+                    with self.subTest(file_format=file_format, naming=naming, targets=targets):
+                        job = dataset_job(file_format, naming)
+                        job.mapping.rows = [row for row in job.mapping.rows if row.recordType != "T"] + [
+                            rb.MappingRow(field=f"Trailer {dataset}", mappingColumn=f"end{dataset}", recordType="T",
+                                          dataSetNo=dataset, colSeqNo=9, length="12", startPosition="0")
+                            for dataset in targets]
+                        # One SP T row carries all configured trailer columns, including unformatted text.
+                        job.queryConfiguration[-1].query = "SELECT valid_flag,retnum,paydate AS sort1" + "".join(
+                            f",end{dataset}" for dataset in targets)
+                        source = dataset_source()
+                        trailers = ProcedureResultSet(CONTROL + tuple(f"end{dataset}" for dataset in targets), tuple(
+                            ("1", client, "1900-01-01", *(f"T{dataset}-end" for dataset in targets))
+                            for client in ("000204", "000719")))
+                        source = ProcedureSource((*source.result_sets[:-1], trailers))
+                        before = job.model_dump()
+                        for report in build_procedure_report_files(job, source, delimiter):
+                            clients = len(report.client_ids)
+                            expected = ["H", *["D"] * clients, *(["T"] * clients if 1 in targets else []),
+                                        "H", *["D"] * clients, *(["T"] * clients if 2 in targets else [])]
+                            self.assertEqual([r.record_type for r in report.rows], expected)
+                            totals = [next(iter(row.values.values())).strip() for row in report.rows if row.record_type == "T"]
+                            self.assertEqual(totals, [f"T{dataset}-end" for dataset in targets for _ in range(clients)])
+                            self.assertTrue(report.file_name.endswith(extension))
+                            if file_format == "FIXED":
+                                self.assertEqual([row for row in report.excel_rows if row],
+                                                 [list(row.values.values()) for row in report.rows])
+                            else:
+                                parsed = list(csv.reader(StringIO(report.csv), delimiter=delimiter))
+                                self.assertEqual([row for row in parsed if row],
+                                                 [list(row.values.values()) for row in report.rows])
+                        self.assertEqual(job.model_dump(), before)
+
+    def test_empty_dataset_does_not_emit_its_trailer(self):
+        job = dataset_job()
+        job.mapping.rows[-1].dataSetNo = 2
+        reports = build_procedure_report_files(job, dataset_source(empty_second=True), ",")
+        self.assertTrue(reports)
+        self.assertTrue(all(row.record_type != "T" for report in reports for row in report.rows))
+
+    def test_dataset_trailer_order_also_applies_with_saved_headers(self):
+        reports = build_procedure_report_files(dataset_job(header=False), dataset_source(), ",")
+        for report in reports:
+            # The saved H fixture belongs only to client 204; do not invent one for 719.
+            header = ["H"] if "000204" in report.client_ids else []
+            self.assertEqual([row.record_type for row in report.rows], [*header, "D", "T", "D"])
+
+    def test_trailer_with_no_mapping_cannot_be_assigned_by_guessing(self):
+        job = dataset_job()
+        job.mapping.rows = [row for row in job.mapping.rows if row.recordType != "T"]
+        with self.assertRaisesRegex(InvalidRun, "export columns"):
+            build_procedure_report_files(job, dataset_source(), ",")
+
+    def test_trailer_dates_must_belong_to_the_associated_dataset(self):
+        job = dataset_job()
+        source = dataset_source()
+        # Dataset 2 alone has this payday; its presence must not admit a Dataset 1 trailer.
+        second = source.result_sets[1]
+        second = ProcedureResultSet(second.columns, tuple((*row[:2], "2026-10-16", *row[3:]) for row in second.rows))
+        trailer = source.result_sets[-1]
+        trailer = ProcedureResultSet(trailer.columns, tuple((*row[:2], "2026-10-16", *row[3:]) for row in trailer.rows))
+        source = ProcedureSource((source.result_sets[0], second, source.result_sets[2], trailer))
+        reports = build_procedure_report_files(job, source, ",")
+        self.assertTrue(all(row.record_type != "T" for report in reports for row in report.rows))
+
     def test_all_six_formats_and_seven_names_keep_client_groups_and_dynamic_headers(self):
         for file_format, delimiter, extension in FORMATS:
             for naming in NAMES:
@@ -77,7 +145,9 @@ class DatasetExportTests(TestCase):
                         if "000719" in report.file_name:
                             self.assertEqual(values, [["10/15/2026", "25.50"], ["Équipe B"]])
                         self.assertIn("\r\n\r\n", report.csv)
-                        self.assertEqual(report.rows[-1].record_type, "T")
+                        kinds = [row.record_type for row in report.rows]
+                        self.assertLess(kinds.index("T"), len(kinds) - 1)
+                        self.assertEqual(kinds[-1], "D")
                         if file_format == "FIXED":
                             self.assertEqual(len(report.csv.splitlines()[0]), 22)
                         else:
@@ -98,7 +168,7 @@ class DatasetExportTests(TestCase):
         report_job = dataset_job(tagged=False)
         for reverse in (True, False):
             reports = build_procedure_report_files(report_job, dataset_source(tagged=False, reverse=reverse), ",")
-            self.assertEqual(reports[0].csv, 'Pay Date,Amount\r\n10/15/2026,0.00\r\n\r\nCategory\r\n"Team, ""A"""\r\n""\r\n')
+            self.assertEqual(reports[0].csv, 'Pay Date,Amount\r\n10/15/2026,0.00\r\n""\r\n\r\nCategory\r\n"Team, ""A"""\r\n')
 
     def test_unmapped_legacy_dataset_is_derived_from_any_explicit_source_names(self):
         report_job = dataset_job(tagged=False)
@@ -147,12 +217,13 @@ class DatasetExportTests(TestCase):
         report_job.mapping.rows = [row.model_copy(update={"field": f"Section {i}", "mappingColumn": "amount",
                                                         "format": "######.##", "dataSetNo": i, "colSeqNo": 1})
                                   for i, row in enumerate(details[:2], 1)]
+        report_job.queryConfiguration[-1].query = "SELECT valid_flag,retnum,'01/01/1900' AS sort1"
         for i, query in enumerate(report_job.queryConfiguration[1:3], 1):
             query.query = tag_dataset_query("SELECT valid_flag,retnum,paydate AS sort1,amount AS SameAlias", i)
         source = ProcedureSource((dataset_source().result_sets[0],
             ProcedureResultSet(CONTROL + ("__ecs_dataset_2", "SameAlias"), (("1", "000204", "2026-10-15", "2", "20"),)),
             ProcedureResultSet(CONTROL + ("__ecs_dataset_1", "SameAlias"), (("1", "000204", "2026-10-15", "1", "10"),)),
-            dataset_source().result_sets[-1]))
+            ProcedureResultSet(CONTROL, (("1", "000204", "1900-01-01"),))))
         report, = build_procedure_report_files(report_job, source, ",")
         self.assertTrue(report.csv.startswith('Section 1\r\n10.00\r\n\r\nSection 2\r\n20.00\r\n'))
 

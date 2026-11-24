@@ -24,6 +24,8 @@ MAX_SOURCE_BYTES = 5 * 1024 * 1024
 MAX_OUTPUT_BYTES = 10 * 1024 * 1024
 MAX_ROWS = 10_000
 MAX_COLUMNS = 100
+MAX_PADDING_LENGTH = 1_000
+PADDING_FORMATS = {"LA", "LA - Left Justified", "RA", "RA - Right Justified"}
 UNBOUNDED_RUN_DATE = date(1900, 1, 1)
 RECORD_TYPES = {"h": "H", "header": "H", "d": "D", "detail": "D", "t": "T", "trailer": "T"}
 DATE_FORMATS = {
@@ -364,6 +366,19 @@ def _format_phone(value: str, format_name: str, field: str) -> str:
 
 def _format_value(value: str, mapping: "MappingRow") -> str:
     name = mapping.format.strip()
+    if name in PADDING_FORMATS:
+        digits = mapping.length.strip() or "0"
+        significant = digits.lstrip("0") or "0"
+        if (
+            not re.fullmatch(r"[0-9]+", digits)
+            or len(significant) > len(str(MAX_PADDING_LENGTH))
+            or int(significant) > MAX_PADDING_LENGTH
+        ):
+            raise InvalidRun(f'Column "{mapping.field}" needs a whole-number padding length from 0 to {MAX_PADDING_LENGTH}.')
+        if not value:
+            return value
+        width = int(significant)
+        return value.rjust(width) if name.startswith("RA") else value.ljust(width)
     if not value or not name:
         return value
     if name in DATE_FORMATS:
@@ -398,11 +413,6 @@ def _format_value(value: str, mapping: "MappingRow") -> str:
         return digits
     if name in TEXT_FORMATS:
         return TEXT_FORMATS[name](value)
-    if name in {"LA", "LA - Left Justified", "RA", "RA - Right Justified"}:
-        width = int(mapping.length or "0")
-        if width > 1_000:
-            raise InvalidRun(f'Column "{mapping.field}" exceeds the 1,000-character padding limit.')
-        return value.rjust(width) if name.startswith("RA") else value.ljust(width)
     raise InvalidRun(f'Column "{mapping.field}" uses an unsupported format.')
 
 

@@ -87,7 +87,10 @@ application edits, database writes, report Runs or email delivery.
   one D per dataset. Legacy results require unique confirmed query/column
   evidence; do not infer calculated field names or ambiguous result order.
   Automatic headers label each populated section, separated by a blank line.
-  Shared H/T and File Settings remain job-level. Multiple datasets require the
+  H/T queries and File Settings remain job-level. The exporter places configured
+  trailer fields immediately after the Detail section with the same DataSetNo;
+  a dataset without T mappings gets no trailer. This changes placement, not the
+  SP's client/file totals calculation. Multiple datasets require the
   rjobbuilder source with Store Results to Table OFF; reject unsupported paths
   before invoking the SP. Generated-query metadata is an application contract,
   not a schema, query.brl or stored-procedure modification.

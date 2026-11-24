@@ -8,7 +8,7 @@ import { writeFile } from 'xlsx'
 import {
   configuredFileFormat, conditionValueError, createJobListRequestGuard, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors, manualRunDateHelp,
   excelDownloadFileName, isExcelFile, mappingColumnType, pasteEmailText, readExcelMappings, reportEmailMessage, reportMimeType, reportWorkbook,
-  mergeSavedJob, mappingDatasets, normalizeDatasetSequences, nextMappingPosition, normalizeSortingPriorities, sortingPriorityError, validEmail, validIsoDate, validWholeNumber,
+  mergeSavedJob, mappingDatasets, mappingLengthLimits, normalizeDatasetSequences, nextMappingPosition, normalizeSortingPriorities, sortingPriorityError, validEmail, validIsoDate, validWholeNumber,
   type ConditionValueType, type ReportEmailDelivery, type SortingPriorityRow,
 } from './retirementBuilder'
 
@@ -293,11 +293,13 @@ export default function App({ userEmail }: { userEmail: string }) {
       && !payrollMappingColumnKeys.some((key) => key.toLowerCase() === normalized
         || mappingColumnLabels[key]?.toLowerCase() === normalized)
   }
-  const invalidMapping = !mappingRows.length || mappingRows.some((row) =>
-    !row.field.trim() || (requiresMappingDefault(row.mapping.trim() || row.field.trim()) && !row.defaultValue)
-    || [row.startPosition, row.length].some((value) => value.trim() && !validWholeNumber(value))
-    || (fixedFormat && !(includeHeader && ['H', 'HEADER'].includes(row.recordType.trim().toUpperCase()))
-      && !validWholeNumber(row.length, 1, 1000)))
+  const invalidMapping = !mappingRows.length || mappingRows.some((row) => {
+    const fixedLengthRequired = fixedFormat && !(includeHeader && ['H', 'HEADER'].includes(row.recordType.trim().toUpperCase()))
+    const { minimum, maximum } = mappingLengthLimits(row.format, fixedLengthRequired)
+    return !row.field.trim() || (requiresMappingDefault(row.mapping.trim() || row.field.trim()) && !row.defaultValue)
+      || (row.startPosition.trim() && !validWholeNumber(row.startPosition))
+      || !validWholeNumber(row.length.trim() || '0', minimum, maximum)
+  })
   const loadingEditJob = requestedJobId !== null && requestedJobId !== selectedJobId
   const awaitingJob = isEditFlow && (loadingEditJob || selectedJobId === null)
   const restoringStartDateTime = isEditFlow && screen === 'schedule' && storedStartDateTime === undefined
@@ -1039,7 +1041,7 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
           <button type="button" className="icon-button" onClick={onOpenSettings} aria-label="Manage dataset settings" title="Manage dataset settings"><Settings aria-hidden="true" /></button>
         </div>
       </div>
-      <p className="dataset-help">Each dataset is a separate report section. Header, trailer and File Settings apply to the job.</p>
+      <p className="dataset-help">Each dataset is a separate report section. Trailer fields appear after their dataset. File Settings apply to the job.</p>
       {mappingDatasets(rows).map(({ number, rows: datasetRows }) => <section className="dataset-card" key={number} aria-label={`Dataset ${number}`}>
         <div className="dataset-card-heading"><h3><button type="button" className="dataset-toggle"
           aria-expanded={!collapsedDatasets.includes(number)} aria-controls={`${datasetPanelId}-${number}`}
@@ -1060,6 +1062,7 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
             const index = rows.indexOf(row)
             const label = row.field || 'New'
             const fixedLengthRequired = fixed && !(includeHeader && ['H', 'HEADER'].includes(row.recordType.trim().toUpperCase()))
+            const lengthLimits = mappingLengthLimits(row.format, fixedLengthRequired)
             const type = typeFor(row.mapping || row.field)
             const formats = formatsFor(type)
             const formatValue = formats.includes(row.format) ? row.format
@@ -1083,7 +1086,7 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
               </td>
               <td><MappingNumber label={`${row.field} start position`} value={row.startPosition} validate={validate} onChange={(startPosition) => onRowChange(row.id, { startPosition })} /></td>
               <td><MappingNumber label={`${row.field} length`} value={row.length} validate={validate}
-                minimum={fixedLengthRequired ? 1 : 0} maximum={fixedLengthRequired ? 1000 : 2147483647}
+                minimum={lengthLimits.minimum} maximum={lengthLimits.maximum}
                 onChange={(length) => onRowChange(row.id, { length })} /></td>
               <td><SearchableSelect options={['Header', 'Detail', 'Trailer']} value={row.recordType} onValueChange={(recordType) => onRowChange(row.id, { recordType })} ariaLabel={`${label} record type`} /></td>
               <td>

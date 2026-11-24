@@ -744,6 +744,32 @@ class ManualRunMailTests(TestCase):
 
 
 class JobValidationTests(TestCase):
+    def test_oversized_padding_fails_before_create_or_update_connects(self):
+        for file_format in ("CSV", "PIPE", "SEMICOLON", "TAB", "TILDE", "FIXED"):
+            for format_name in ("LA", "RA", "LA - Left Justified", "RA - Right Justified"):
+                for creating in (True, False):
+                    with self.subTest(file_format=file_format, format=format_name, creating=creating), patch.object(rb.engine, "begin") as begin:
+                        payload = input_job(
+                            general={"fileName": "Padding test", "fileFormat": file_format},
+                            mapping={"rows": [{"field": "Text", "format": format_name, "length": "1001"}]},
+                        )
+                        with self.assertRaises(HTTPException) as error:
+                            if creating:
+                                rb.create_retirement_builder_job(payload)
+                            else:
+                                rb.update_retirement_builder_job(60, payload)
+                        self.assertEqual(error.exception.status_code, 422)
+                        self.assertEqual(error.exception.detail[0]["loc"], ["body", "mapping", "rows", 0, "length"])
+                        begin.assert_not_called()
+
+    def test_padding_boundaries_and_nonpadding_lengths_remain_valid(self):
+        for format_name in ("LA", "RA", "LA - Left Justified", "RA - Right Justified"):
+            for length in ("0", "1", "1000", "001000"):
+                with self.subTest(format=format_name, length=length):
+                    rb._validate_payload(input_job(mapping={"rows": [{"field": "Text", "format": format_name, "length": length}]}))
+        rb._validate_payload(input_job(mapping={"rows": [{"field": "Text", "format": "LA"}]}))
+        rb._validate_payload(input_job(mapping={"rows": [{"field": "Text", "length": "1001"}]}))
+
     def test_invalid_and_duplicate_priorities_fail_before_connecting(self):
         cases = [[{"orderBy": value, "mappingColumn": "paydate"}]
                  for value in ("", "0", "-1", "1.5", "ASC", "2147483648")]

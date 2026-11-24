@@ -7,7 +7,7 @@ evidence rather than a positional guess based on a separate H result set.
 import re
 from typing import TYPE_CHECKING
 
-from app.retirement_projection import _top_level_tokens
+from app.retirement_projection import _canonical, _top_level_tokens
 from app.retirement_query_builder import _expression
 from app.retirement_results import InvalidRun
 
@@ -28,13 +28,6 @@ def _identifier(value: str) -> str | None:
     elif value.startswith('"'):
         value = value[1:-1].replace('""', '"')
     return value.casefold()
-
-
-def _canonical(expression: str) -> str:
-    # Ignore SQL token case/spacing, preserving literal contents and identifier
-    # boundaries. Never remove spaces or apostrophes inside a string value.
-    parts = re.findall(r"'(?:[^']|'')*'|\[(?:[^\]]|\]\])*\]|\"(?:[^\"]|\"\")*\"|\s+|[^\s'\[\"]+", expression)
-    return "".join(part if part.startswith("'") else part.casefold() for part in parts if not part.isspace())
 
 
 def _projections(query: str, count: int) -> list[tuple[str, str | None]] | None:

@@ -15,6 +15,19 @@ def build_report(job, source):
 
 
 class RetirementResultsTests(TestCase):
+    def test_delimited_source_rejects_oversized_padding_even_for_empty_values(self):
+        for format_name in ("LA", "RA"):
+            for value in ("ABC", ""):
+                with self.subTest(format=format_name, value=value):
+                    job = RetirementBuilderJob.model_validate({
+                        "id": 60, "general": {"fileName": "Padding", "fileFormat": "CSV"},
+                        "mapping": {"includeHeader": False, "rows": [
+                            {"field": "Text", "mappingColumn": "Text", "format": format_name, "length": "1001"},
+                        ]},
+                    })
+                    with self.assertRaisesRegex(InvalidRun, "padding length from 0 to 1000"):
+                        build_report_files(job, f'Text\n"{value}"\n'.encode())
+
     def test_fixed_fields_use_character_lengths_and_optional_zero_based_positions(self):
         job = RetirementBuilderJob.model_validate({
             "id": 1, "general": {"fileName": "Fixed", "fileFormat": "FIXED"},

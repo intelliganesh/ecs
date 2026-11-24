@@ -19,9 +19,25 @@ after(async () => {
 })
 const {
   configuredFileFormat, conditionValueError, createJobListRequestGuard, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors, manualRunDateHelp,
-  mergeSavedJob, mappingDatasets, normalizeDatasetSequences, nextMappingPosition, normalizeSortingPriorities, sortingPriorityError, pasteEmailText, readExcelMappings, reportWorkbook,
+  mergeSavedJob, mappingDatasets, mappingLengthLimits, normalizeDatasetSequences, nextMappingPosition, normalizeSortingPriorities, sortingPriorityError, pasteEmailText, readExcelMappings, reportWorkbook,
   excelDownloadFileName, reportMimeType, validEmail, validIsoDate, validWholeNumber,
 } = await vite.ssrLoadModule('/src/retirementBuilder.ts')
+
+test('mapping lengths cap LA and RA padding at 1000 independently of file format', () => {
+  for (const format of ['LA', 'RA', 'LA - Left Justified', 'RA - Right Justified', ' LA ']) {
+    for (const fixed of [false, true]) {
+      const { minimum, maximum } = mappingLengthLimits(format, fixed)
+      assert.equal(minimum, fixed ? 1 : 0)
+      assert.equal(maximum, 1000)
+      assert.equal(validWholeNumber('0', minimum, maximum), !fixed)
+      assert.equal(validWholeNumber('1', minimum, maximum), true)
+      assert.equal(validWholeNumber('1000', minimum, maximum), true)
+      assert.equal(validWholeNumber('1001', minimum, maximum), false)
+    }
+  }
+  assert.deepEqual(mappingLengthLimits('', true), { minimum: 1, maximum: 1000 })
+  assert.deepEqual(mappingLengthLimits('', false), { minimum: 0, maximum: 2147483647 })
+})
 
 test('dataset cards group arbitrary fields by identity and retain independent column sequences', () => {
   const rows = normalizeDatasetSequences([

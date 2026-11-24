@@ -16,7 +16,7 @@ from app.core.config import get_settings
 from app.retirement_headers import aligned_detail_layout
 from app.retirement_results import (
     DATE_FORMATS, NUMBER_FORMATS, NUMERIC_MASK_PATTERN, PHONE_FORMATS, SSN_FORMATS, TEXT_FORMATS,
-    MAX_COLUMNS, MAX_OUTPUT_BYTES, InvalidRun, ReportFile, ResultRow,
+    MAX_COLUMNS, MAX_OUTPUT_BYTES, PADDING_FORMATS, InvalidRun, ReportFile, ResultRow,
     _clean_name_value, _fixed_record, _format_value, _is_name_mapping, _name_format,
     _output_name, _parse_date, is_fixed_format, record_type_code,
 )
@@ -47,14 +47,11 @@ def uses_retirement_queries(job: "RetirementBuilderJob") -> bool:
     )
 
 
-_PADDING_FORMATS = {"LA", "LA - Left Justified", "RA", "RA - Right Justified"}
-
-
 def _is_value_format(name: str) -> bool:
     """Presentation formats applied to returned values: number masks, phone, text case and padding."""
     return (
         name in NUMBER_FORMATS or bool(NUMERIC_MASK_PATTERN.fullmatch(name)) or name in PHONE_FORMATS
-        or name in TEXT_FORMATS or name in _PADDING_FORMATS
+        or name in TEXT_FORMATS or name in PADDING_FORMATS
     )
 
 
@@ -67,11 +64,11 @@ def _payday(value: str) -> str:
 
 
 def _export_layouts(job: "RetirementBuilderJob", kinds: list[str], source: ProcedureSource, *,
-                    detail_headers: bool = False) -> list[list["MappingRow"]]:
+                    detail_headers: bool = False, dataset_sections: bool = False) -> list[list["MappingRow"]]:
     """Align configured columns by dataset/sequence, without assuming SQL aliases."""
     layouts: list[list[MappingRow]] = [[] for _ in kinds]
     fixed = is_fixed_format(job.general.fileFormat)
-    if not fixed and not any(row.format.strip() in DATE_FORMATS or row.format.strip() in SSN_FORMATS
+    if not fixed and not dataset_sections and not any(row.format.strip() in DATE_FORMATS or row.format.strip() in SSN_FORMATS
                              or _is_presentational(row) for row in job.mapping.rows):
         return layouts
     mappings = ordered_mappings(
@@ -84,7 +81,7 @@ def _export_layouts(job: "RetirementBuilderJob", kinds: list[str], source: Proce
         if auto_header and (detail_headers or not fixed):
             continue
         columns = [row for row in mappings if row.recordType == ("D" if auto_header else kind)]
-        strict = fixed or any(row.format.strip() in DATE_FORMATS or row.format.strip() in SSN_FORMATS for row in columns)
+        strict = fixed or (dataset_sections and kind == "T") or any(row.format.strip() in DATE_FORMATS or row.format.strip() in SSN_FORMATS for row in columns)
         if not strict and not any(_is_presentational(row) for row in columns):
             continue
         positions = [index for index, value in enumerate(kinds) if value == kind]
@@ -109,6 +106,9 @@ def _export_layouts(job: "RetirementBuilderJob", kinds: list[str], source: Proce
 
 
 def _apply_value_format(value: str, mapping: "MappingRow") -> str:
+    if mapping.format.strip() in PADDING_FORMATS:
+        # Padding failures describe invalid configuration, not SQL-preformatted values.
+        return _format_value(value, mapping)
     try:
         return _format_value(value, mapping)
     except InvalidRun:
@@ -131,7 +131,8 @@ def _format_values(values: tuple[str, ...], layout: list["MappingRow"]) -> tuple
             continue
         pattern = DATE_FORMATS.get(name)
         if pattern is None:
-            formatted[index] = _apply_value_format(value, mapping) if value and _is_value_format(name) else value
+            should_format = name in PADDING_FORMATS or (value and _is_value_format(name))
+            formatted[index] = _apply_value_format(value, mapping) if should_format else value
             continue
         if not value:
             formatted[index] = value
@@ -182,7 +183,7 @@ def build_procedure_report_files(
 
     # Keep values positional: SQL permits unnamed and duplicate output columns.
     records: dict[str, list[tuple[str, str, list[MappingRow], tuple[str, ...]]]] = {"H": [], "D": [], "T": []}
-    layouts = _export_layouts(job, kinds, source, detail_headers=detail_headers)
+    layouts = _export_layouts(job, kinds, source, detail_headers=detail_headers, dataset_sections=dataset_sections)
     if detail_headers or dataset_sections:
         mappings = ordered_mappings(row.model_copy(update={"recordType": record_type_code(row.recordType or "D")})
                                     for row in job.mapping.rows)
@@ -211,7 +212,18 @@ def build_procedure_report_files(
                 continue
             if len(row) > 3:
                 values = row[3:] if kind == "H" and job.mapping.includeHeader else _format_values(row[3:], layout)
-                records[kind].append((row[1].strip(), row[2].strip(), layout, values))
+                if kind == "T" and dataset_sections:
+                    # The SP returns one T projection; its configured columns can
+                    # belong to different datasets. Keep each section's fields together.
+                    sections = {}
+                    for mapping, value in zip(layout, values, strict=True):
+                        section_layout, section_values = sections.setdefault(mapping.dataSetNo, ([], []))
+                        section_layout.append(mapping)
+                        section_values.append(value)
+                    for section_layout, section_values in sections.values():
+                        records[kind].append((row[1].strip(), row[2].strip(), section_layout, tuple(section_values)))
+                else:
+                    records[kind].append((row[1].strip(), row[2].strip(), layout, values))
 
     if not records["D"]:
         return []
@@ -280,19 +292,30 @@ def build_procedure_report_files(
                 raise InvalidRun("The generated report exceeds the 10 MB limit.")
             rows.append(ResultRow(kind, {str(index): value for index, value in enumerate(values, 1)}))
 
-        previous_dataset = None
-        for kind, entries in selected.items():
-            for _, _, layout, values in entries:
-                if kind == "D" and dataset_sections:
-                    dataset = layout[0].dataSetNo
-                    if previous_dataset is not None and dataset != previous_dataset:
-                        output.write("\r\n")
-                        if fixed:
-                            excel_rows.append([])
-                    if dataset != previous_dataset and detail_headers:
-                        write_entry("H", layout, tuple(row.field for row in layout))
-                    previous_dataset = dataset
-                write_entry(kind, layout, values)
+        if dataset_sections:
+            for _, _, layout, values in selected["H"]:
+                write_entry("H", layout, values)
+            sections = {}
+            for record in details:
+                sections.setdefault(record[2][0].dataSetNo, []).append(record)
+            for index, (dataset, section) in enumerate(sections.items()):
+                if index:
+                    output.write("\r\n")
+                    if fixed:
+                        excel_rows.append([])
+                if detail_headers:
+                    layout = section[0][2]
+                    write_entry("H", layout, tuple(row.field for row in layout))
+                for _, _, layout, values in section:
+                    write_entry("D", layout, values)
+                dates = {_payday(record[1]) for record in section if record[1]}
+                for _, payday, layout, values in selected["T"]:
+                    if layout[0].dataSetNo == dataset and (not payday or _payday(payday) in dates | {"1900-01-01"}):
+                        write_entry("T", layout, values)
+        else:
+            for kind, entries in selected.items():
+                for _, _, layout, values in entries:
+                    write_entry(kind, layout, values)
         csv_text = output.getvalue()
         remaining -= len(csv_text.encode("utf-8"))
         if remaining < 0:
