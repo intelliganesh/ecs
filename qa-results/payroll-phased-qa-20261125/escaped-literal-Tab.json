@@ -1,0 +1,26 @@
+{
+  "fileName": "Payroll_MultiDataset_QA_20261124_000901.tsv",
+  "csv": "Client ID\tEmployee ID\tEarnings\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1000.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1200.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1200.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1000.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1000.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1200.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1200.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1000.00\r\n\r\nEmployee Name\tPay Date\tPaid Hours\r\nDemo Avery D\t2026-10-15\t44.00\r\nSample Jordan D\t2026-10-15\t44.00\r\nSample Jordan D\t2026-11-13\t44.00\r\nDemo Avery D\t2026-11-13\t44.00\r\nDemo Avery D\t2026-11-20\t44.00\r\nSample Jordan D\t2026-11-20\t44.00\r\nSample Jordan D\t2026-11-24\t44.00\r\nDemo Avery D\t2026-11-24\t44.00\r\n",
+  "excelRows": null,
+  "runId": "121f734b-da24-4868-a7ae-cdf31f8c2e64",
+  "rowCount": 24,
+  "storedRows": 0,
+  "delimiter": "\t",
+  "files": [
+    {
+      "fileName": "Payroll_MultiDataset_QA_20261124_000901.tsv",
+      "csv": "Client ID\tEmployee ID\tEarnings\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1000.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1200.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1200.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1000.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1000.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1200.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1200.00\r\n000901\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1000.00\r\n\r\nEmployee Name\tPay Date\tPaid Hours\r\nDemo Avery D\t2026-10-15\t44.00\r\nSample Jordan D\t2026-10-15\t44.00\r\nSample Jordan D\t2026-11-13\t44.00\r\nDemo Avery D\t2026-11-13\t44.00\r\nDemo Avery D\t2026-11-20\t44.00\r\nSample Jordan D\t2026-11-20\t44.00\r\nSample Jordan D\t2026-11-24\t44.00\r\nDemo Avery D\t2026-11-24\t44.00\r\n",
+      "excelRows": null
+    },
+    {
+      "fileName": "Payroll_MultiDataset_QA_20261124_000902.tsv",
+      "csv": "Client ID\tEmployee ID\tEarnings\r\n000902\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1120.00\r\n000902\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1120.00\r\n000902\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1120.00\r\n000902\t\"O'Brien,pipe|semi;tab\t~\"\"quoted\"\"\"\t1120.00\r\n\r\nEmployee Name\tPay Date\tPaid Hours\r\nExample Casey D\t2026-10-15\t44.00\r\nExample Casey D\t2026-11-13\t44.00\r\nExample Casey D\t2026-11-20\t44.00\r\nExample Casey D\t2026-11-24\t44.00\r\n",
+      "excelRows": null
+    }
+  ],
+  "emailDelivery": {
+    "enabled": false,
+    "matched": 0,
+    "accepted": 0
+  }
+}

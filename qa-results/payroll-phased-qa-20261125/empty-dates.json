@@ -1,0 +1,15 @@
+{
+  "fileName": "",
+  "csv": "",
+  "excelRows": null,
+  "runId": "67c71f47-9bcd-4270-b3f0-33a8e4df8d72",
+  "rowCount": 0,
+  "storedRows": 0,
+  "delimiter": ",",
+  "files": [],
+  "emailDelivery": {
+    "enabled": false,
+    "matched": 0,
+    "accepted": 0
+  }
+}

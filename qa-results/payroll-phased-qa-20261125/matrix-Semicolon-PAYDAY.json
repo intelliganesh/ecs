@@ -1,0 +1,36 @@
+{
+  "fileName": "2026-10-15.txt",
+  "csv": "Client ID;Employee ID;Earnings\r\n000901;D00901;1000.00\r\n000901;D00902;1200.00\r\n000902;D00903;1120.00\r\n\r\nEmployee Name;Pay Date;Paid Hours\r\nDemo Avery D;2026-10-15;44.00\r\nSample Jordan D;2026-10-15;44.00\r\nExample Casey D;2026-10-15;44.00\r\n",
+  "excelRows": null,
+  "runId": "d2584827-0d73-4d79-aedd-0f550cb378a5",
+  "rowCount": 24,
+  "storedRows": 0,
+  "delimiter": ";",
+  "files": [
+    {
+      "fileName": "2026-10-15.txt",
+      "csv": "Client ID;Employee ID;Earnings\r\n000901;D00901;1000.00\r\n000901;D00902;1200.00\r\n000902;D00903;1120.00\r\n\r\nEmployee Name;Pay Date;Paid Hours\r\nDemo Avery D;2026-10-15;44.00\r\nSample Jordan D;2026-10-15;44.00\r\nExample Casey D;2026-10-15;44.00\r\n",
+      "excelRows": null
+    },
+    {
+      "fileName": "2026-11-13.txt",
+      "csv": "Client ID;Employee ID;Earnings\r\n000901;D00902;1200.00\r\n000901;D00901;1000.00\r\n000902;D00903;1120.00\r\n\r\nEmployee Name;Pay Date;Paid Hours\r\nSample Jordan D;2026-11-13;44.00\r\nDemo Avery D;2026-11-13;44.00\r\nExample Casey D;2026-11-13;44.00\r\n",
+      "excelRows": null
+    },
+    {
+      "fileName": "2026-11-20.txt",
+      "csv": "Client ID;Employee ID;Earnings\r\n000901;D00901;1000.00\r\n000901;D00902;1200.00\r\n000902;D00903;1120.00\r\n\r\nEmployee Name;Pay Date;Paid Hours\r\nDemo Avery D;2026-11-20;44.00\r\nSample Jordan D;2026-11-20;44.00\r\nExample Casey D;2026-11-20;44.00\r\n",
+      "excelRows": null
+    },
+    {
+      "fileName": "2026-11-24.txt",
+      "csv": "Client ID;Employee ID;Earnings\r\n000901;D00902;1200.00\r\n000901;D00901;1000.00\r\n000902;D00903;1120.00\r\n\r\nEmployee Name;Pay Date;Paid Hours\r\nSample Jordan D;2026-11-24;44.00\r\nDemo Avery D;2026-11-24;44.00\r\nExample Casey D;2026-11-24;44.00\r\n",
+      "excelRows": null
+    }
+  ],
+  "emailDelivery": {
+    "enabled": false,
+    "matched": 0,
+    "accepted": 0
+  }
+}

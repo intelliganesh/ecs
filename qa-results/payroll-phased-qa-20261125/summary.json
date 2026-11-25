@@ -1,0 +1,246 @@
+{
+  "date": "2026-11-25",
+  "scope": "Three sequential phases; local ecs only; existing payroll job 2; no new jobs",
+  "phase1": {
+    "status": "PASS",
+    "backendTests": 255,
+    "frontendTests": 28,
+    "lint": "PASS",
+    "build": "PASS",
+    "dbAndSmtpBlockedDuringUnitTests": true,
+    "matrix": "Shared writer tests cover six formats x seven filename modes; content, naming, merges and collisions"
+  },
+  "phase2": {
+    "status": "PASS",
+    "localApiMatrix": {
+      "passed": 56,
+      "total": 56,
+      "formats": [
+        "Comma",
+        "CSV",
+        "Pipe",
+        "Tab",
+        "Semicolon",
+        "TILDE",
+        "FIXED",
+        "Space"
+      ],
+      "filenameModes": 7,
+      "checks": [
+        "Save/reopen persisted values",
+        "actual payroll SP manual Run",
+        "24 Detail rows across two datasets",
+        "filenames and extensions",
+        "delimiter parsing and three-column sections",
+        "108-character FIXED lines",
+        "per-section headers",
+        "no metadata leaks",
+        "published bytes equal API response"
+      ]
+    },
+    "ui": [
+      "Existing job Edit source hours_worked to reghours and label; Save; query regenerated; Run 24 rows",
+      "Semicolon + File Name/Client ID/Payday output",
+      "Text download equals server bytes",
+      "Downloaded Excel rows equal text rows",
+      "Required filename blocks Next; cancel leaves saved job intact",
+      "Restored CSV/Weekly schedule visible"
+    ],
+    "notAllMatrixCasesClickedThroughUi": true
+  },
+  "phase3": {
+    "status": "COMPLETED_WITH_FINDING",
+    "edgeChecks": [
+      {
+        "scenario": "Numeric boundary =",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Numeric boundary ==",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Numeric boundary !=",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Numeric boundary <>",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Numeric boundary <",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Numeric boundary <=",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Numeric boundary >",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Numeric boundary >=",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Restricted and empty manual date ranges",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Date and text filters, including exclusion",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Header ON/OFF and dataset-specific trailers",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Merge flag persists; normal files remain separate",
+        "status": "PASS"
+      },
+      {
+        "scenario": "All numeric/date/text formatting masks execute",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Validation: Blank filename",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Validation: Unknown format",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Validation: Unknown filename choice",
+        "status": "FAIL",
+        "error": "Invalid request was accepted"
+      },
+      {
+        "scenario": "Validation: Missing Detail mappings",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Validation: Invalid recipient",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Validation: Duplicate clients",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Validation: Invalid monthly date",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Validation: Invalid hour",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Validation: Unknown grouping",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Validation: SQL override rejected",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Validation: reversed dates",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Validation: missing dates",
+        "status": "PASS"
+      }
+    ],
+    "catalogChecks": [
+      {
+        "scenario": "All 56 mapping catalog choices; source fields plus Default constant",
+        "status": "PASS",
+        "unpopulatedFields": [
+          "Address 2",
+          "Deduction Code",
+          "Earnings +OT23",
+          "Location Name",
+          "Voucher Count",
+          "YTD Gross Amount",
+          "YTD Hours"
+        ]
+      },
+      {
+        "scenario": "All four date mask values checked",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Both SSN masks execute with fictional local placeholders",
+        "status": "PASS"
+      },
+      {
+        "scenario": "All six wage field choices Save/reopen (storage, not calculation proof)",
+        "status": "PASS"
+      },
+      {
+        "scenario": "All four grouping choices Save/reopen (storage only)",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Quotes/apostrophes/all delimiters inside a constant round trip correctly",
+        "status": "PASS"
+      }
+    ],
+    "scheduleChecks": [
+      {
+        "scenario": "Daily schedule Save/reopen",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Weekly schedule Save/reopen",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Bi-Weekly schedule Save/reopen",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Monthly schedule Save/reopen",
+        "status": "PASS"
+      },
+      {
+        "scenario": "Real-clock targeted scheduled worker; unchanged SP S flag; mail disabled; second invocation skips completed slot",
+        "status": "PASS",
+        "slot": "2026-11-25T06:31:00+00:00",
+        "files": {
+          ".complete": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "output": "/Users/apple/Desktop/ecs/backend/report-output/local-demo-phased-qa-20261125/payroll/scheduled/2/20261125T063100Z"
+      }
+    ]
+  },
+  "confirmedFinding": {
+    "issue": "API accepts unsupported outputFileNameFormat and silently falls back to FILENAME instead of rejecting",
+    "impact": "Direct API validation; normal UI limits choices to configured options",
+    "applicationCodeChanged": false
+  },
+  "limitations": [
+    "Scheduled worker was invoked directly for one real-clock due slot; background APScheduler loop not enabled or observed",
+    "Scheduled SP returned no matching data; completion marker and rerun suppression verified, not populated scheduled file contents",
+    "Seven demo/SP fields remain blank",
+    "Wage and grouping catalogs round-trip tested; all business calculation/aggregation outcomes not established",
+    "Real SMTP intentionally never tested; mail disabled",
+    "UI downloaded Semicolon text and Excel in this pass; every other format download covered by automated helpers, not individually through browser",
+    "Not every hour/minute/weekday combination or every concurrent/failure boundary was exercised",
+    "Space format currently uses .csv fallback extension with space delimiter; observed existing behavior"
+  ],
+  "finalIntegrity": {
+    "local_target_verified": true,
+    "mail_enabled": false,
+    "stored_procedure_hashes_unchanged": true,
+    "source_row_counts_unchanged": true,
+    "query_brl_unchanged": true,
+    "job_1_configuration_differences": [],
+    "job_2_configuration_differences": [],
+    "numeric_masks_and_padding_values_verified": true,
+    "evidence_run_responses": 94
+  },
+  "changes": "Only QA evidence and test runners added this turn; normal local job 2 Save/Run history/timestamps changed; full configuration restored. No application, env, SQL source, schema or SP edits. Production not contacted."
+}

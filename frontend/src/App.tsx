@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronRight, CircleDot, Layers, Plus, Settings, Trash2, X } from 'lucide-react'
 import { writeFile } from 'xlsx'
+import { payrollMappingWorkbook } from './payrollBuilder'
 import {
   configuredFileFormat, conditionValueError, createJobListRequestGuard, displayJobStatus, displayRunTime, emailAddresses, generalFieldErrors, manualRunDateHelp,
   excelDownloadFileName, isExcelFile, mappingColumnType, pasteEmailText, readExcelMappings, reportEmailMessage, reportMimeType, reportWorkbook,
@@ -14,6 +15,9 @@ import {
 
 type Screen = 'dashboard' | 'general' | 'schedule' | 'mapping' | 'subscriptions' | 'placeholder'
 type ReportSource = 'csv' | 'companyPayroll'
+type BuilderKind = 'retirement-builder' | 'payroll-builder'
+type WageMapping = { clientId: number; wageColumn: string; payCode: string; searchWord: string }
+const BuilderContext = createContext<{ kind: BuilderKind; api: string; title: string }>({ kind: 'retirement-builder', api: '/api/v1/retirement-builder', title: 'Retirement Builder' })
 type SideIcon = 'edit' | 'file' | 'copy'
 type MappingRow = { dataSetNo?: number; colSeqNo?: number; id: number; field: string; startPosition: string; length: string; recordType: string; defaultValue: string; mapping: string; format: string }
 type ApiMappingRow = { dataSetNo?: number; colSeqNo?: number; field?: string; startPosition?: string; length?: string; recordType?: string; defaultValue?: string; mappingColumn?: string; format?: string }
@@ -32,16 +36,16 @@ type JobRun = JobRunFile & {
   runId: string; rowCount: number; storedRows: number; delimiter?: string; files?: JobRunFile[];
   emailDelivery?: ReportEmailDelivery | null;
 }
-type RetirementBuilderApiJob = { id: number; general?: { fileName?: string; fileFormat?: string; description?: string; outputFileNameFormat?: string; enable?: boolean; storeResultsToTable?: boolean; selectedFile?: string; reportSource?: ReportSource }; schedule?: { startDate?: string | null; startDateTime?: string | null; week?: string; hour?: string; minute?: string; meridiem?: string; buildFrequency?: string }; mapping?: { includeHeader?: boolean; rows?: ApiMappingRow[] }; subscriptions?: { mergeFiles?: boolean; rows?: ApiSubscription[] }; fileSettings?: { sortingOrder?: Partial<SortingRow>[]; conditionalStatements?: Partial<ConditionalRow>[] }; jobid?: number; jobfilename?: string; jobdesc?: string; filetype?: string; isEnabled?: boolean | number; ismerge?: boolean; runday?: string; runtime?: string; ScheduleType?: string; joblastmodified?: string | null; joblastrun?: string | null; Job_Last_Status?: string | null }
-type RetirementBuilderOptions = { fileFormats: string[]; outputFileNameFormats: Array<{ label: string; value: string }>; buildFrequencies: string[]; hours: string[]; minutes: string[]; meridiems: string[]; weekDays: string[]; recordTypes: string[]; comparisonOperators: string[]; mappingColumns: string[]; payrollMappingColumns: string[]; payrollMappingColumnKeys: string[]; mappingColumnLabels: Record<string, string>; payrollCompanies: Record<string, string>; mappingColumnTypes: Record<string, string>; mappingFormatsByType: Record<string, string[]>; mappingFormatLabels: Record<string, string> }
+type RetirementBuilderApiJob = { id: number; wageMappings?: WageMapping[]; grouping?: string[]; general?: { fileName?: string; fileFormat?: string; description?: string; outputFileNameFormat?: string; enable?: boolean; storeResultsToTable?: boolean; selectedFile?: string; reportSource?: ReportSource }; schedule?: { startDate?: string | null; startDateTime?: string | null; week?: string; hour?: string; minute?: string; meridiem?: string; buildFrequency?: string }; mapping?: { includeHeader?: boolean; rows?: ApiMappingRow[] }; subscriptions?: { mergeFiles?: boolean; rows?: ApiSubscription[] }; fileSettings?: { sortingOrder?: Partial<SortingRow>[]; conditionalStatements?: Partial<ConditionalRow>[] }; jobid?: number; jobfilename?: string; jobdesc?: string; filetype?: string; isEnabled?: boolean | number; ismerge?: boolean; runday?: string; runtime?: string; ScheduleType?: string; joblastmodified?: string | null; joblastrun?: string | null; Job_Last_Status?: string | null }
+type RetirementBuilderOptions = { wageColumns?: Array<{ value: string; label: string }>; groupingOptions?: Array<{ value: string; label: string }>; fileFormats: string[]; outputFileNameFormats: Array<{ label: string; value: string }>; buildFrequencies: string[]; hours: string[]; minutes: string[]; meridiems: string[]; weekDays: string[]; recordTypes: string[]; comparisonOperators: string[]; mappingColumns: string[]; payrollMappingColumns: string[]; payrollMappingColumnKeys: string[]; mappingColumnLabels: Record<string, string>; payrollCompanies: Record<string, string>; mappingColumnTypes: Record<string, string>; mappingFormatsByType: Record<string, string[]>; mappingFormatLabels: Record<string, string> }
 
 const navigation: [SideIcon, string][] = [['edit', 'Benefits'], ['file', 'Mass Mutual Files'], ['copy', 'Process Validator'], ['copy', 'Retirement Builder'], ['edit', 'Prism'], ['copy', 'Services'], ['copy', 'Swipe Clock'], ['copy', 'Payroll Builder'], ['copy', 'NYS-45'], ['copy', 'Reports']]
-const menuPaths: Record<string, string> = { Benefits: '/benefits', 'Mass Mutual Files': '/mass-mutual-files', 'Process Validator': '/process-validator', Prism: '/prism', Services: '/services', 'Swipe Clock': '/swipe-clock', 'Payroll Builder': '/payroll-builder', 'NYS-45': '/nys-45', Reports: '/reports' }
+const menuPaths: Record<string, string> = { 'Retirement Builder': '/retirement-builder', Benefits: '/benefits', 'Mass Mutual Files': '/mass-mutual-files', 'Process Validator': '/process-validator', Prism: '/prism', Services: '/services', 'Swipe Clock': '/swipe-clock', 'Payroll Builder': '/payroll-builder', 'NYS-45': '/nys-45', Reports: '/reports' }
 const menuTitles: Record<string, string> = Object.fromEntries(Object.entries(menuPaths).map(([label, path]) => [path, label]))
 const apiBaseUrl = '/api/v1'
-async function fetchRetirementJobs(signal?: AbortSignal): Promise<RetirementBuilderApiJob[]> {
-  const response = await fetch(`${apiBaseUrl}/retirement-builder/jobs`, { signal, cache: 'no-store' })
-  if (!response.ok) throw new Error('Unable to load Retirement Builder jobs')
+async function fetchRetirementJobs(signal?: AbortSignal, kind: BuilderKind = 'retirement-builder'): Promise<RetirementBuilderApiJob[]> {
+  const response = await fetch(`${apiBaseUrl}/${kind}/jobs`, { signal, cache: 'no-store' })
+  if (!response.ok) throw new Error('Unable to load builder jobs')
   const jobs = await response.json() as RetirementBuilderApiJob[]
   return jobs.map(normalizeApiJob)
 }
@@ -83,8 +87,8 @@ const scheduleDefaults: Omit<ScheduleValues, 'startDate'> = {
 const emptySchedule: ScheduleValues = { startDate: '', buildFrequency: '', hour: '', minute: '', meridiem: '', week: '' }
 const emptyFileSettings: FileSettingsValues = { sortingOrder: [], conditionalStatements: [] }
 const defaultNewReportSource: ReportSource = 'companyPayroll'
-const addPaths: Record<Screen, string> = { dashboard: '/retirement-builder', general: '/jobs/new', schedule: '/jobs/new/schedule', mapping: '/jobs/new/mapping', subscriptions: '/jobs/new/subscriptions', placeholder: '/placeholder' }
-const editPaths: Record<Screen, string> = { dashboard: '/retirement-builder', general: '/jobs/edit/general', schedule: '/jobs/edit/schedule', mapping: '/jobs/edit/mapping', subscriptions: '/jobs/edit/subscriptions', placeholder: '/placeholder' }
+const retirementAddPaths: Record<Screen, string> = { dashboard: '/retirement-builder', general: '/jobs/new', schedule: '/jobs/new/schedule', mapping: '/jobs/new/mapping', subscriptions: '/jobs/new/subscriptions', placeholder: '/placeholder' }
+const retirementEditPaths: Record<Screen, string> = { dashboard: '/retirement-builder', general: '/jobs/edit/general', schedule: '/jobs/edit/schedule', mapping: '/jobs/edit/mapping', subscriptions: '/jobs/edit/subscriptions', placeholder: '/placeholder' }
 
 function screenFromPath(path: string): Screen { if (path === '/retirement-builder') return 'dashboard'; if (path === '/jobs/new' || path === '/jobs/edit/general') return 'general'; if (path === '/jobs/new/schedule' || path === '/jobs/edit/schedule') return 'schedule'; if (path === '/jobs/new/mapping' || path === '/jobs/edit/mapping') return 'mapping'; if (path === '/jobs/new/subscriptions' || path === '/jobs/edit/subscriptions') return 'subscriptions'; return 'placeholder' }
 
@@ -221,11 +225,10 @@ function EmailTagsInput({ value, draft, onChange, ariaLabel, validate }: {
 
 const wizardSteps: Screen[] = ['general', 'schedule', 'mapping', 'subscriptions']
 const earliestStartDate = '1753-01-01'
-const draftKey = 'ecs-retirement-builder-draft'
-type Draft = { mode: 'add' | 'edit'; jobId: number | null; enable: boolean; fileName: string; fileFormat: string; description: string; outputFileNameFormat: string; storeResultsToTable: boolean; selectedFile: string; reportSource: ReportSource; schedule: ScheduleValues; storedStartDateTime?: string | null; includeHeader: boolean; mappingRows: MappingRow[]; mergeFiles: boolean; subscriptions: Subscription[]; fileSettings: FileSettingsValues }
-function readDraft(mode: 'add' | 'edit'): Draft | null { try { const raw = sessionStorage.getItem(draftKey); if (!raw) return null; const draft = JSON.parse(raw) as Draft; if (draft.mode !== mode || (mode === 'edit' && typeof draft.jobId !== 'number')) return null; rowSequence = Math.max(rowSequence, ...draft.mappingRows.map((row) => row.id), ...draft.subscriptions.map((row) => row.id)); return draft } catch { return null } }
-async function readSaveError(response: Response, fallback = 'Unable to save Retirement Builder job') {
-  if (response.status === 404) return 'This Retirement Builder job no longer exists. Return to the dashboard and select it again.'
+type Draft = { wageMappings?: WageMapping[]; grouping?: string[]; mode: 'add' | 'edit'; jobId: number | null; enable: boolean; fileName: string; fileFormat: string; description: string; outputFileNameFormat: string; storeResultsToTable: boolean; selectedFile: string; reportSource: ReportSource; schedule: ScheduleValues; storedStartDateTime?: string | null; includeHeader: boolean; mappingRows: MappingRow[]; mergeFiles: boolean; subscriptions: Subscription[]; fileSettings: FileSettingsValues }
+function readDraft(mode: 'add' | 'edit', draftKey: string): Draft | null { try { const raw = sessionStorage.getItem(draftKey); if (!raw) return null; const draft = JSON.parse(raw) as Draft; if (draft.mode !== mode || (mode === 'edit' && typeof draft.jobId !== 'number')) return null; rowSequence = Math.max(rowSequence, ...draft.mappingRows.map((row) => row.id), ...draft.subscriptions.map((row) => row.id)); return draft } catch { return null } }
+async function readSaveError(response: Response, fallback = 'Unable to save the job') {
+  if (response.status === 404) return 'This job no longer exists. Return to the dashboard and select it again.'
   try {
     const body = await response.json() as { detail?: unknown }
     if (typeof body.detail === 'string') return body.detail
@@ -240,29 +243,53 @@ async function readSaveError(response: Response, fallback = 'Unable to save Reti
   return response.status === 422 ? 'The submitted values were rejected by the server.' : fallback
 }
 
-const createAttemptKey = 'ecs-retirement-builder-create-attempt'
 type CreateAttempt = { fingerprint: string; key: string }
 
-function readCreateAttempt(): CreateAttempt | null {
+function readCreateAttempt(createAttemptKey: string): CreateAttempt | null {
   try { return JSON.parse(sessionStorage.getItem(createAttemptKey) ?? 'null') as CreateAttempt | null }
   catch { return null }
 }
 
 export default function App({ userEmail }: { userEmail: string }) {
-  const location = useLocation(); const routerNavigate = useNavigate(); const screen = screenFromPath(location.pathname); const isEditFlow = location.pathname.startsWith('/jobs/edit/'); const isWizard = screen !== 'dashboard' && screen !== 'placeholder'
+  const location = useLocation()
+  const kind: BuilderKind = location.pathname.startsWith('/payroll-builder') ? 'payroll-builder' : 'retirement-builder'
+  return <BuilderApp key={kind} kind={kind} userEmail={userEmail} />
+}
+
+function BuilderApp({ userEmail, kind }: { userEmail: string; kind: BuilderKind }) {
+  const payrollBuilder = kind === 'payroll-builder'
+  const builderTitle = payrollBuilder ? 'Payroll Builder' : 'Retirement Builder'
+  const builderApi = `${apiBaseUrl}/${kind}`
+  const draftKey = `ecs-${kind}-draft`
+  const createAttemptKey = `ecs-${kind}-create-attempt`
+  const paths = (base: Record<Screen, string>) => Object.fromEntries(Object.entries(base).map(([key, value]) => [key,
+    !payrollBuilder ? value : key === 'dashboard' ? '/payroll-builder' : `/payroll-builder${value}`])) as Record<Screen, string>
+  const addPaths = paths(retirementAddPaths)
+  const editPaths = paths(retirementEditPaths)
+  const location = useLocation(); const routerNavigate = useNavigate(); const localPath = payrollBuilder ? location.pathname === '/payroll-builder' ? '/retirement-builder' : location.pathname.slice('/payroll-builder'.length) : location.pathname; const screen = screenFromPath(localPath); const isEditFlow = localPath.startsWith('/jobs/edit/'); const isWizard = screen !== 'dashboard' && screen !== 'placeholder'
   const requestedJobId = isEditFlow && typeof location.state?.jobId === 'number' ? location.state.jobId : null
   const [initialDraft] = useState(() => {
-    const draft = isWizard ? readDraft(isEditFlow ? 'edit' : 'add') : null
+    const draft = isWizard ? readDraft(isEditFlow ? 'edit' : 'add', draftKey) : null
     return requestedJobId === null || draft?.jobId === requestedJobId ? draft : null
   })
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 767); const [showSettings, setShowSettings] = useState(false); const [saveError, setSaveError] = useState(''); const [saving, setSaving] = useState(false); const savingRef = useRef(false)
   const [enable, setEnable] = useState(initialDraft?.enable ?? true); const [fileName, setFileName] = useState(initialDraft?.fileName ?? ''); const [draftFileFormat, setFileFormat] = useState(initialDraft?.fileFormat ?? ''); const [description, setDescription] = useState(initialDraft?.description ?? ''); const [outputFileNameFormat, setOutputFileNameFormat] = useState(initialDraft?.outputFileNameFormat ?? ''); const [storeResultsToTable, setStoreResultsToTable] = useState(initialDraft?.storeResultsToTable ?? false); const [selectedFile, setSelectedFile] = useState(initialDraft?.selectedFile ?? '')
-  const [reportSource, setReportSource] = useState<ReportSource>(initialDraft?.reportSource ?? (isEditFlow ? 'csv' : defaultNewReportSource))
+  const [reportSource, setReportSource] = useState<ReportSource>(initialDraft?.reportSource ?? (isEditFlow || payrollBuilder ? 'csv' : defaultNewReportSource))
   const [schedule, setSchedule] = useState<ScheduleValues>(initialDraft?.schedule ?? emptySchedule); const [includeHeader, setIncludeHeader] = useState(initialDraft?.includeHeader ?? false); const [mappingRows, setMappingRows] = useState<MappingRow[]>(initialDraft?.mappingRows ?? []); const [fileSettings, setFileSettings] = useState<FileSettingsValues>(initialDraft?.fileSettings ?? emptyFileSettings)
+  const [wageMappings, setWageMappings] = useState<WageMapping[]>(initialDraft?.wageMappings ?? [])
+  const [grouping, setGrouping] = useState<string[]>(initialDraft?.grouping ?? [])
   const [mergeFiles, setMergeFiles] = useState(initialDraft?.mergeFiles ?? false); const [subscriptions, setSubscriptions] = useState<Subscription[]>(initialDraft?.subscriptions ?? [])
   const [retirementJobs, setRetirementJobs] = useState<RetirementBuilderApiJob[]>([]); const [jobsStatus, setJobsStatus] = useState<JobsStatus>('loading'); const [selectedJobId, setSelectedJobId] = useState<number | null>(initialDraft?.jobId ?? null); const [filters, setFilters] = useState<TableFilters>({}); const [options, setOptions] = useState({ values: emptyOptions, loading: true, error: '' })
   const jobListRequests = useRef(createJobListRequestGuard())
   const [storedStartDateTime, setStoredStartDateTime] = useState(initialDraft?.storedStartDateTime)
+  useEffect(() => {
+    if (!payrollBuilder) return
+    const mobile = window.matchMedia('(max-width: 767px)')
+    const closeMobileMenu = () => { if (mobile.matches) setSidebarOpen(false) }
+    closeMobileMenu()
+    mobile.addEventListener('change', closeMobileMenu)
+    return () => mobile.removeEventListener('change', closeMobileMenu)
+  }, [payrollBuilder, location.pathname])
   const [validatedSteps, setValidatedSteps] = useState<Partial<Record<Screen, boolean>>>({})
   const [editLoadError, setEditLoadError] = useState('')
   const [editLoadAttempt, setEditLoadAttempt] = useState(0)
@@ -276,7 +303,9 @@ export default function App({ userEmail }: { userEmail: string }) {
   const invalidGeneral = Object.values(generalErrors).some(Boolean)
   const manualOnlyDraft = !Object.values(schedule).some(Boolean)
   const scheduleErrors = {
-    startDate: schedule.startDate && (!/^\d{4}-/.test(schedule.startDate) || schedule.startDate < earliestStartDate)
+    startDate: payrollBuilder && !manualOnlyDraft && !schedule.startDate
+      ? 'Choose a start date for a scheduled payroll job.'
+      : schedule.startDate && (!/^\d{4}-/.test(schedule.startDate) || schedule.startDate < earliestStartDate)
       ? 'Choose a date between 1753-01-01 and 9999-12-31.' : '',
     buildFrequency: schedule.buildFrequency ? '' : 'Select a build frequency.',
     hour: validWholeNumber(schedule.hour, 1, 12) ? '' : 'Select an hour from 1 to 12.',
@@ -309,9 +338,9 @@ export default function App({ userEmail }: { userEmail: string }) {
     if (!isWizard) return
     const controller = new AbortController()
     setOptions((current) => ({ ...current, loading: true, error: '' }))
-    fetch(`${apiBaseUrl}/retirement-builder/options`, { signal: controller.signal, cache: 'no-store' })
+    fetch(`${builderApi}/options`, { signal: controller.signal, cache: 'no-store' })
       .then((response) => {
-        if (!response.ok) throw new Error('Unable to load Retirement Builder options')
+        if (!response.ok) throw new Error(`Unable to load ${builderTitle} options`)
         return response.json() as Promise<RetirementBuilderOptions>
       })
       .then((values) => {
@@ -319,7 +348,7 @@ export default function App({ userEmail }: { userEmail: string }) {
       })
       .catch(() => {
         if (!controller.signal.aborted) {
-          setOptions((current) => ({ ...current, loading: false, error: 'Unable to load Retirement Builder options.' }))
+          setOptions((current) => ({ ...current, loading: false, error: `Unable to load ${builderTitle} options.` }))
         }
       })
     return () => controller.abort()
@@ -329,7 +358,7 @@ export default function App({ userEmail }: { userEmail: string }) {
     const controller = new AbortController()
     setJobsStatus('loading')
     void jobListRequests.current.apply(
-      () => fetchRetirementJobs(controller.signal),
+      () => fetchRetirementJobs(controller.signal, kind),
       (jobs) => { setRetirementJobs(jobs); setJobsStatus('ready') },
       controller.signal,
     ).catch(() => {
@@ -339,9 +368,9 @@ export default function App({ userEmail }: { userEmail: string }) {
   }, [screen])
   useEffect(() => { setSaveError(''); setShowSettings(false) }, [location.pathname])
   useEffect(() => {
-    if (awaitingJob && requestedJobId === null) routerNavigate('/retirement-builder', { replace: true })
+    if (awaitingJob && requestedJobId === null) routerNavigate(addPaths.dashboard, { replace: true })
   }, [awaitingJob, requestedJobId, routerNavigate])
-  useEffect(() => { try { if (!isWizard) { sessionStorage.removeItem(draftKey); return } if (awaitingJob) return; const draft: Draft = { mode: isEditFlow ? 'edit' : 'add', jobId: selectedJobId, enable, fileName, fileFormat, description, outputFileNameFormat, storeResultsToTable, selectedFile, reportSource, schedule, storedStartDateTime, includeHeader, mappingRows, mergeFiles, subscriptions, fileSettings }; sessionStorage.setItem(draftKey, JSON.stringify(draft)) } catch { /* session storage unavailable: draft is simply not kept across refresh */ } }, [awaitingJob, description, enable, fileFormat, fileName, fileSettings, includeHeader, isEditFlow, isWizard, mappingRows, mergeFiles, outputFileNameFormat, reportSource, schedule, selectedFile, selectedJobId, storeResultsToTable, storedStartDateTime, subscriptions])
+  useEffect(() => { try { if (!isWizard) { sessionStorage.removeItem(draftKey); return } if (awaitingJob) return; const draft: Draft = { mode: isEditFlow ? 'edit' : 'add', jobId: selectedJobId, enable, fileName, fileFormat, description, outputFileNameFormat, storeResultsToTable, selectedFile, reportSource, schedule, storedStartDateTime, includeHeader, mappingRows, mergeFiles, subscriptions, fileSettings, wageMappings, grouping }; sessionStorage.setItem(draftKey, JSON.stringify(draft)) } catch { /* session storage unavailable: draft is simply not kept across refresh */ } }, [awaitingJob, description, enable, fileFormat, fileName, fileSettings, includeHeader, isEditFlow, isWizard, mappingRows, mergeFiles, outputFileNameFormat, reportSource, schedule, selectedFile, selectedJobId, storeResultsToTable, storedStartDateTime, subscriptions, wageMappings, grouping])
   useEffect(() => {
     if (isWizard && !awaitingJob && screen !== 'general' && invalidGeneral) {
       setValidatedSteps((current) => ({ ...current, general: true }))
@@ -390,7 +419,7 @@ export default function App({ userEmail }: { userEmail: string }) {
 
     setImporting(true)
     try {
-      const fields = await readExcelMappings(file)
+      const fields = await readExcelMappings(file, { includeSourceColumns: payrollBuilder })
       if (request !== uploadRequest.current) return
       if (!fields.length) {
         setUploadError('The first worksheet has no mapping fields. Add fields and try again.')
@@ -404,8 +433,8 @@ export default function App({ userEmail }: { userEmail: string }) {
       if (request === uploadRequest.current) setImporting(false)
     }
   }
-  const resetForm = () => { setSelectedJobId(null); setSaveError(''); setEnable(true); setFileName(''); setFileFormat(''); setDescription(''); setOutputFileNameFormat(''); setStoreResultsToTable(false); setSelectedFile(''); setReportSource(defaultNewReportSource); setSchedule(emptySchedule); setStoredStartDateTime(undefined); setIncludeHeader(false); setMergeFiles(false); setSubscriptions([]); setMappingRows([]); setFileSettings(emptyFileSettings) }
-  const loadJob = useCallback((job: RetirementBuilderApiJob) => { const general = job.general ?? {}; const jobSchedule = job.schedule ?? {}; setSelectedJobId(job.id); setSaveError(''); setEnable(general.enable !== false); setFileName(general.fileName ?? ''); setFileFormat(general.fileFormat ?? ''); setDescription(general.description ?? ''); setOutputFileNameFormat(general.outputFileNameFormat ?? ''); setStoreResultsToTable(Boolean(general.storeResultsToTable)); setSelectedFile(general.selectedFile ?? ''); setReportSource(general.reportSource ?? 'csv'); setSchedule(jobSchedule.startDate === null ? emptySchedule : {
+  const resetForm = () => { setSelectedJobId(null); setSaveError(''); setEnable(true); setFileName(''); setFileFormat(''); setDescription(''); setOutputFileNameFormat(''); setStoreResultsToTable(false); setSelectedFile(''); setReportSource(payrollBuilder ? 'csv' : defaultNewReportSource); setWageMappings([]); setGrouping([]); setSchedule(emptySchedule); setStoredStartDateTime(undefined); setIncludeHeader(false); setMergeFiles(false); setSubscriptions([]); setMappingRows([]); setFileSettings(emptyFileSettings) }
+  const loadJob = useCallback((job: RetirementBuilderApiJob) => { const general = job.general ?? {}; const jobSchedule = job.schedule ?? {}; setSelectedJobId(job.id); setWageMappings(job.wageMappings ?? []); setGrouping(job.grouping ?? []); setSaveError(''); setEnable(general.enable !== false); setFileName(general.fileName ?? ''); setFileFormat(general.fileFormat ?? ''); setDescription(general.description ?? ''); setOutputFileNameFormat(general.outputFileNameFormat ?? ''); setStoreResultsToTable(Boolean(general.storeResultsToTable)); setSelectedFile(general.selectedFile ?? ''); setReportSource(general.reportSource ?? 'csv'); setSchedule(jobSchedule.startDate === null ? emptySchedule : {
       startDate: jobSchedule.startDate ?? '',
       buildFrequency: jobSchedule.buildFrequency ?? scheduleDefaults.buildFrequency,
       hour: jobSchedule.hour ?? scheduleDefaults.hour,
@@ -416,11 +445,11 @@ export default function App({ userEmail }: { userEmail: string }) {
   useEffect(() => {
     if (editDetailsId === null) return
     const controller = new AbortController()
-    const fallback = 'Unable to load the selected Retirement Builder job.'
+    const fallback = `Unable to load the selected ${builderTitle} job.`
     setEditLoadError('')
     const load = async () => {
       try {
-        const response = await fetch(`${apiBaseUrl}/retirement-builder/jobs/${editDetailsId}`, { signal: controller.signal })
+        const response = await fetch(`${builderApi}/jobs/${editDetailsId}`, { signal: controller.signal })
         if (!response.ok) throw new Error(await readSaveError(response, fallback))
         const job = normalizeApiJob(await response.json() as RetirementBuilderApiJob)
         if (job.id !== editDetailsId) throw new Error(fallback)
@@ -468,6 +497,7 @@ export default function App({ userEmail }: { userEmail: string }) {
     if (emails.some((row) => row.some((email) => !validEmail(email)))) return
 
     const body = JSON.stringify({
+      ...(payrollBuilder ? { wageMappings, grouping } : {}),
       general: { fileName, fileFormat, description, outputFileNameFormat, enable, storeResultsToTable, reportSource },
       schedule: manualOnlyDraft ? { startDate: null } : { ...schedule, startDate: schedule.startDate || null, week: schedule.week || undefined },
       mapping: { includeHeader, rows: mappingRows.map(({ dataSetNo, colSeqNo, field, startPosition, length, recordType, defaultValue, mapping, format }) => ({
@@ -485,11 +515,11 @@ export default function App({ userEmail }: { userEmail: string }) {
     setSaving(true)
     try {
       const isUpdate = selectedJobId !== null
-      const endpoint = `${apiBaseUrl}/retirement-builder/jobs${isUpdate ? `/${selectedJobId}` : ''}`
+      const endpoint = `${builderApi}/jobs${isUpdate ? `/${selectedJobId}` : ''}`
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (!isUpdate) {
         const fingerprint = bytesToHex(sha256(new TextEncoder().encode(body)))
-        const prior = createAttempt.current ?? readCreateAttempt()
+        const prior = createAttempt.current ?? readCreateAttempt(createAttemptKey)
         const attempt = prior?.fingerprint === fingerprint
           ? prior
           : { fingerprint, key: bytesToHex(crypto.getRandomValues(new Uint8Array(16))) }
@@ -501,7 +531,7 @@ export default function App({ userEmail }: { userEmail: string }) {
       if (!response.ok) throw new Error(await readSaveError(response))
       let saved: RetirementBuilderApiJob
       try { saved = normalizeApiJob(await response.json() as RetirementBuilderApiJob) }
-      catch { throw new Error('Unexpected response from the Retirement Builder service.') }
+      catch { throw new Error(`Unexpected response from the ${builderTitle} service.`) }
       if (!isUpdate) clearCreateAttempt()
       jobListRequests.current.invalidate()
       setRetirementJobs((jobs) => mergeSavedJob(jobs, saved))
@@ -509,7 +539,7 @@ export default function App({ userEmail }: { userEmail: string }) {
       setSelectedJobId(saved.id)
       navigate('dashboard')
     } catch (error) {
-      setSaveError(error instanceof TypeError ? 'Unable to reach the Retirement Builder service. Please try again.' : error instanceof Error ? error.message : 'Unable to save Retirement Builder job')
+      setSaveError(error instanceof TypeError ? `Unable to reach the ${builderTitle} service. Please try again.` : error instanceof Error ? error.message : `Unable to save ${builderTitle} job`)
     } finally {
       savingRef.current = false
       setSaving(false)
@@ -521,12 +551,12 @@ export default function App({ userEmail }: { userEmail: string }) {
     const rows = normalizeDatasetSequences(current)
     return [...rows, toMappingRow({ ...nextMappingPosition(rows, dataset), recordType: 'Detail', startPosition: '0', length: '0' })]
   })
-  const pageTitle = screen === 'placeholder' ? menuTitles[location.pathname] ?? '' : 'Retirement Builder'; const title = screen === 'dashboard' || screen === 'placeholder' ? '' : isEditFlow ? 'Edit Job' : 'Add New Job'; const userName = userEmail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+  const pageTitle = screen === 'placeholder' ? menuTitles[location.pathname] ?? '' : builderTitle; const title = screen === 'dashboard' || screen === 'placeholder' ? '' : isEditFlow ? 'Edit Job' : 'Add New Job'; const userName = userEmail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
   const content = (() => {
     if (screen === 'dashboard') return <Dashboard jobs={dashboardJobs} status={jobsStatus} filters={filters} onFilterChange={updateFilter} onAdd={startAdd} onEdit={startEdit}
       onRunSettled={(id, result) => {
         if (result) setRetirementJobs((jobs) => jobs.map((job) => job.id === id ? { ...job, Job_Last_Status: result } : job))
-        void jobListRequests.current.apply(() => fetchRetirementJobs(), setRetirementJobs)
+        void jobListRequests.current.apply(() => fetchRetirementJobs(undefined, kind), setRetirementJobs)
           .catch(() => { /* Keep the current dashboard state. */ })
       }}
     />
@@ -569,14 +599,29 @@ export default function App({ userEmail }: { userEmail: string }) {
       onEmailChange={(id, email, emailDraft) => setSubscriptions((rows) => rows.map((row) => row.id === id ? { ...row, email, emailDraft } : row))}
       onAdd={() => setSubscriptions((rows) => [...rows, newSubscription()])}
       onDelete={(id) => setSubscriptions((rows) => rows.filter((row) => row.id !== id))}
+      extraContent={payrollBuilder ? (clientLabels) => <PayrollSettings clientLabels={clientLabels} wageMappings={wageMappings} onWagesChange={setWageMappings} subscriptions={subscriptions} /> : undefined}
       onBack={() => navigate('mapping')} onFinish={saveJob}
     />
   })()
-  return <OptionsContext.Provider value={options}><div className={`app-shell ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}><header className="topbar"><div className="brand">ECS</div><button className="menu-button" onClick={() => setSidebarOpen((open) => !open)} aria-label="Toggle navigation">☰</button><div className="user-name">{userName}</div></header><div className="workspace"><Sidebar active={screen} onNavigate={navigate} onNavigatePath={routerNavigate} /><main className="main-content"><div className="page-heading"><h1>{pageTitle}</h1><div className="breadcrumb"><CircleDot className="breadcrumb-icon" aria-hidden="true" /><button type="button" className="breadcrumb-link" onClick={() => navigate('dashboard')}>SYD</button><ChevronRight className="breadcrumb-chevron" aria-hidden="true" /><span>{title}</span></div></div>{screen === 'dashboard' || screen === 'placeholder' ? content : <WizardCard title={title} activeStep={screen} stepsDisabled={awaitingJob} onCancel={() => navigate('dashboard')} onNavigate={navigate} headerActions={screen === 'mapping' ? <button type="button" className="button button-primary" disabled={awaitingJob} onClick={() => addMappingRow()}><span className="button-icon"><ToolIcon name="plus" /></span>Add Dataset</button> : screen === 'general' && isEditFlow ? <button type="button" className="button button-light" onClick={() => navigate('dashboard')}>Cancel</button> : undefined}>{content}</WizardCard>}<footer><span>Copyright © 2026</span><strong>Employer Services Corporation.</strong><span>All rights reserved.</span></footer></main></div>{showSettings && <FileSettingsModal reportSource={reportSource} mappingRows={mappingRows} initialSorting={fileSettings.sortingOrder} initialConditional={fileSettings.conditionalStatements} onSave={(sortingOrder, conditionalStatements) => { setFileSettings({ sortingOrder, conditionalStatements }); setShowSettings(false) }} onClose={() => setShowSettings(false)} />}</div></OptionsContext.Provider>
+  return <BuilderContext.Provider value={{ kind, api: builderApi, title: builderTitle }}><OptionsContext.Provider value={options}><div className={`app-shell ${kind} ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}><header className="topbar"><div className="brand">ECS</div><button className="menu-button" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen((open) => !open)} aria-label="Toggle navigation">☰</button><div className="user-name">{userName}</div></header><div className="workspace"><Sidebar builderTitle={builderTitle} active={screen} onNavigate={navigate} onNavigatePath={routerNavigate} /><main className="main-content"><div className="page-heading"><h1>{pageTitle}</h1><div className="breadcrumb"><CircleDot className="breadcrumb-icon" aria-hidden="true" /><button type="button" className="breadcrumb-link" onClick={() => navigate('dashboard')}>SYD</button><ChevronRight className="breadcrumb-chevron" aria-hidden="true" /><span>{title}</span></div></div>{screen === 'dashboard' || screen === 'placeholder' ? content : <WizardCard title={title} activeStep={screen} stepsDisabled={awaitingJob} onCancel={() => navigate('dashboard')} onNavigate={navigate} headerActions={screen === 'mapping' ? <button type="button" className="button button-primary" disabled={awaitingJob} onClick={() => addMappingRow()}><span className="button-icon"><ToolIcon name="plus" /></span>Add Dataset</button> : screen === 'general' && isEditFlow ? <button type="button" className="button button-light" onClick={() => navigate('dashboard')}>Cancel</button> : undefined}>{content}</WizardCard>}<footer><span>Copyright © 2026</span><strong>Employer Services Corporation.</strong><span>All rights reserved.</span></footer></main></div>{showSettings && <FileSettingsModal reportSource={reportSource} mappingRows={mappingRows} payrollGrouping={payrollBuilder ? grouping : undefined} initialSorting={fileSettings.sortingOrder} initialConditional={fileSettings.conditionalStatements} onSave={(sortingOrder, conditionalStatements, nextGrouping) => { setFileSettings({ sortingOrder, conditionalStatements }); if (payrollBuilder) setGrouping(nextGrouping); setShowSettings(false) }} onClose={() => setShowSettings(false)} />}</div></OptionsContext.Provider></BuilderContext.Provider>
 }
 
-function MenuIcon({ name }: { name: SideIcon }) { if (name === 'file') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.5h9l5 5V20.5H5z" /><path d="M14 3.5v5h5" /></svg>; if (name === 'copy') return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6.5" width="11" height="13" rx="1.5" /><path d="M8 6.5V4.8A1.8 1.8 0 0 1 9.8 3h9a1.8 1.8 0 0 1 1.8 1.8v9A1.8 1.8 0 0 1 18.8 15H15" /></svg>; return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.7 3.2 3.2-.7L18.8 6.7a2.2 2.2 0 0 0-3.1-3.1z" /><path d="m14.7 5.3 4 4" /></svg> }
-function Sidebar({ active, onNavigate, onNavigatePath }: { active: Screen; onNavigate: (screen: Screen) => void; onNavigatePath: (path: string) => void }) { return <aside className="sidebar">{navigation.map(([icon, label]) => <button className={`nav-item ${label === 'Retirement Builder' && active !== 'placeholder' ? 'active' : ''}`} key={label} onClick={() => label === 'Retirement Builder' ? onNavigate('dashboard') : onNavigatePath(menuPaths[label])}><span className="nav-icon"><MenuIcon name={icon} /></span><span>{label}</span>{['Benefits', 'Mass Mutual Files', 'Prism'].includes(label) && <span className="nav-chevron">‹</span>}</button>)}</aside> }
+function MenuIcon({ name }: { name: SideIcon }) {
+  if (name === 'file') return <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="currentColor" stroke="none" d="M4 2h10l6 6v14H4z" />
+    <path fill="var(--sidebar)" fillOpacity=".45" stroke="none" d="M14 2v6h6z" />
+  </svg>
+  if (name === 'copy') return <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M8 16H3V7l5-5h7v5M3 7h5V2" />
+    <path d="M14 7h7v15H9V12zM9 12h5V7" />
+  </svg>
+  return <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M13 5H4v15h15v-8" />
+    <path fill="currentColor" stroke="none" d="m9 12 9-9 4 4-9 9-5 1z" />
+    <path d="m17 4 4 4" />
+  </svg>
+}
+function Sidebar({ builderTitle, active, onNavigate, onNavigatePath }: { builderTitle: string; active: Screen; onNavigate: (screen: Screen) => void; onNavigatePath: (path: string) => void }) { return <aside className="sidebar">{navigation.map(([icon, label]) => <button className={`nav-item ${label === builderTitle && active !== 'placeholder' ? 'active' : ''}`} key={label} onClick={() => label === builderTitle ? onNavigate('dashboard') : onNavigatePath(menuPaths[label])}><span className="nav-icon"><MenuIcon name={icon} /></span><span>{label}</span>{['Benefits', 'Mass Mutual Files', 'Prism'].includes(label) && <span className="nav-chevron">‹</span>}</button>)}</aside> }
 function ToolIcon({ name }: { name: 'layers' | 'plus' | 'trash' }) { if (name === 'plus') return <Plus aria-hidden="true" />; if (name === 'trash') return <Trash2 aria-hidden="true" />; return <Layers aria-hidden="true" /> }
 function WizardCard({ title, activeStep, stepsDisabled, onCancel, onNavigate, headerActions, children }: { title: string; activeStep: Screen; stepsDisabled: boolean; onCancel: () => void; onNavigate: (screen: Screen) => void; headerActions?: ReactNode; children: ReactNode }) { const steps: { key: Screen; label: string }[] = [{ key: 'general', label: 'General' }, { key: 'schedule', label: 'Schedule' }, { key: 'mapping', label: 'Mapping' }, { key: 'subscriptions', label: 'Subscriptions' }]; return <><div className="wizard-steps-shell"><nav className="wizard-steps">{steps.map((step, index) => <button className={`wizard-step ${activeStep === step.key ? 'active' : ''}`} key={step.key} aria-current={activeStep === step.key ? 'step' : undefined} disabled={stepsDisabled} onClick={() => onNavigate(step.key)}><span className="step-number" aria-hidden="true">{index + 1}</span><span>{step.label}</span></button>)}</nav></div><section className="wizard-card"><div className="card-heading"><h2>{title}</h2><div className="card-heading-actions">{headerActions}{activeStep !== 'general' && <button className="button button-light" onClick={onCancel}>Cancel</button>}</div></div>{children}</section></> }
 const jobsPerPage = 10
@@ -591,6 +636,7 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
   onEdit: (jobId: number) => void
   onRunSettled: (jobId: number, result?: 'Success' | 'Failed') => void
 }) {
+  const builder = useContext(BuilderContext)
   const headings = ['File Name', 'Description', 'Modified On', 'Last Run Date', 'Run Day', 'Run Time', 'Schedule Type', 'File Type', 'Is Active', 'Status']
   const [sort, setSort] = useState<{ index: number; direction: 'asc' | 'desc' } | null>(null)
   const [page, setPage] = useState(1)
@@ -604,6 +650,22 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
   const [runResult, setRunResult] = useState<JobRun | null>(null)
   const [downloads, setDownloads] = useState<Array<JobRunFile & { url: string }>>([])
   const [downloadError, setDownloadError] = useState('')
+  const [templateLoading, setTemplateLoading] = useState(false)
+  const [templateError, setTemplateError] = useState('')
+  const downloadPayrollTemplate = async () => {
+    setTemplateLoading(true)
+    setTemplateError('')
+    try {
+      const response = await fetch(`${builder.api}/options`, { cache: 'no-store' })
+      if (!response.ok) throw new Error('Unable to load payroll mapping columns.')
+      const options = await response.json() as RetirementBuilderOptions
+      writeFile(payrollMappingWorkbook(options.mappingColumnLabels), 'payroll_builder_mappings.xlsx')
+    } catch {
+      setTemplateError('Unable to download the payroll template. Try again.')
+    } finally {
+      setTemplateLoading(false)
+    }
+  }
   const delimiter = runResult?.delimiter
   const running = runningJobId !== null
   const valueFor = useCallback((job: DashboardJob, index: number) => index === 9 && job.id === runningJobId
@@ -675,13 +737,13 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
     setRunError('')
     try {
       const query = dates.size ? `?${dates}` : ''
-      const response = await fetch(`${apiBaseUrl}/retirement-builder/jobs/${job.id}/run${query}`, { method: 'POST' })
+      const response = await fetch(`${builder.api}/jobs/${job.id}/run${query}`, { method: 'POST' })
       if (!response.ok) throw new Error(await readSaveError(response, 'Unable to run the job.'))
       setRunResult(await response.json() as JobRun)
       onRunSettled(job.id, 'Success')
     } catch (cause) {
       setRunError(cause instanceof TypeError
-        ? 'Unable to reach the Retirement Builder service.'
+        ? `Unable to reach the ${builder.title} service.`
         : cause instanceof Error ? cause.message : 'Unable to run the job.')
       onRunSettled(job.id, cause instanceof TypeError ? undefined : 'Failed')
     } finally {
@@ -729,13 +791,16 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
           <span className="job-status-count" aria-hidden="true">{jobs.filter((job) => job.enabled === (scope === 'active')).length}</span>
         </button>)}
       </div>
-      <a className="button button-primary" href="/mapped_payroll_columns_HDT.xlsx" download="mapped_payroll_columns_HDT.xlsx">Template <span aria-hidden="true">⇩</span></a>
+      {builder.kind === 'payroll-builder'
+        ? <button className="button button-primary" disabled={templateLoading} onClick={downloadPayrollTemplate}>{templateLoading ? 'Loading…' : 'Template'} <span aria-hidden="true">⇩</span></button>
+        : <a className="button button-primary" href="/mapped_payroll_columns_HDT.xlsx" download="mapped_payroll_columns_HDT.xlsx">Template <span aria-hidden="true">⇩</span></a>}
       <button className="button button-primary" onClick={onAdd}>Add</button>
       <button className="button button-primary" disabled={!selected} onClick={() => selected && onEdit(selected.id)}>Edit</button>
       <button className="button button-primary" disabled={!selected || running} onClick={() => selected && setRunTarget(selected)}>
         {running ? 'Running…' : 'Run'}
       </button>
     </div>
+    {templateError && <p className="dashboard-action-message" role="alert">{templateError}</p>}
     {runError && <p className="dashboard-action-message" role="alert">{runError}</p>}
     {runResult && <div className="dashboard-action-message" role="status">
       {runResult.rowCount === 0 && !(runResult.files?.length ?? Number(Boolean(runResult.fileName)))
@@ -755,7 +820,7 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
     <div className="jobs-table-wrap" ref={tableScroll} role="tabpanel" id={`${tabsId}-panel`}
       aria-labelledby={`${tabsId}-${jobScope}`} tabIndex={0}>
       <table className="jobs-table">
-        <caption className="sr-only">Retirement Builder scheduled jobs</caption>
+        <caption className="sr-only">{builder.title} scheduled jobs</caption>
         <thead><tr>
           <th scope="col" className="jobs-select-column"><input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} disabled={running} aria-label="Select all visible jobs" /></th>
           {headings.map((heading, index) => <th scope="col" key={heading} aria-sort={sort?.index === index ? sort.direction === 'asc' ? 'ascending' : 'descending' : 'none'}>
@@ -771,7 +836,7 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
             {index === 0 ? <button type="button" className="file-name-link" onClick={() => onEdit(job.id)}>{valueFor(job, index)}</button> : valueFor(job, index)}
           </td>)}
         </tr>) : <tr><td className="empty-table" colSpan={headings.length + 1} role={status === 'error' ? 'alert' : undefined}>
-          {status === 'error' ? 'Unable to load Retirement Builder jobs. Please try again.' : status === 'loading' ? 'Loading…' : 'No matching records found'}
+          {status === 'error' ? `Unable to load ${builder.title} jobs. Please try again.` : status === 'loading' ? 'Loading…' : 'No matching records found'}
         </td></tr>}</tbody>
       </table>
     </div>
@@ -795,6 +860,7 @@ function RunDateDialog({ jobName, onCancel, onRun }: {
   onCancel: () => void
   onRun: (dates: URLSearchParams) => void
 }) {
+  const builder = useContext(BuilderContext)
   const dialog = useRef<HTMLDialogElement>(null)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -816,6 +882,10 @@ function RunDateDialog({ jobName, onCancel, onRun }: {
       setError('Start Date must be on or before End Date.')
       return
     }
+    if (builder.kind === 'payroll-builder' && (!start || !end || start === '1900-01-01' || end === '1900-01-01')) {
+      setError('Choose a start date and end date for the payroll report.')
+      return
+    }
     const dates = new URLSearchParams()
     if (start) dates.set('start_date', start)
     if (end) dates.set('end_date', end)
@@ -826,6 +896,7 @@ function RunDateDialog({ jobName, onCancel, onRun }: {
     onCancel={(event) => { event.preventDefault(); onCancel() }}>
     <form onSubmit={submit}>
       <h2 id="run-date-title">Run job</h2>
+      <div className="run-date-body">
       <p>{jobName}</p>
       <div className="run-date-fields" aria-describedby="run-date-help">
         <label>Start Date<input type="date" name="start_date" autoFocus min="0001-01-01" max="9999-12-31"
@@ -833,8 +904,9 @@ function RunDateDialog({ jobName, onCancel, onRun }: {
         <label>End Date<input type="date" name="end_date" min="0001-01-01" max="9999-12-31"
           onInput={() => setError('')} /></label>
       </div>
-      <small id="run-date-help">{manualRunDateHelp}</small>
+      <small id="run-date-help">{builder.kind === 'payroll-builder' ? 'Select the payroll pay-date range to include.' : manualRunDateHelp}</small>
       <FieldError id="run-date-error" message={error} />
+      </div>
       <div className="run-date-actions">
         <button type="button" className="button button-light" onClick={onCancel}>Cancel</button>
         <button type="submit" className="button button-primary">Run</button>
@@ -1030,18 +1102,21 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
     return Array.from(new Set([...buckets.flatMap((bucket) => values.mappingFormatsByType[bucket] ?? []), ...padding]))
   }
 
-  return <div className="form-step mapping-step">
-    <div className="mapping-scroll" role="region" aria-label="Dataset mapping rows" tabIndex={0}>
+  const toolbar = <>
       <div className="mapping-controls">
         <h3>Dataset Mapping</h3>
         <div className="mapping-header-actions">
           <label className="check-label" title="Adds the column names above the mapped records.">
             <input type="checkbox" checked={includeHeader} onChange={(event) => onHeaderChange(event.target.checked)} />Include Header Row
           </label>
-          <button type="button" className="icon-button" onClick={onOpenSettings} aria-label="Manage dataset settings" title="Manage dataset settings"><Settings aria-hidden="true" /></button>
+          <button type="button" className="button button-primary" onClick={onOpenSettings}><Settings aria-hidden="true" size={18} />File Settings</button>
         </div>
       </div>
       <p className="dataset-help">Each dataset is a separate report section. Trailer fields appear after their dataset. File Settings apply to the job.</p>
+  </>
+  return <div className="form-step mapping-step">
+    {toolbar}
+    <div className="mapping-scroll" role="region" aria-label="Dataset mapping rows" tabIndex={0}>
       {mappingDatasets(rows).map(({ number, rows: datasetRows }) => <section className="dataset-card" key={number} aria-label={`Dataset ${number}`}>
         <div className="dataset-card-heading"><h3><button type="button" className="dataset-toggle"
           aria-expanded={!collapsedDatasets.includes(number)} aria-controls={`${datasetPanelId}-${number}`}
@@ -1055,7 +1130,7 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
           }} aria-label={`Add row to Dataset ${number}`}><Plus aria-hidden="true" size={16} /> Add Row</button>
         </div>
       <div id={`${datasetPanelId}-${number}`} hidden={collapsedDatasets.includes(number)}>
-      <div className="mapping-table-wrap">
+      <div className="mapping-table-wrap" role="region" aria-label={`Dataset ${number} fields`} tabIndex={0}>
         <table className="mapping-table">
           <thead><tr>{['Field Name', 'Start Position', 'Length', 'Record Type', 'Default Value', 'Mapping Column', 'Format', 'Action'].map((heading) => <th scope="col" key={heading} title={heading === 'Start Position' ? 'FIXED format only. Zero-based: 0 is the first character of the line.' : undefined}>{heading}</th>)}</tr></thead>
           <tbody>{datasetRows.map((row) => {
@@ -1088,15 +1163,15 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
               <td><MappingNumber label={`${row.field} length`} value={row.length} validate={validate}
                 minimum={lengthLimits.minimum} maximum={lengthLimits.maximum}
                 onChange={(length) => onRowChange(row.id, { length })} /></td>
-              <td><SearchableSelect options={['Header', 'Detail', 'Trailer']} value={row.recordType} onValueChange={(recordType) => onRowChange(row.id, { recordType })} ariaLabel={`${label} record type`} /></td>
+              <td><fieldset className="control-fieldset"><SearchableSelect options={['Header', 'Detail', 'Trailer']} value={row.recordType} onValueChange={(recordType) => onRowChange(row.id, { recordType })} ariaLabel={`${label} record type`} /></fieldset></td>
               <td>
                 <input aria-label={`${row.field} default value`} value={row.defaultValue} aria-required={needsDefault}
                   aria-invalid={defaultError} aria-describedby={defaultError ? defaultErrorId : undefined}
                   onChange={(event) => onRowChange(row.id, { defaultValue: event.target.value })} />
                 <FieldError id={defaultErrorId} message={defaultError ? 'Enter a default value for this payroll field.' : undefined} />
               </td>
-              <td><SearchableSelect options={values.mappingColumns} value={columnLabel(row.mapping)} onValueChange={(mapping) => changeSource({ mapping })}
-                ariaLabel={`${label} mapping column`} clearLabel="Same as Field Name" includeSavedOption={false} /></td>
+              <td><fieldset className="control-fieldset"><SearchableSelect options={values.mappingColumns} value={columnLabel(row.mapping)} onValueChange={(mapping) => changeSource({ mapping })}
+                ariaLabel={`${label} mapping column`} clearLabel="Same as Field Name" includeSavedOption={false} /></fieldset></td>
               <td><SearchableSelect options={formats} optionLabels={values.mappingFormatLabels}
                 value={formatValue} onValueChange={(format) => onRowChange(row.id, { format })}
                 ariaLabel={`${label} format`} clearLabel="No format" includeSavedOption={false} /></td>
@@ -1115,9 +1190,10 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
 }
 
 function SubscriptionsStep({
-  reportSource, mergeFiles, subscriptions, error, saving, validate,
+  reportSource, mergeFiles, subscriptions, error, saving, validate, extraContent,
   onMergeChange, onClientChange, onCompanyChange, onEmailChange, onAdd, onDelete, onBack, onFinish,
 }: {
+  extraContent?: (clientLabels: Record<string, string>) => ReactNode
   reportSource: ReportSource
   mergeFiles: boolean
   subscriptions: Subscription[]
@@ -1134,6 +1210,7 @@ function SubscriptionsStep({
   onFinish: () => void
 }) {
   const { values } = useContext(OptionsContext)
+  const builder = useContext(BuilderContext)
   const payroll = reportSource === 'companyPayroll'
   const companyOptions = Object.entries(values.payrollCompanies).map(([id, name]) => `${id} - ${name}`)
   const [clientCatalog, setClientCatalog] = useState({ rows: [] as ClientOption[], loading: true, error: '' })
@@ -1142,7 +1219,7 @@ function SubscriptionsStep({
   useEffect(() => {
     if (payroll) return
     const controller = new AbortController()
-    fetch(`${apiBaseUrl}/retirement-builder/clients`, { signal: controller.signal, cache: 'no-store' })
+    fetch(`${builder.api}/clients`, { signal: controller.signal, cache: 'no-store' })
       .then((response) => {
         if (!response.ok) throw new Error('Unable to load the client list.')
         return response.json() as Promise<ClientOption[]>
@@ -1164,13 +1241,13 @@ function SubscriptionsStep({
       <button className="button button-primary" onClick={onAdd}><span className="button-icon"><ToolIcon name="plus" /></span>Add Row</button>
     </div>
     {error && <p className="dashboard-action-message" role="alert">{error}</p>}
-    <div className="subscription-table-wrap">
+    <div className="subscription-table-wrap" role="region" aria-label="Subscriptions table" tabIndex={0}>
       <table className="subscription-table">
         <thead><tr><th scope="col">{payroll ? 'Payroll Company' : 'Clients'}</th><th scope="col">Mail</th><th scope="col">Action</th></tr></thead>
         <tbody>{subscriptions.map((subscription, index) => {
           const companyName = subscription.companyId === undefined ? undefined : values.payrollCompanies[subscription.companyId]
           return <tr key={subscription.id}>
-            <td>{payroll ? <>
+            <td data-label="Client">{payroll ? <>
               <SearchableSelect options={companyOptions}
                 value={companyName === undefined ? '' : `${subscription.companyId} - ${companyName}`}
                 onValueChange={(value) => {
@@ -1189,29 +1266,96 @@ function SubscriptionsStep({
                 return id !== null && !(String(id) in clientLabels)
               }} />}
             </td>
-            <td><EmailTagsInput value={subscription.email} draft={subscription.emailDraft ?? ''} validate={validate}
+            <td data-label="Mail"><EmailTagsInput value={subscription.email} draft={subscription.emailDraft ?? ''} validate={validate}
               onChange={(email, draft) => onEmailChange(subscription.id, email, draft)} ariaLabel={`Email ${index + 1}`} /></td>
-            <td><button className="icon-button trash" onClick={() => onDelete(subscription.id)} aria-label={`Delete subscription ${index + 1}`}
+            <td data-label="Action"><button className="icon-button trash" onClick={() => onDelete(subscription.id)} aria-label={`Delete subscription ${index + 1}`}
               title={`Delete subscription ${index + 1}`}><ToolIcon name="trash" /></button></td>
           </tr>
         })}</tbody>
       </table>
     </div>
+    {extraContent?.(clientLabels)}
     <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onFinish} disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : 'Finish'}</button></div>
   </div>
 }
-function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialConditional, onSave, onClose }: {
+function PayrollSettings({ clientLabels, wageMappings, onWagesChange, subscriptions }: {
+  clientLabels: Record<string, string>
+  wageMappings: WageMapping[]
+  onWagesChange: (rows: WageMapping[]) => void
+  subscriptions: Subscription[]
+}) {
+  const clients = Array.from(new Set(subscriptions.map((row) => parseClientId(row.client)).filter((id): id is number => id !== null)))
+  const change = (index: number, patch: Partial<WageMapping>) => onWagesChange(wageMappings.map((row, i) => i === index ? { ...row, ...patch } : row))
+  return <div className="payroll-settings">
+    <section className="settings-section" aria-labelledby="payroll-wages-title">
+      <div className="settings-section-heading">
+        <div><strong id="payroll-wages-title">Wage Mappings</strong><span className="settings-section-description">Map a subscribed client’s earning codes to wage fields.</span></div>
+        <button type="button" className="button button-primary" onClick={() => onWagesChange([...wageMappings, { clientId: clients[0] ?? 0, wageColumn: '', payCode: '', searchWord: '' }])}><Plus aria-hidden="true" size={16} /> Add Row</button>
+      </div>
+      {!clients.length && <p className="general-field-help">Add a client subscription to configure wage mappings.</p>}
+      <div className="subscription-table-wrap" role="region" aria-label="Wage mapping rows" tabIndex={0}><table className="subscription-table payroll-wage-table">
+        <thead><tr>{['Client', 'Wage Field', 'Earning Code', 'Search Term', 'Action'].map((label) => <th scope="col" key={label}>{label}</th>)}</tr></thead>
+        <tbody>{wageMappings.map((row, index) => <PayrollWageRow key={index} row={row} index={index} clients={clients} clientLabels={clientLabels} onChange={(patch) => change(index, patch)} onDelete={() => onWagesChange(wageMappings.filter((_, i) => i !== index))} />)}
+          {!wageMappings.length && <tr><td colSpan={5}>No wage mappings configured.</td></tr>}</tbody>
+      </table></div>
+    </section>
+  </div>
+}
+
+function PayrollWageRow({ row, index, clients, clientLabels, onChange, onDelete }: {
+  row: WageMapping
+  index: number
+  clients: number[]
+  clientLabels: Record<string, string>
+  onChange: (patch: Partial<WageMapping>) => void
+  onDelete: () => void
+}) {
+  const builder = useContext(BuilderContext)
+  const { values } = useContext(OptionsContext)
+  const [codes, setCodes] = useState<Array<{ value: string; label: string }>>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    setCodes([])
+    setError('')
+    if (!row.clientId) { setLoading(false); return }
+    const controller = new AbortController()
+    setLoading(true)
+    fetch(`${builder.api}/pay-codes?client_id=${row.clientId}`, { signal: controller.signal, cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Unable to load earning codes.')
+        return response.json() as Promise<Array<{ value: string; label: string }>>
+      })
+      .then((result) => { if (!controller.signal.aborted) setCodes(result) })
+      .catch(() => { if (!controller.signal.aborted) setError('Unable to load earning codes.') })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [builder.api, row.clientId])
+  const wages = values.wageColumns ?? []
+  return <tr>
+    <td data-label="Client"><SearchableSelect options={clients.map(String)} optionLabels={clientLabels} value={row.clientId ? String(row.clientId) : ''} placeholder="Select client" ariaLabel={`Wage client ${index + 1}`} onValueChange={(client) => onChange({ clientId: Number(client), payCode: '' })} /></td>
+    <td data-label="Wage Field"><SearchableSelect options={wages.map((option) => option.value)} optionLabels={Object.fromEntries(wages.map((option) => [option.value, option.label]))} value={row.wageColumn} placeholder="Select wage field" ariaLabel={`Wage field ${index + 1}`} onValueChange={(wageColumn) => onChange({ wageColumn })} /></td>
+    <td data-label="Earning Code"><SearchableSelect options={codes.map((option) => option.value)} optionLabels={Object.fromEntries(codes.map((option) => [option.value, option.label]))} value={row.payCode} optionsLoading={loading} optionsError={error} placeholder="Select earning code" ariaLabel={`Earning code ${index + 1}`} onValueChange={(payCode) => onChange({ payCode })} /></td>
+    <td data-label="Search Term"><input value={row.searchWord} maxLength={50} aria-label={`Search term ${index + 1}`} onChange={(event) => onChange({ searchWord: event.target.value })} /></td>
+    <td data-label="Action"><button type="button" className="icon-button trash" onClick={onDelete} aria-label={`Delete wage mapping ${index + 1}`}><Trash2 aria-hidden="true" /></button></td>
+  </tr>
+}
+
+function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialConditional, payrollGrouping, onSave, onClose }: {
   reportSource: ReportSource
   mappingRows: MappingRow[]
   initialSorting: SortingRow[]
   initialConditional: ConditionalRow[]
-  onSave: (sortingOrder: SortingRow[], conditionalStatements: ConditionalRow[]) => void
+  payrollGrouping?: string[]
+  onSave: (sortingOrder: SortingRow[], conditionalStatements: ConditionalRow[], grouping: string[]) => void
   onClose: () => void
 }) {
   const { values } = useContext(OptionsContext)
+  const { kind } = useContext(BuilderContext)
   const columnNames = new Map<string, string>()
   const mappedColumns = mappingRows.map((row) => mappingLabel(row.mapping.trim() || row.field.trim(), values.mappingColumnLabels))
   for (const name of [...mappedColumns, ...values.mappingColumns]) {
+    if (kind === 'payroll-builder' && name.trim().toLowerCase() === 'default') continue
     if (name && !columnNames.has(name.toLowerCase())) columnNames.set(name.toLowerCase(), name)
   }
   const mappingColumns = reportSource === 'companyPayroll' ? values.payrollMappingColumns : Array.from(columnNames.values())
@@ -1224,6 +1368,7 @@ function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialC
   const isDateColumn = (column: string) => conditionType(column) === 'date'
   const [sortingRows, setSortingRows] = useState(() => initialSorting.map((row, index) => [row.orderBy || String(index + 1), mappingLabel(row.mappingColumn, values.mappingColumnLabels)]))
   const [conditionalRows, setConditionalRows] = useState(() => initialConditional.map((row) => [mappingLabel(row.mappingColumn, values.mappingColumnLabels), row.condition, row.value]))
+  const [groupingRows, setGroupingRows] = useState(() => payrollGrouping ?? [])
   const [sortError, setSortError] = useState('')
   const dialog = useRef<HTMLElement>(null)
   const closeRef = useRef(onClose)
@@ -1248,6 +1393,7 @@ function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialC
     onSave(
       normalizeSortingPriorities(priorities),
       conditionalRows.map(([mappingColumn, condition, value]) => ({ mappingColumn, condition, value, valueType: conditionType(mappingColumn) })),
+      groupingRows,
     )
   }
 
@@ -1258,7 +1404,7 @@ function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialC
       if (event.defaultPrevented) return
       if (event.key === 'Escape') { event.preventDefault(); closeRef.current(); return }
       if (event.key !== 'Tab' || !dialog.current) return
-      const focusable = Array.from(dialog.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled])'))
+      const focusable = Array.from(dialog.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex="0"]'))
       if (!focusable.length) return
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
@@ -1280,12 +1426,13 @@ function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialC
         <h2>File Settings:</h2>
         <div>
           <button type="button" className="button button-light" onClick={onClose}>Cancel</button>
-          <button type="button" className="button button-light" onClick={() => { setSortingRows([]); setConditionalRows([]); setSortError('') }}>Clear</button>
+          <button type="button" className="button button-light" onClick={() => { setSortingRows([]); setConditionalRows([]); setGroupingRows([]); setSortError('') }}>Clear</button>
           <button type="button" className="button button-primary" onClick={saveRows}>Save &amp; Continue</button>
         </div>
       </div>
+      <div className="settings-modal-body" tabIndex={0} role="region" aria-label="File Settings content">
       {sortError && <p className="field-error" role="alert">{sortError}</p>}
-      <SettingsTable
+      <fieldset className="control-fieldset"><SettingsTable
         title="Sorting Order:"
         description="Priority 1 is applied first, followed by 2, 3, and so on."
         columns={['Order By', 'Mapping Column', 'Action']}
@@ -1313,7 +1460,14 @@ function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialC
         onAdd={() => setConditionalRows((rows) => [...rows, ['', '', '']])}
         onDelete={(index) => setConditionalRows((rows) => rows.filter((_, rowIndex) => rowIndex !== index))}
         onChange={(rowIndex, columnIndex, value) => setConditionalRows((rows) => rows.map((row, index) => index === rowIndex ? row.map((cell, cellIndex) => cellIndex === columnIndex ? value : cell) : row))}
-      />
+      /></fieldset>
+      {payrollGrouping !== undefined && <section className="settings-section" aria-labelledby="payroll-grouping-title">
+        <div className="settings-section-heading"><strong id="payroll-grouping-title">Grouping</strong></div>
+        <div className="payroll-grouping-options">{(values.groupingOptions ?? []).map((option) => <label className="check-label" key={option.value}>
+          <input type="checkbox" checked={groupingRows.includes(option.value)} onChange={(event) => setGroupingRows((selected) => event.target.checked ? [...selected, option.value] : selected.filter((value) => value !== option.value))} />{option.label}
+        </label>)}</div>
+      </section>}
+      </div>
     </section>
   </div>
 }
@@ -1335,7 +1489,7 @@ function SettingsTable({ title, description, columns, mappingColumns, comparison
       <div><strong>{title}</strong><span className="settings-section-description">{description}</span></div>
       <button type="button" className="button button-primary" onClick={onAdd}><span className="button-icon"><ToolIcon name="plus" /></span>Add</button>
     </div>
-    <table className="settings-table">
+    <div className="settings-table-wrap" role="region" aria-label={`${title} rows`} tabIndex={0}><table className="settings-table">
       <thead><tr>{columns.map((column) => <th scope="col" key={column}>{column}</th>)}</tr></thead>
       <tbody>{rows.length ? rows.map((row, rowIndex) => <tr key={rowIndex}>
         {columns.map((column, columnIndex) => {
@@ -1365,6 +1519,6 @@ function SettingsTable({ title, description, columns, mappingColumns, comparison
           </td>
         })}
       </tr>) : <tr><td colSpan={columns.length} className="settings-empty">No items added yet.</td></tr>}</tbody>
-    </table>
+    </table></div>
   </section>
 }

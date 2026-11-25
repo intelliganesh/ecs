@@ -1,0 +1,26 @@
+{
+  "fileName": "Payroll_MultiDataset_QA_20261124_000901.csv",
+  "csv": "000901,D00901,1000.00\r\n000901,D00902,1200.00\r\n000901,D00902,1200.00\r\n000901,D00901,1000.00\r\n000901,D00901,1000.00\r\n000901,D00902,1200.00\r\n000901,D00902,1200.00\r\n000901,D00901,1000.00\r\nEND1\r\nEND1\r\nEND1\r\nEND1\r\n\r\nDemo Avery D,2026-10-15,44.00\r\nSample Jordan D,2026-10-15,44.00\r\nSample Jordan D,2026-11-13,44.00\r\nDemo Avery D,2026-11-13,44.00\r\nDemo Avery D,2026-11-20,44.00\r\nSample Jordan D,2026-11-20,44.00\r\nSample Jordan D,2026-11-24,44.00\r\nDemo Avery D,2026-11-24,44.00\r\nEND2\r\nEND2\r\nEND2\r\nEND2\r\n",
+  "excelRows": null,
+  "runId": "af92363e-5c5c-4896-a345-d8aecb5467be",
+  "rowCount": 24,
+  "storedRows": 0,
+  "delimiter": ",",
+  "files": [
+    {
+      "fileName": "Payroll_MultiDataset_QA_20261124_000901.csv",
+      "csv": "000901,D00901,1000.00\r\n000901,D00902,1200.00\r\n000901,D00902,1200.00\r\n000901,D00901,1000.00\r\n000901,D00901,1000.00\r\n000901,D00902,1200.00\r\n000901,D00902,1200.00\r\n000901,D00901,1000.00\r\nEND1\r\nEND1\r\nEND1\r\nEND1\r\n\r\nDemo Avery D,2026-10-15,44.00\r\nSample Jordan D,2026-10-15,44.00\r\nSample Jordan D,2026-11-13,44.00\r\nDemo Avery D,2026-11-13,44.00\r\nDemo Avery D,2026-11-20,44.00\r\nSample Jordan D,2026-11-20,44.00\r\nSample Jordan D,2026-11-24,44.00\r\nDemo Avery D,2026-11-24,44.00\r\nEND2\r\nEND2\r\nEND2\r\nEND2\r\n",
+      "excelRows": null
+    },
+    {
+      "fileName": "Payroll_MultiDataset_QA_20261124_000902.csv",
+      "csv": "000902,D00903,1120.00\r\n000902,D00903,1120.00\r\n000902,D00903,1120.00\r\n000902,D00903,1120.00\r\nEND1\r\nEND1\r\nEND1\r\nEND1\r\n\r\nExample Casey D,2026-10-15,44.00\r\nExample Casey D,2026-11-13,44.00\r\nExample Casey D,2026-11-20,44.00\r\nExample Casey D,2026-11-24,44.00\r\nEND2\r\nEND2\r\nEND2\r\nEND2\r\n",
+      "excelRows": null
+    }
+  ],
+  "emailDelivery": {
+    "enabled": false,
+    "matched": 0,
+    "accepted": 0
+  }
+}

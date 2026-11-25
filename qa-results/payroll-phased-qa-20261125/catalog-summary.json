@@ -1,0 +1,35 @@
+[
+  {
+    "scenario": "All 56 mapping catalog choices; source fields plus Default constant",
+    "status": "PASS",
+    "unpopulatedFields": [
+      "Address 2",
+      "Deduction Code",
+      "Earnings +OT23",
+      "Location Name",
+      "Voucher Count",
+      "YTD Gross Amount",
+      "YTD Hours"
+    ]
+  },
+  {
+    "scenario": "All four date mask values checked",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Both SSN masks execute with fictional local placeholders",
+    "status": "PASS"
+  },
+  {
+    "scenario": "All six wage field choices Save/reopen (storage, not calculation proof)",
+    "status": "PASS"
+  },
+  {
+    "scenario": "All four grouping choices Save/reopen (storage only)",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Quotes/apostrophes/all delimiters inside a constant round trip correctly",
+    "status": "PASS"
+  }
+]

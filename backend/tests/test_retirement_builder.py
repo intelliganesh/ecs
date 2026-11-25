@@ -516,7 +516,7 @@ class PayrollQueryTests(TestCase):
             },
         )
         connection = Mock()
-        settings = Settings(_env_file=None, payroll_report_procedure="reports.usp_RenamedPayroll")
+        settings = Settings(_env_file=None, retirement_report_procedure="reports.usp_RenamedPayroll")
         with patch("app.payroll_source.get_settings", return_value=settings):
             rows = payroll_record_queries(payload)
         connection.execute.assert_not_called()
@@ -585,11 +585,11 @@ class PayrollQueryTests(TestCase):
             "general": {"reportSource": "companyPayroll"},
             "mapping": {"rows": [{"field": "Company Name"}]},
         })
-        original = Settings(_env_file=None, payroll_report_procedure="dbo.usp_CompanyPayrollReport")
+        original = Settings(_env_file=None, retirement_report_procedure="dbo.usp_CompanyPayrollReport")
         with patch("app.payroll_source.get_settings", return_value=original):
             saved_query = payroll_report_query(job)
 
-        with patch.dict("os.environ", {"PAYROLL_REPORT_PROCEDURE": "usp_RenamedPayrollReport"}):
+        with patch.dict("os.environ", {"RETIREMENT_REPORT_PROCEDURE": "usp_RenamedPayrollReport"}):
             updated = Settings(_env_file=None)
         for query in (saved_query, saved_query.replace("[dbo].[usp_CompanyPayrollReport]", "dbo.usp_CompanyPayrollReport")):
             with self.subTest(query=query), patch("app.payroll_source.get_settings", return_value=updated):
@@ -612,8 +612,8 @@ class PayrollQueryTests(TestCase):
                 self.assertIn(b"Example Company", source)
 
     def test_procedure_configuration_rejects_sql_statements(self):
-        with self.assertRaisesRegex(ValidationError, "PAYROLL_REPORT_PROCEDURE must be a procedure name"):
-            Settings(_env_file=None, payroll_report_procedure="dbo.usp_Report; SELECT 1")
+        with self.assertRaisesRegex(ValidationError, "RETIREMENT_REPORT_PROCEDURE must be a procedure name"):
+            Settings(_env_file=None, retirement_report_procedure="dbo.usp_Report; SELECT 1")
 
     def test_client_id_filenames_use_payroll_company_ids(self):
         job = rb.RetirementBuilderJob.model_validate({

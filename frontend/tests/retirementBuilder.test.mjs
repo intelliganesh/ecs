@@ -22,6 +22,36 @@ const {
   mergeSavedJob, mappingDatasets, mappingLengthLimits, normalizeDatasetSequences, nextMappingPosition, normalizeSortingPriorities, sortingPriorityError, pasteEmailText, readExcelMappings, reportWorkbook,
   excelDownloadFileName, reportMimeType, validEmail, validIsoDate, validWholeNumber,
 } = await vite.ssrLoadModule('/src/retirementBuilder.ts')
+const { payrollMappingWorkbook } = await vite.ssrLoadModule('/src/payrollBuilder.ts')
+
+test('payroll template round trips catalog labels, exact source keys and dataset order', async () => {
+  const workbook = payrollMappingWorkbook({ earnings: 'Earnings', RetNum: 'Client Id in Prism ', OTW: 'Overtime Wages', Default: 'Default' })
+  assert.deepEqual(workbook.SheetNames, ['Payroll Mappings'])
+  const data = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })
+  const file = new File([data], 'payroll_builder_mappings.xlsx')
+  const rows = await readExcelMappings(file, { includeSourceColumns: true })
+  assert.deepEqual(rows, [
+    { field: 'Earnings', mappingColumn: 'earnings', recordType: 'Detail', dataSetNo: 1, colSeqNo: 1 },
+    { field: 'Client Id in Prism', mappingColumn: 'RetNum', recordType: 'Detail', dataSetNo: 1, colSeqNo: 2 },
+    { field: 'Overtime Wages', mappingColumn: 'OTW', recordType: 'Detail', dataSetNo: 1, colSeqNo: 3 },
+  ])
+  const retirementRows = await readExcelMappings(file)
+  assert.ok(retirementRows.every(row => !Object.hasOwn(row, 'mappingColumn')))
+  assert.throws(() => payrollMappingWorkbook({ Default: 'Default' }), /No payroll mapping columns/)
+})
+
+test('payroll import preserves H/D/T and multiple dataset identities with source mappings', async () => {
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ['Field Name', 'Mapping Column', 'Record Type', 'DataSetNo', 'ColSeqNo'],
+    ['Client', 'RetNum', 'H', 1, 1], ['Wages', 'earnings', 'D', 1, 1],
+    ['Wages', 'OTW', 'D', 2, 1], ['Total', 'TOTAL_AMT', 'T', 2, 1],
+  ]), 'Mappings')
+  const rows = await readExcelMappings(new File([XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })], 'payroll.xlsx'), { includeSourceColumns: true })
+  assert.deepEqual(rows.map(row => [row.recordType, row.mappingColumn, row.dataSetNo, row.colSeqNo]), [
+    ['Header', 'RetNum', 1, 1], ['Detail', 'earnings', 1, 1], ['Detail', 'OTW', 2, 1], ['Trailer', 'TOTAL_AMT', 2, 1],
+  ])
+})
 
 test('mapping lengths cap LA and RA padding at 1000 independently of file format', () => {
   for (const format of ['LA', 'RA', 'LA - Left Justified', 'RA - Right Justified', ' LA ']) {

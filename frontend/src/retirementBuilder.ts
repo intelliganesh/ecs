@@ -149,9 +149,9 @@ function normalizeExcelRecordType(value: unknown): string {
   return 'Detail'
 }
 
-type ImportedMapping = { field: string; recordType: string; dataSetNo?: number; colSeqNo?: number }
+type ImportedMapping = { field: string; recordType: string; dataSetNo?: number; colSeqNo?: number; mappingColumn?: string }
 
-export async function readExcelMappings(file: File): Promise<ImportedMapping[]> {
+export async function readExcelMappings(file: File, { includeSourceColumns = false } = {}): Promise<ImportedMapping[]> {
   const buffer = await file.arrayBuffer()
   const bytes = new Uint8Array(buffer)
   const hasSignature = (signature: number[]) => signature.every((byte, index) => bytes[index] === byte)
@@ -170,6 +170,7 @@ export async function readExcelMappings(file: File): Promise<ImportedMapping[]> 
   const fieldIndex = headers.findIndex((value) => value.includes('column') || value.includes('field'))
   const recordTypeIndex = headers.findIndex((value) => value.includes('record') && value.includes('type'))
   const compactHeaders = headers.map((value) => value.replace(/[ _]/g, ''))
+  const sourceIndex = compactHeaders.indexOf('mappingcolumn')
   const datasetIndex = compactHeaders.indexOf('datasetno')
   const sequenceIndex = compactHeaders.indexOf('colseqno')
   const metadata = (row: unknown[]) => {
@@ -186,6 +187,7 @@ export async function readExcelMappings(file: File): Promise<ImportedMapping[]> 
     ? rows.slice(1).map((row) => ({
         field: String(row[fieldIndex] ?? '').trim(),
         recordType: normalizeExcelRecordType(row[recordTypeIndex]),
+        ...(includeSourceColumns && sourceIndex >= 0 ? { mappingColumn: String(row[sourceIndex] ?? '').trim() } : {}),
         ...metadata(row),
       }))
     : header.map((value) => ({ field: String(value).trim(), recordType: 'Detail' }))

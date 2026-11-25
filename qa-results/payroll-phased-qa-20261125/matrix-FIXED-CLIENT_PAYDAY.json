@@ -1,0 +1,304 @@
+{
+  "fileName": "000901_2026-10-15.txt",
+  "csv": "Client ID                           Employee ID                         Earnings                            \r\n000901                              D00901                              1000.00                             \r\n000901                              D00902                              1200.00                             \r\n\r\nEmployee Name                       Pay Date                            Paid Hours                          \r\nDemo Avery D                        2026-10-15                          44.00                               \r\nSample Jordan D                     2026-10-15                          44.00                               \r\n",
+  "excelRows": [
+    [
+      "Client ID                           ",
+      "Employee ID                         ",
+      "Earnings                            "
+    ],
+    [
+      "000901                              ",
+      "D00901                              ",
+      "1000.00                             "
+    ],
+    [
+      "000901                              ",
+      "D00902                              ",
+      "1200.00                             "
+    ],
+    [],
+    [
+      "Employee Name                       ",
+      "Pay Date                            ",
+      "Paid Hours                          "
+    ],
+    [
+      "Demo Avery D                        ",
+      "2026-10-15                          ",
+      "44.00                               "
+    ],
+    [
+      "Sample Jordan D                     ",
+      "2026-10-15                          ",
+      "44.00                               "
+    ]
+  ],
+  "runId": "fa67d096-6b5b-4ea4-96b0-a670eac32b4d",
+  "rowCount": 24,
+  "storedRows": 0,
+  "delimiter": " ",
+  "files": [
+    {
+      "fileName": "000901_2026-10-15.txt",
+      "csv": "Client ID                           Employee ID                         Earnings                            \r\n000901                              D00901                              1000.00                             \r\n000901                              D00902                              1200.00                             \r\n\r\nEmployee Name                       Pay Date                            Paid Hours                          \r\nDemo Avery D                        2026-10-15                          44.00                               \r\nSample Jordan D                     2026-10-15                          44.00                               \r\n",
+      "excelRows": [
+        [
+          "Client ID                           ",
+          "Employee ID                         ",
+          "Earnings                            "
+        ],
+        [
+          "000901                              ",
+          "D00901                              ",
+          "1000.00                             "
+        ],
+        [
+          "000901                              ",
+          "D00902                              ",
+          "1200.00                             "
+        ],
+        [],
+        [
+          "Employee Name                       ",
+          "Pay Date                            ",
+          "Paid Hours                          "
+        ],
+        [
+          "Demo Avery D                        ",
+          "2026-10-15                          ",
+          "44.00                               "
+        ],
+        [
+          "Sample Jordan D                     ",
+          "2026-10-15                          ",
+          "44.00                               "
+        ]
+      ]
+    },
+    {
+      "fileName": "000901_2026-11-13.txt",
+      "csv": "Client ID                           Employee ID                         Earnings                            \r\n000901                              D00902                              1200.00                             \r\n000901                              D00901                              1000.00                             \r\n\r\nEmployee Name                       Pay Date                            Paid Hours                          \r\nSample Jordan D                     2026-11-13                          44.00                               \r\nDemo Avery D                        2026-11-13                          44.00                               \r\n",
+      "excelRows": [
+        [
+          "Client ID                           ",
+          "Employee ID                         ",
+          "Earnings                            "
+        ],
+        [
+          "000901                              ",
+          "D00902                              ",
+          "1200.00                             "
+        ],
+        [
+          "000901                              ",
+          "D00901                              ",
+          "1000.00                             "
+        ],
+        [],
+        [
+          "Employee Name                       ",
+          "Pay Date                            ",
+          "Paid Hours                          "
+        ],
+        [
+          "Sample Jordan D                     ",
+          "2026-11-13                          ",
+          "44.00                               "
+        ],
+        [
+          "Demo Avery D                        ",
+          "2026-11-13                          ",
+          "44.00                               "
+        ]
+      ]
+    },
+    {
+      "fileName": "000901_2026-11-20.txt",
+      "csv": "Client ID                           Employee ID                         Earnings                            \r\n000901                              D00901                              1000.00                             \r\n000901                              D00902                              1200.00                             \r\n\r\nEmployee Name                       Pay Date                            Paid Hours                          \r\nDemo Avery D                        2026-11-20                          44.00                               \r\nSample Jordan D                     2026-11-20                          44.00                               \r\n",
+      "excelRows": [
+        [
+          "Client ID                           ",
+          "Employee ID                         ",
+          "Earnings                            "
+        ],
+        [
+          "000901                              ",
+          "D00901                              ",
+          "1000.00                             "
+        ],
+        [
+          "000901                              ",
+          "D00902                              ",
+          "1200.00                             "
+        ],
+        [],
+        [
+          "Employee Name                       ",
+          "Pay Date                            ",
+          "Paid Hours                          "
+        ],
+        [
+          "Demo Avery D                        ",
+          "2026-11-20                          ",
+          "44.00                               "
+        ],
+        [
+          "Sample Jordan D                     ",
+          "2026-11-20                          ",
+          "44.00                               "
+        ]
+      ]
+    },
+    {
+      "fileName": "000901_2026-11-24.txt",
+      "csv": "Client ID                           Employee ID                         Earnings                            \r\n000901                              D00902                              1200.00                             \r\n000901                              D00901                              1000.00                             \r\n\r\nEmployee Name                       Pay Date                            Paid Hours                          \r\nSample Jordan D                     2026-11-24                          44.00                               \r\nDemo Avery D                        2026-11-24                          44.00                               \r\n",
+      "excelRows": [
+        [
+          "Client ID                           ",
+          "Employee ID                         ",
+          "Earnings                            "
+        ],
+        [
+          "000901                              ",
+          "D00902                              ",
+          "1200.00                             "
+        ],
+        [
+          "000901                              ",
+          "D00901                              ",
+          "1000.00                             "
+        ],
+        [],
+        [
+          "Employee Name                       ",
+          "Pay Date                            ",
+          "Paid Hours                          "
+        ],
+        [
+          "Sample Jordan D                     ",
+          "2026-11-24                          ",
+          "44.00                               "
+        ],
+        [
+          "Demo Avery D                        ",
+          "2026-11-24                          ",
+          "44.00                               "
+        ]
+      ]
+    },
+    {
+      "fileName": "000902_2026-10-15.txt",
+      "csv": "Client ID                           Employee ID                         Earnings                            \r\n000902                              D00903                              1120.00                             \r\n\r\nEmployee Name                       Pay Date                            Paid Hours                          \r\nExample Casey D                     2026-10-15                          44.00                               \r\n",
+      "excelRows": [
+        [
+          "Client ID                           ",
+          "Employee ID                         ",
+          "Earnings                            "
+        ],
+        [
+          "000902                              ",
+          "D00903                              ",
+          "1120.00                             "
+        ],
+        [],
+        [
+          "Employee Name                       ",
+          "Pay Date                            ",
+          "Paid Hours                          "
+        ],
+        [
+          "Example Casey D                     ",
+          "2026-10-15                          ",
+          "44.00                               "
+        ]
+      ]
+    },
+    {
+      "fileName": "000902_2026-11-13.txt",
+      "csv": "Client ID                           Employee ID                         Earnings                            \r\n000902                              D00903                              1120.00                             \r\n\r\nEmployee Name                       Pay Date                            Paid Hours                          \r\nExample Casey D                     2026-11-13                          44.00                               \r\n",
+      "excelRows": [
+        [
+          "Client ID                           ",
+          "Employee ID                         ",
+          "Earnings                            "
+        ],
+        [
+          "000902                              ",
+          "D00903                              ",
+          "1120.00                             "
+        ],
+        [],
+        [
+          "Employee Name                       ",
+          "Pay Date                            ",
+          "Paid Hours                          "
+        ],
+        [
+          "Example Casey D                     ",
+          "2026-11-13                          ",
+          "44.00                               "
+        ]
+      ]
+    },
+    {
+      "fileName": "000902_2026-11-20.txt",
+      "csv": "Client ID                           Employee ID                         Earnings                            \r\n000902                              D00903                              1120.00                             \r\n\r\nEmployee Name                       Pay Date                            Paid Hours                          \r\nExample Casey D                     2026-11-20                          44.00                               \r\n",
+      "excelRows": [
+        [
+          "Client ID                           ",
+          "Employee ID                         ",
+          "Earnings                            "
+        ],
+        [
+          "000902                              ",
+          "D00903                              ",
+          "1120.00                             "
+        ],
+        [],
+        [
+          "Employee Name                       ",
+          "Pay Date                            ",
+          "Paid Hours                          "
+        ],
+        [
+          "Example Casey D                     ",
+          "2026-11-20                          ",
+          "44.00                               "
+        ]
+      ]
+    },
+    {
+      "fileName": "000902_2026-11-24.txt",
+      "csv": "Client ID                           Employee ID                         Earnings                            \r\n000902                              D00903                              1120.00                             \r\n\r\nEmployee Name                       Pay Date                            Paid Hours                          \r\nExample Casey D                     2026-11-24                          44.00                               \r\n",
+      "excelRows": [
+        [
+          "Client ID                           ",
+          "Employee ID                         ",
+          "Earnings                            "
+        ],
+        [
+          "000902                              ",
+          "D00903                              ",
+          "1120.00                             "
+        ],
+        [],
+        [
+          "Employee Name                       ",
+          "Pay Date                            ",
+          "Paid Hours                          "
+        ],
+        [
+          "Example Casey D                     ",
+          "2026-11-24                          ",
+          "44.00                               "
+        ]
+      ]
+    }
+  ],
+  "emailDelivery": {
+    "enabled": false,
+    "matched": 0,
+    "accepted": 0
+  }
+}

@@ -21,6 +21,12 @@ application edits, database writes, report Runs or email delivery.
   configurable options, including Output File Name Format.
 - `backend/tests/`, `frontend/tests/`: automated tests. `docs/`, `qa-results/`,
   `qa-evidence/`: analysis and QA documentation/evidence.
+- `skills/`: project workflow and domain-reference documents. Use
+  [retirement-builder-test-skills.md](skills/retirement-builder-test-skills.md)
+  for authorized job 60 QA and
+  [payroll-builder-skills.md](skills/payroll-builder-skills.md) for Payroll Builder
+  analysis and implementation planning. These are project documents, not installed
+  Codex skills; reading them grants no additional execution permissions.
 - `README.md`: setup and historical behavior notes. Verify behavior against
   current source/runtime; some older descriptions may no longer match the code.
 
@@ -135,9 +141,9 @@ application edits, database writes, report Runs or email delivery.
 ## Job 60 testing workflow
 
 For an authorized Retirement Builder edit/manual-Run test of **job 60**, read
-[the job 60 testing guide](docs/retirement-builder-testing/SKILLS.md) before acting.
+[the job 60 testing guide](skills/retirement-builder-test-skills.md) before acting.
 That guide contains its specific UI-only mutation rules, no-new-job restriction,
 scenario matrix, mail controls, fresh-baseline capture and mandatory restoration.
 Those job-specific permissions do not authorize edits or Runs for other jobs and
-do not apply automatically to unrelated project work. SKILLS.md is a project
+do not apply automatically to unrelated project work. The guide is a project
 workflow document, not an installed Codex skill.

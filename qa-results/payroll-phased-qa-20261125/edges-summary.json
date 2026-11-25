@@ -1,0 +1,103 @@
+[
+  {
+    "scenario": "Numeric boundary =",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Numeric boundary ==",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Numeric boundary !=",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Numeric boundary <>",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Numeric boundary <",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Numeric boundary <=",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Numeric boundary >",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Numeric boundary >=",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Restricted and empty manual date ranges",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Date and text filters, including exclusion",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Header ON/OFF and dataset-specific trailers",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Merge flag persists; normal files remain separate",
+    "status": "PASS"
+  },
+  {
+    "scenario": "All numeric/date/text formatting masks execute",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Validation: Blank filename",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Validation: Unknown format",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Validation: Unknown filename choice",
+    "status": "FAIL",
+    "error": "Invalid request was accepted"
+  },
+  {
+    "scenario": "Validation: Missing Detail mappings",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Validation: Invalid recipient",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Validation: Duplicate clients",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Validation: Invalid monthly date",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Validation: Invalid hour",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Validation: Unknown grouping",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Validation: SQL override rejected",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Validation: reversed dates",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Validation: missing dates",
+    "status": "PASS"
+  }
+]

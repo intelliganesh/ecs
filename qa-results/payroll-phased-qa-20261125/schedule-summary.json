@@ -1,0 +1,27 @@
+[
+  {
+    "scenario": "Daily schedule Save/reopen",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Weekly schedule Save/reopen",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Bi-Weekly schedule Save/reopen",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Monthly schedule Save/reopen",
+    "status": "PASS"
+  },
+  {
+    "scenario": "Real-clock targeted scheduled worker; unchanged SP S flag; mail disabled; second invocation skips completed slot",
+    "status": "PASS",
+    "slot": "2026-11-25T06:31:00+00:00",
+    "files": {
+      ".complete": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "output": "/Users/apple/Desktop/ecs/backend/report-output/local-demo-phased-qa-20261125/payroll/scheduled/2/20261125T063100Z"
+  }
+]

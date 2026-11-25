@@ -118,5 +118,11 @@ def start_scheduler(settings: Settings) -> BackgroundScheduler:
         run_due_reports, "interval", seconds=30, args=(settings, zone),
         next_run_time=datetime.now(UTC), id="retirement-reports", max_instances=1, coalesce=True,
     )
+    if settings.payroll_scheduler_enabled:
+        from app.payroll_scheduler import run_due_payroll_reports
+        scheduler.add_job(
+            run_due_payroll_reports, "interval", seconds=30, args=(settings, zone),
+            next_run_time=datetime.now(UTC), id="payroll-reports", max_instances=1, coalesce=True,
+        )
     scheduler.start()
     return scheduler

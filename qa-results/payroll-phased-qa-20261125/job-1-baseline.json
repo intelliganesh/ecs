@@ -1,0 +1,723 @@
+{
+  "general": {
+    "testfileName": "",
+    "fileName": "Payroll_Local_QA_20261124_1717",
+    "fileFormat": "CSV",
+    "description": "Local demo only - clients 901 and 902 - mail disabled",
+    "outputFileNameFormat": "FILENAME_CLIENT",
+    "enable": true,
+    "storeResultsToTable": false,
+    "selectedFile": "",
+    "reportSource": "csv"
+  },
+  "schedule": {
+    "startDate": "2026-11-25",
+    "buildFrequency": "Weekly",
+    "hour": "4",
+    "minute": "00",
+    "meridiem": "AM",
+    "week": "Wednesday",
+    "dayInterval": 0,
+    "weekInterval": 0,
+    "monthlyWeekNo": "",
+    "monthlyDate": "",
+    "scheduleType": "W",
+    "startDateTime": "2026-11-25 04:00:00"
+  },
+  "mapping": {
+    "includeHeader": true,
+    "rows": [
+      {
+        "field": "Employee Id in Prism",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "PrismID",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 1
+      },
+      {
+        "field": "Client Id in Prism",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "RetNum",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 2
+      },
+      {
+        "field": "Pay Date",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "paydate",
+        "format": "MM/DD/YYYY",
+        "dataSetNo": 1,
+        "colSeqNo": 3
+      },
+      {
+        "field": "Pay Period Start Date",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "perstart",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 4
+      },
+      {
+        "field": "Pay Period End Date",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "perend",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 5
+      },
+      {
+        "field": "Social Security Number",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "ssn",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 6
+      },
+      {
+        "field": "Last Name",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "lastname",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 7
+      },
+      {
+        "field": "First Name",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "firstname",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 8
+      },
+      {
+        "field": "Middle Name",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "middle",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 9
+      },
+      {
+        "field": "Division",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "division",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 10
+      },
+      {
+        "field": "Earnings",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "earnings",
+        "format": "######.##",
+        "dataSetNo": 1,
+        "colSeqNo": 11
+      },
+      {
+        "field": "Voucher Worker Comp Code",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "wc_code",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 12
+      },
+      {
+        "field": "EIN of the Client",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "federal_id",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 13
+      },
+      {
+        "field": "Tips part of payroll",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "TIPS",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 14
+      },
+      {
+        "field": "Gross Wage without reimb",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "grosswage_minus_reimb",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 15
+      },
+      {
+        "field": "Total hours worked per check",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "total_hours_worked",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 16
+      },
+      {
+        "field": "Total Hours paid  per check",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "hours_worked",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 17
+      },
+      {
+        "field": "2/3 Portion of OT",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "OT23",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 18
+      },
+      {
+        "field": "1/3 Portion of OT",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "OT13",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 19
+      },
+      {
+        "field": "Earnings +OT23",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "TOTAL_AMT",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 20
+      },
+      {
+        "field": "Overtime wages",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "OTW",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 21
+      },
+      {
+        "field": "Employer Id",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "emplid",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 22
+      },
+      {
+        "field": "Voucher ID",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "voucherid",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 23
+      },
+      {
+        "field": "Deduction Code",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "dedid",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 24
+      },
+      {
+        "field": "Employee Status Date",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "statusdate",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 25
+      },
+      {
+        "field": "Employment Status",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "emplstatus",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 26
+      },
+      {
+        "field": "ID No",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "ID_NUM",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 27
+      },
+      {
+        "field": "Employee Date of Birth",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "birthdate",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 28
+      },
+      {
+        "field": "Hire Date",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "hiredate",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 29
+      },
+      {
+        "field": "OT Hours",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "othours",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 30
+      },
+      {
+        "field": "Regular Hours",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "reghours",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 31
+      },
+      {
+        "field": "Department Code",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "deptcode",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 32
+      },
+      {
+        "field": "Term Date",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "termdate",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 33
+      },
+      {
+        "field": "Voucher Count",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "VchCount",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 34
+      },
+      {
+        "field": "Gender",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "gender",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 35
+      },
+      {
+        "field": "Marital Status",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "marStat",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 36
+      },
+      {
+        "field": "Address 1",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "address1",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 37
+      },
+      {
+        "field": "Address 2",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "address2",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 38
+      },
+      {
+        "field": "City",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "city",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 39
+      },
+      {
+        "field": "State",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "state",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 40
+      },
+      {
+        "field": "ZIP",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "zip",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 41
+      },
+      {
+        "field": "Email",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "email",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 42
+      },
+      {
+        "field": "YTD Gross Amount",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "ytdGross",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 43
+      },
+      {
+        "field": "YTD Hours",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "ytdHours",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 44
+      },
+      {
+        "field": "Annual Pay Rate",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "annPayRate",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 45
+      },
+      {
+        "field": "Phone",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "phone",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 46
+      },
+      {
+        "field": "Pay Group",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "PayGroup",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 47
+      },
+      {
+        "field": "Home Location",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "HomeLoc",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 48
+      },
+      {
+        "field": "Location Name",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "LocName",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 49
+      },
+      {
+        "field": "Job Code",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "JobCode",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 50
+      },
+      {
+        "field": "Voucher No",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "VchrNo",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 51
+      },
+      {
+        "field": "Employee Full Name",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "Employee_Name",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 52
+      },
+      {
+        "field": "YTD Hrs all included",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "ytdallhours",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 53
+      },
+      {
+        "field": "Current Worker Comp Code",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "wc_code1",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 54
+      },
+      {
+        "field": "Base+OT+Tips",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "total_earning",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 55
+      }
+    ]
+  },
+  "subscriptions": {
+    "mergeFiles": false,
+    "rows": [
+      {
+        "client": "901",
+        "email": "payroll-qa@example.invalid",
+        "companyId": null
+      },
+      {
+        "client": "902",
+        "email": "payroll-qa@example.invalid",
+        "companyId": null
+      }
+    ]
+  },
+  "fileSettings": {
+    "sortingOrder": [
+      {
+        "orderBy": "1",
+        "mappingColumn": "paydate",
+        "direction": "ASC"
+      },
+      {
+        "orderBy": "2",
+        "mappingColumn": "lastname",
+        "direction": "ASC"
+      }
+    ],
+    "conditionalStatements": [
+      {
+        "mappingColumn": "earnings",
+        "condition": ">",
+        "value": "0.00",
+        "valueType": "number"
+      },
+      {
+        "mappingColumn": "paydate",
+        "condition": ">=",
+        "value": "2026-10-01",
+        "valueType": "date"
+      },
+      {
+        "mappingColumn": "emplstatus",
+        "condition": "=",
+        "value": "A",
+        "valueType": "text"
+      }
+    ]
+  },
+  "queryConfiguration": [
+    {
+      "recttype": "H",
+      "query": "SELECT TOP 1 valid_flag, retnum, paydate AS sort1, 'Employee Id in Prism', 'Client Id in Prism', 'Pay Date', 'Pay Period Start Date', 'Pay Period End Date', 'Social Security Number', 'Last Name', 'First Name', 'Middle Name', 'Division', 'Earnings', 'Voucher Worker Comp Code', 'EIN of the Client', 'Tips part of payroll', 'Gross Wage without reimb', 'Total hours worked per check', 'Total Hours paid  per check', '2/3 Portion of OT', '1/3 Portion of OT', 'Earnings +OT23', 'Overtime wages', 'Employer Id', 'Voucher ID', 'Deduction Code', 'Employee Status Date', 'Employment Status', 'ID No', 'Employee Date of Birth', 'Hire Date', 'OT Hours', 'Regular Hours', 'Department Code', 'Term Date', 'Voucher Count', 'Gender', 'Marital Status', 'Address 1', 'Address 2', 'City', 'State', 'ZIP', 'Email', 'YTD Gross Amount', 'YTD Hours', 'Annual Pay Rate', 'Phone', 'Pay Group', 'Home Location', 'Location Name', 'Job Code', 'Voucher No', 'Employee Full Name', 'YTD Hrs all included', 'Current Worker Comp Code', 'Base+OT+Tips'",
+      "conditions": "",
+      "sortOrder": "",
+      "dataSetNo": null
+    },
+    {
+      "recttype": "T",
+      "query": "SELECT DISTINCT valid_flag, retnum, '01/01/1900' AS sort1",
+      "conditions": "",
+      "sortOrder": "",
+      "dataSetNo": null
+    },
+    {
+      "recttype": "D",
+      "query": "SELECT valid_flag, retnum, paydate AS sort1, [PrismID], [RetNum] AS [Client Id in Prism], CONVERT(varchar(10), CONVERT(date, [paydate]), 101), [perstart], [perend], [ssn], [lastname], [firstname], [middle], [division], FORMAT(ROUND(CONVERT(decimal(38,18), [earnings]), 2), '0.00', 'en-US'), [wc_code], [federal_id], [TIPS], [grosswage_minus_reimb], [total_hours_worked], [hours_worked], [OT23], [OT13], [TOTAL_AMT], [OTW], [emplid], [voucherid], [dedid], [statusdate], [emplstatus], [ID_NUM], [birthdate], [hiredate], [othours], [reghours], [deptcode], [termdate], [VchCount], [gender], [marStat], [address1], [address2], [city], [state], [zip], [email], [ytdGross], [ytdHours], [annPayRate], [phone], [PayGroup], [HomeLoc], [LocName], [JobCode], [VchrNo], [Employee_Name], [ytdallhours], [wc_code1], [total_earning]",
+      "conditions": "WHERE [earnings] > 0.00 AND [paydate] >= '2026-10-01' AND [emplstatus] = 'A'",
+      "sortOrder": ", [paydate], [lastname]",
+      "dataSetNo": null
+    }
+  ],
+  "wageMappings": [
+    {
+      "clientId": 901,
+      "wageColumn": "OTW",
+      "payCode": "O/T",
+      "searchWord": "Demo overtime"
+    }
+  ],
+  "grouping": [
+    "pay_date",
+    "retnum"
+  ],
+  "id": 1,
+  "queryLocked": false
+}

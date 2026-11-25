@@ -15,6 +15,7 @@ configure_error_logging(settings)
 from app.db import check_database_connection, get_db
 from app.report_scheduler import start_scheduler
 from app.routers.retirement_builder import router as retirement_builder_router
+from app.routers.payroll_builder import router as payroll_builder_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -36,6 +37,7 @@ app.add_middleware(
 )
 install_error_handlers(app)
 app.include_router(retirement_builder_router, prefix=settings.api_v1_prefix)
+app.include_router(payroll_builder_router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/health", tags=["health"])

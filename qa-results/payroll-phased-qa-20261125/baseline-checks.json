@@ -1,0 +1,21 @@
+{
+  "identity": {
+    "db": "ecs",
+    "server": "3fc1a6c70746"
+  },
+  "mail_enabled": false,
+  "procedures": {
+    "usp_CompanyPayrollReport": "9f08c2377b5395a1d7204dde0c934b975aac40005fbe0f5ada57da1b4cb464a5",
+    "Get_job_file_info_byjobid": "a3d9bfbf1a24d35d801f60d9d4137560bfb9ae2c28f610dc162216fabb7fc07f",
+    "Get_payroll_file_info_byjobid": "fcf8a06bc5484f11fa2b26fdf46a8da29411eb9261be290728fa4225cc0c32bc",
+    "rjobbuilder": "2973c7bad6429f9ca087b777a2e32ad19ad136ce4b1079457f911f06a53c2c23",
+    "payrolljobbuilder": "e0cc2a5bd46db4d0afd918a3986fa085664fe107ef0af26d1e2f8a57be0e381f"
+  },
+  "source_counts": {
+    "EMPLOYEE_COM": 3,
+    "EMPLOYEE_PER": 3,
+    "EPV": 12,
+    "EPV_EARNINGS": 48
+  },
+  "query_brl_sha256": "5367100c29b4c825e1fbb2f6f79761881f19569885f5ef78603e0de155ea9981"
+}

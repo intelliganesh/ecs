@@ -68,19 +68,20 @@ def _subscription_attachments(subscriptions: "SubscriptionsForm", reports: list[
 
 def send_subscribed_reports(
     settings: Settings, job: "RetirementBuilderJob", reports: list[ReportFile],
+    *, builder_name: str = "Retirement Builder",
 ) -> ReportEmailDelivery:
     if not settings.mail_enabled or not reports or not job.subscriptions.rows:
         return ReportEmailDelivery(enabled=settings.mail_enabled)
     attachments = _subscription_attachments(job.subscriptions, reports)
     if not attachments:
-        logger.warning("No generated files matched the subscriptions for retirement job %s.", job.id)
+        logger.warning("No generated files matched the subscriptions for %s job %s.", builder_name, job.id)
         return ReportEmailDelivery(enabled=True)
     if job.subscriptions.mergeFiles:
         attachments = {
             recipient: [merge_report_files(job, files)] if len(files) > 1 else files
             for recipient, files in attachments.items()
         }
-    accepted = send_report_email(settings, attachments, job.id)
+    accepted = send_report_email(settings, attachments, job.id, builder_name=builder_name)
     return ReportEmailDelivery(enabled=True, matched=len(attachments), accepted=accepted)
 
 
@@ -105,7 +106,10 @@ def login_smtp(client: smtplib.SMTP, settings: Settings) -> None:
     client.login(settings.mail_username, password)
 
 
-def send_report_email(settings: Settings, attachments: dict[str, list[ReportFile]], job_id: int) -> int:
+def send_report_email(
+    settings: Settings, attachments: dict[str, list[ReportFile]], job_id: int,
+    *, builder_name: str = "Retirement Builder",
+) -> int:
     if not settings.mail_enabled or not attachments:
         return 0
 
@@ -118,9 +122,9 @@ def send_report_email(settings: Settings, attachments: dict[str, list[ReportFile
                 message = EmailMessage()
                 message["From"] = sender
                 message["To"] = recipient
-                message["Subject"] = "Your Retirement Builder report is ready"
+                message["Subject"] = f"Your {builder_name} report is ready"
                 report_label = "report is" if len(reports) == 1 else "reports are"
-                message.set_content(f"Hello,\n\nYour Retirement Builder {report_label} attached.\n\nThank you.\n")
+                message.set_content(f"Hello,\n\nYour {builder_name} {report_label} attached.\n\nThank you.\n")
                 for report in reports:
                     message.add_attachment(
                         report.csv.encode("utf-8"), maintype="text", subtype="plain" if report.excel_rows is not None else report_mime_subtype(report.file_name),
@@ -130,14 +134,14 @@ def send_report_email(settings: Settings, attachments: dict[str, list[ReportFile
                     client.send_message(message)
                 except (smtplib.SMTPRecipientsRefused, smtplib.SMTPDataError) as exc:
                     logger.exception(
-                        "SMTP rejected a message for retirement job %s.", job_id,
+                        "SMTP rejected a message for %s job %s.", builder_name, job_id,
                         extra={"job_id": job_id, **_smtp_error_details(exc)},
                     )
                 else:
                     accepted += 1
     except (OSError, ValueError) as exc:
         logger.exception(
-            "Mail delivery for retirement job %s failed.", job_id,
+            "Mail delivery for %s job %s failed.", builder_name, job_id,
             extra={"job_id": job_id, **_smtp_error_details(exc)},
         )
     return accepted

@@ -208,7 +208,8 @@ credentials. Database access is separate from frontend access.
 
 | Variable | Purpose / code default |
 | --- | --- |
-| `PAYROLL_REPORT_PROCEDURE` | Procedure name; `dbo.usp_CompanyPayrollReport`. Accepts `procedure` or `schema.procedure`; omitted schema becomes `dbo`. The installed signature/result contract must match the runner. |
+| `RETIREMENT_REPORT_PROCEDURE` | Retirement Builder procedure. The compatibility code default remains `dbo.usp_CompanyPayrollReport`; current deployment/example selects `dbo.rjobbuilder`. Accepts `procedure` or `schema.procedure`; omitted schema becomes `dbo`. |
+| `PAYROLL_REPORT_PROCEDURE` | Payroll Builder procedure; default `dbo.payrolljobbuilder`. Used by manual and scheduled payroll runs. The signature/result contract must match the runner. |
 | `RETIREMENT_HEADER_SOURCE` | Automatic procedure-output header policy; `DETAIL_ALIGNED` by default. `SAVED_H` restores the previous H-result behavior. Restart the backend after changing it. |
 | `SCHEDULER_ENABLED` | Start scheduler with API; `true`. Use false for isolated manual QA. |
 | `SCHEDULER_TIMEZONE` | IANA timezone for due-slot evaluation; `UTC`. |
@@ -448,7 +449,15 @@ Date conditions use a `date:` symbol prefix and compact stored date, decoded on 
 
 ### Current procedure contract: four inputs
 
-The runtime calls the name configured in `PAYROLL_REPORT_PROCEDURE` as:
+Retirement Builder calls `RETIREMENT_REPORT_PROCEDURE`; Payroll Builder calls
+`PAYROLL_REPORT_PROCEDURE`. Both manual and scheduled SP paths use these settings:
+
+When upgrading an older environment, rename its former retirement
+`PAYROLL_REPORT_PROCEDURE` key to `RETIREMENT_REPORT_PROCEDURE`, then add the
+payroll key separately. Restart the backend after editing either setting.
+Changing a procedure name does not rewrite existing saved query rows.
+
+The runtime calls the selected name as:
 
 ```sql
 EXEC [schema].[procedure]
@@ -721,7 +730,7 @@ Read response `detail` and the corresponding structured log.
 ## Testing and project rules
 
 Read [AGENTS.md](AGENTS.md) for project-wide boundaries and
-[SKILLS.md](docs/retirement-builder-testing/SKILLS.md) for job 60 QA. The latter requires:
+[retirement-builder-test-skills.md](skills/retirement-builder-test-skills.md) for job 60 QA. The latter requires:
 
 - Existing job 60 only; no new job or manual DB/SQL/schema changes.
 - UI Save/Run only when authorized; `MAIL_ENABLED=false`, no email.
@@ -828,7 +837,8 @@ Further reading:
 - [Dropdown sources](docs/retirement-builder-analysis/04-dropdown-data-sources.md)
 - [Persistence analysis](docs/retirement-builder-analysis/08-state-and-data-persistence.md)
 - [Project instructions](AGENTS.md)
-- [Job 60 testing workflow](docs/retirement-builder-testing/SKILLS.md)
+- [Job 60 testing workflow](skills/retirement-builder-test-skills.md)
+- [Payroll Builder analysis and planning reference](skills/payroll-builder-skills.md)
 
 Historical analysis can differ from current code. State what was actually verified
 and keep DB/query/report effects within the user's authorized task.

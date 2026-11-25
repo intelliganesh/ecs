@@ -1,0 +1,21 @@
+{
+  "fileName": "Payroll_MultiDataset_QA_20261124_000901.csv",
+  "csv": "Client ID,Employee ID,Earnings\r\n000901,D00901,1000.00\r\n000901,D00901,1000.00\r\n000901,D00901,1000.00\r\n000901,D00901,1000.00\r\n\r\nEmployee Name,Pay Date,Paid Hours\r\nDemo Avery D,2026-10-15,44.00\r\nDemo Avery D,2026-11-13,44.00\r\nDemo Avery D,2026-11-20,44.00\r\nDemo Avery D,2026-11-24,44.00\r\n",
+  "excelRows": null,
+  "runId": "9a07fa8f-d9bb-41a3-bc33-2450464d80d9",
+  "rowCount": 8,
+  "storedRows": 0,
+  "delimiter": ",",
+  "files": [
+    {
+      "fileName": "Payroll_MultiDataset_QA_20261124_000901.csv",
+      "csv": "Client ID,Employee ID,Earnings\r\n000901,D00901,1000.00\r\n000901,D00901,1000.00\r\n000901,D00901,1000.00\r\n000901,D00901,1000.00\r\n\r\nEmployee Name,Pay Date,Paid Hours\r\nDemo Avery D,2026-10-15,44.00\r\nDemo Avery D,2026-11-13,44.00\r\nDemo Avery D,2026-11-20,44.00\r\nDemo Avery D,2026-11-24,44.00\r\n",
+      "excelRows": null
+    }
+  ],
+  "emailDelivery": {
+    "enabled": false,
+    "matched": 0,
+    "accepted": 0
+  }
+}

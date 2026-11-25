@@ -1,7 +1,7 @@
 # Retirement Builder testing action notes
 
 Read [AGENTS.md](AGENTS.md) and the
-[job 60 testing guide](docs/retirement-builder-testing/SKILLS.md). These notes do
+[job 60 testing guide](skills/retirement-builder-test-skills.md). These notes do
 not authorize additional actions or change their database protection rules.
 
 ## Report testing scope

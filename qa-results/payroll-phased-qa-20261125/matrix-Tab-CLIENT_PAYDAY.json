@@ -1,0 +1,56 @@
+{
+  "fileName": "000901_2026-10-15.tsv",
+  "csv": "Client ID\tEmployee ID\tEarnings\r\n000901\tD00901\t1000.00\r\n000901\tD00902\t1200.00\r\n\r\nEmployee Name\tPay Date\tPaid Hours\r\nDemo Avery D\t2026-10-15\t44.00\r\nSample Jordan D\t2026-10-15\t44.00\r\n",
+  "excelRows": null,
+  "runId": "6d36e687-c407-4936-b9d0-cfd11a21283b",
+  "rowCount": 24,
+  "storedRows": 0,
+  "delimiter": "\t",
+  "files": [
+    {
+      "fileName": "000901_2026-10-15.tsv",
+      "csv": "Client ID\tEmployee ID\tEarnings\r\n000901\tD00901\t1000.00\r\n000901\tD00902\t1200.00\r\n\r\nEmployee Name\tPay Date\tPaid Hours\r\nDemo Avery D\t2026-10-15\t44.00\r\nSample Jordan D\t2026-10-15\t44.00\r\n",
+      "excelRows": null
+    },
+    {
+      "fileName": "000901_2026-11-13.tsv",
+      "csv": "Client ID\tEmployee ID\tEarnings\r\n000901\tD00902\t1200.00\r\n000901\tD00901\t1000.00\r\n\r\nEmployee Name\tPay Date\tPaid Hours\r\nSample Jordan D\t2026-11-13\t44.00\r\nDemo Avery D\t2026-11-13\t44.00\r\n",
+      "excelRows": null
+    },
+    {
+      "fileName": "000901_2026-11-20.tsv",
+      "csv": "Client ID\tEmployee ID\tEarnings\r\n000901\tD00901\t1000.00\r\n000901\tD00902\t1200.00\r\n\r\nEmployee Name\tPay Date\tPaid Hours\r\nDemo Avery D\t2026-11-20\t44.00\r\nSample Jordan D\t2026-11-20\t44.00\r\n",
+      "excelRows": null
+    },
+    {
+      "fileName": "000901_2026-11-24.tsv",
+      "csv": "Client ID\tEmployee ID\tEarnings\r\n000901\tD00902\t1200.00\r\n000901\tD00901\t1000.00\r\n\r\nEmployee Name\tPay Date\tPaid Hours\r\nSample Jordan D\t2026-11-24\t44.00\r\nDemo Avery D\t2026-11-24\t44.00\r\n",
+      "excelRows": null
+    },
+    {
+      "fileName": "000902_2026-10-15.tsv",
+      "csv": "Client ID\tEmployee ID\tEarnings\r\n000902\tD00903\t1120.00\r\n\r\nEmployee Name\tPay Date\tPaid Hours\r\nExample Casey D\t2026-10-15\t44.00\r\n",
+      "excelRows": null
+    },
+    {
+      "fileName": "000902_2026-11-13.tsv",
+      "csv": "Client ID\tEmployee ID\tEarnings\r\n000902\tD00903\t1120.00\r\n\r\nEmployee Name\tPay Date\tPaid Hours\r\nExample Casey D\t2026-11-13\t44.00\r\n",
+      "excelRows": null
+    },
+    {
+      "fileName": "000902_2026-11-20.tsv",
+      "csv": "Client ID\tEmployee ID\tEarnings\r\n000902\tD00903\t1120.00\r\n\r\nEmployee Name\tPay Date\tPaid Hours\r\nExample Casey D\t2026-11-20\t44.00\r\n",
+      "excelRows": null
+    },
+    {
+      "fileName": "000902_2026-11-24.tsv",
+      "csv": "Client ID\tEmployee ID\tEarnings\r\n000902\tD00903\t1120.00\r\n\r\nEmployee Name\tPay Date\tPaid Hours\r\nExample Casey D\t2026-11-24\t44.00\r\n",
+      "excelRows": null
+    }
+  ],
+  "emailDelivery": {
+    "enabled": false,
+    "matched": 0,
+    "accepted": 0
+  }
+}

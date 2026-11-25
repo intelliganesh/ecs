@@ -1,0 +1,398 @@
+[
+  {
+    "scenario": "Comma/FILENAME",
+    "status": "PASS",
+    "runId": "4e977123-de1d-412a-92b5-4c1537829e1f",
+    "files": 1,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Comma/CLIENT",
+    "status": "PASS",
+    "runId": "fd12b3f5-8f54-4c60-9f45-df3af08045fe",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Comma/PAYDAY",
+    "status": "PASS",
+    "runId": "aca97ca8-c1cf-46bc-909e-9ba8fae6c3b9",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Comma/FILENAME_CLIENT",
+    "status": "PASS",
+    "runId": "f65834fe-2b8a-4da9-8d4a-4934a17089a2",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Comma/FILENAME_PAYDAY",
+    "status": "PASS",
+    "runId": "7a4b0ef4-2ad0-4ca7-9800-29bdaa6f7466",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Comma/CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "9f8a5d5a-34ae-4667-ae51-a3286b44d5dc",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Comma/FILENAME_CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "1a09d748-4cc2-4496-b585-acd55ba7a344",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "CSV/FILENAME",
+    "status": "PASS",
+    "runId": "f9c1e1b1-3c34-4bf8-9352-a66ac67bea5a",
+    "files": 1,
+    "detailRows": 24
+  },
+  {
+    "scenario": "CSV/CLIENT",
+    "status": "PASS",
+    "runId": "9cde0d41-083b-4c89-a44f-b74f77d85740",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "CSV/PAYDAY",
+    "status": "PASS",
+    "runId": "ad6777e5-9f11-443e-bf19-c95c861e339d",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "CSV/FILENAME_CLIENT",
+    "status": "PASS",
+    "runId": "b934ac58-2b28-443d-8570-2870eddafecd",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "CSV/FILENAME_PAYDAY",
+    "status": "PASS",
+    "runId": "3007611e-28cb-446a-974d-86aa5ad0a0a6",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "CSV/CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "ac39ffdf-ae7b-43a9-9fba-36811190c9cb",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "CSV/FILENAME_CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "22b00288-6ea4-41dd-b81b-016318341d00",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Pipe/FILENAME",
+    "status": "PASS",
+    "runId": "020c100f-ba2e-4988-b85a-6f6dc2ec4bf1",
+    "files": 1,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Pipe/CLIENT",
+    "status": "PASS",
+    "runId": "adb2a746-5687-4348-9635-c593511595db",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Pipe/PAYDAY",
+    "status": "PASS",
+    "runId": "d872cfd1-9031-4d10-987b-c44144f28778",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Pipe/FILENAME_CLIENT",
+    "status": "PASS",
+    "runId": "db0d1c86-ee76-4af7-9d90-becb06eeafb1",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Pipe/FILENAME_PAYDAY",
+    "status": "PASS",
+    "runId": "9f67de5e-5bfa-44fc-9142-b41d6c4b8c33",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Pipe/CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "1ead7632-f1b5-4475-aa11-6b84c13c828d",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Pipe/FILENAME_CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "7e1dd402-9bc7-4fe5-a8cc-acbe93bb4d32",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Tab/FILENAME",
+    "status": "PASS",
+    "runId": "6c724a0d-19e2-41f1-9670-f8a51eda0589",
+    "files": 1,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Tab/CLIENT",
+    "status": "PASS",
+    "runId": "1fca709b-8e16-480d-8e2a-aef2db2a1493",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Tab/PAYDAY",
+    "status": "PASS",
+    "runId": "33955857-e7c5-4af5-8ed2-a126c893e482",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Tab/FILENAME_CLIENT",
+    "status": "PASS",
+    "runId": "dde4eb5f-f5f3-4e71-822f-72a1744eaeb0",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Tab/FILENAME_PAYDAY",
+    "status": "PASS",
+    "runId": "faae71bb-efac-4b0f-a224-16a5d7995f0d",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Tab/CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "6d36e687-c407-4936-b9d0-cfd11a21283b",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Tab/FILENAME_CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "858eddae-6f6e-4bc2-ae18-6aa21cf14505",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Semicolon/FILENAME",
+    "status": "PASS",
+    "runId": "ed087c35-2388-4dad-a76d-a08e4d62ae26",
+    "files": 1,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Semicolon/CLIENT",
+    "status": "PASS",
+    "runId": "0d81ece1-71ad-40c0-a6c4-52d59631094e",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Semicolon/PAYDAY",
+    "status": "PASS",
+    "runId": "d2584827-0d73-4d79-aedd-0f550cb378a5",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Semicolon/FILENAME_CLIENT",
+    "status": "PASS",
+    "runId": "31b218c7-a58e-4600-9540-080aba225f6a",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Semicolon/FILENAME_PAYDAY",
+    "status": "PASS",
+    "runId": "66f015f1-571c-43ee-8a7f-3aa6ce4949bc",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Semicolon/CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "a780dd62-dcb9-47f1-8fdd-8f3049d88a0d",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Semicolon/FILENAME_CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "de254008-95e9-43fb-a78d-e97217e65015",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "TILDE/FILENAME",
+    "status": "PASS",
+    "runId": "b9ad18b7-579f-4465-8cb4-2be9a43d3e1e",
+    "files": 1,
+    "detailRows": 24
+  },
+  {
+    "scenario": "TILDE/CLIENT",
+    "status": "PASS",
+    "runId": "c40b2252-d322-417c-8f64-e44575de738e",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "TILDE/PAYDAY",
+    "status": "PASS",
+    "runId": "cc994e27-95d1-424e-ac39-d14913006db3",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "TILDE/FILENAME_CLIENT",
+    "status": "PASS",
+    "runId": "a2a2685d-8434-443b-b551-b9aabc3b5d69",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "TILDE/FILENAME_PAYDAY",
+    "status": "PASS",
+    "runId": "1966f3a2-bcb0-4997-b282-68cae327cfaa",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "TILDE/CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "7e69d6b9-afaa-4d2e-acbd-e5f8d20f1f4a",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "TILDE/FILENAME_CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "26c9ab98-1101-4d3b-9436-297813ea25d3",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "FIXED/FILENAME",
+    "status": "PASS",
+    "runId": "13ae3a5e-9708-4a52-bb3b-bc4a327c0e70",
+    "files": 1,
+    "detailRows": 24
+  },
+  {
+    "scenario": "FIXED/CLIENT",
+    "status": "PASS",
+    "runId": "9c62ec9a-be92-4515-9e7d-86c68b23f3a9",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "FIXED/PAYDAY",
+    "status": "PASS",
+    "runId": "d51124a9-6044-41f9-9468-4a6c401380bc",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "FIXED/FILENAME_CLIENT",
+    "status": "PASS",
+    "runId": "a9b31c90-3afc-4684-a9dd-61879e09fde2",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "FIXED/FILENAME_PAYDAY",
+    "status": "PASS",
+    "runId": "75eecfa8-245f-4fad-8419-1d437028acc4",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "FIXED/CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "fa67d096-6b5b-4ea4-96b0-a670eac32b4d",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "FIXED/FILENAME_CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "3c6e39d9-f49e-4796-a421-d296aa7c14ae",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Space/FILENAME",
+    "status": "PASS",
+    "runId": "98bc478c-c391-4e80-89e0-8d6b409a3577",
+    "files": 1,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Space/CLIENT",
+    "status": "PASS",
+    "runId": "4fe279a5-0082-496f-8844-1e660cb50490",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Space/PAYDAY",
+    "status": "PASS",
+    "runId": "51dc1989-3fde-4ae8-8c0d-997647ceaa10",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Space/FILENAME_CLIENT",
+    "status": "PASS",
+    "runId": "1e4ca85c-2630-421c-a948-018db25d9ce1",
+    "files": 2,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Space/FILENAME_PAYDAY",
+    "status": "PASS",
+    "runId": "f2f7d7ec-7687-4434-8d7e-f49846f451a8",
+    "files": 4,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Space/CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "dcf3a6a1-6df1-4ed4-9c0e-e441e0a893a4",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Space/FILENAME_CLIENT_PAYDAY",
+    "status": "PASS",
+    "runId": "b6ef14da-9be6-4765-a613-77b84b20495c",
+    "files": 8,
+    "detailRows": 24
+  },
+  {
+    "scenario": "Restore job 2 and preserve job 1",
+    "status": "PASS"
+  }
+]

@@ -1,0 +1,164 @@
+{
+  "general": {
+    "testfileName": "",
+    "fileName": "Payroll_MultiDataset_QA_20261124",
+    "fileFormat": "CSV",
+    "description": "Local demo: two datasets, clients 901 and 902, mail disabled",
+    "outputFileNameFormat": "FILENAME_CLIENT",
+    "enable": true,
+    "storeResultsToTable": false,
+    "selectedFile": "",
+    "reportSource": "csv"
+  },
+  "schedule": {
+    "startDate": "2026-11-25",
+    "buildFrequency": "Weekly",
+    "hour": "4",
+    "minute": "00",
+    "meridiem": "AM",
+    "week": "Wednesday",
+    "dayInterval": 0,
+    "weekInterval": 0,
+    "monthlyWeekNo": "",
+    "monthlyDate": "",
+    "scheduleType": "W",
+    "startDateTime": "2026-11-25 04:00:00"
+  },
+  "mapping": {
+    "includeHeader": true,
+    "rows": [
+      {
+        "field": "Client ID",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "RetNum",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 1
+      },
+      {
+        "field": "Employee ID",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "PrismID",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 2
+      },
+      {
+        "field": "Earnings",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "earnings",
+        "format": "",
+        "dataSetNo": 1,
+        "colSeqNo": 3
+      },
+      {
+        "field": "Employee Name",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "Employee_Name",
+        "format": "",
+        "dataSetNo": 2,
+        "colSeqNo": 1
+      },
+      {
+        "field": "Pay Date",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "paydate",
+        "format": "",
+        "dataSetNo": 2,
+        "colSeqNo": 2
+      },
+      {
+        "field": "Paid Hours",
+        "startPosition": "0",
+        "length": "0",
+        "recordType": "Detail",
+        "defaultValue": "",
+        "mappingColumn": "hours_worked",
+        "format": "",
+        "dataSetNo": 2,
+        "colSeqNo": 3
+      }
+    ]
+  },
+  "subscriptions": {
+    "mergeFiles": false,
+    "rows": [
+      {
+        "client": "901",
+        "email": "payroll-qa@example.invalid",
+        "companyId": null
+      },
+      {
+        "client": "902",
+        "email": "payroll-qa@example.invalid",
+        "companyId": null
+      }
+    ]
+  },
+  "fileSettings": {
+    "sortingOrder": [
+      {
+        "orderBy": "1",
+        "mappingColumn": "paydate",
+        "direction": "ASC"
+      }
+    ],
+    "conditionalStatements": [
+      {
+        "mappingColumn": "earnings",
+        "condition": ">",
+        "value": "0.00",
+        "valueType": "number"
+      }
+    ]
+  },
+  "queryConfiguration": [
+    {
+      "recttype": "H",
+      "query": "SELECT TOP 1 valid_flag, retnum, paydate AS sort1, 'Client ID', 'Employee ID', 'Earnings'",
+      "conditions": "",
+      "sortOrder": "",
+      "dataSetNo": null
+    },
+    {
+      "recttype": "T",
+      "query": "SELECT DISTINCT valid_flag, retnum, '01/01/1900' AS sort1",
+      "conditions": "",
+      "sortOrder": "",
+      "dataSetNo": null
+    },
+    {
+      "recttype": "D",
+      "query": "SELECT valid_flag, retnum, paydate AS sort1, 1 AS [__ecs_dataset_1], [RetNum] AS [Client ID], [PrismID], [earnings]",
+      "conditions": "WHERE [earnings] > 0.00",
+      "sortOrder": ", [paydate]",
+      "dataSetNo": null
+    },
+    {
+      "recttype": "D",
+      "query": "SELECT valid_flag, retnum, paydate AS sort1, 2 AS [__ecs_dataset_2], [Employee_Name], [paydate], [hours_worked]",
+      "conditions": "WHERE [earnings] > 0.00",
+      "sortOrder": ", [paydate]",
+      "dataSetNo": null
+    }
+  ],
+  "wageMappings": [],
+  "grouping": [],
+  "id": 2,
+  "queryLocked": false
+}

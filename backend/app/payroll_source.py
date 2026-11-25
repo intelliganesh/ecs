@@ -64,7 +64,7 @@ def is_payroll_record_query(recttype: str | None, query: str | None) -> bool:
 
 
 def _payroll_procedure_name() -> str:
-    schema, procedure = get_settings().payroll_report_procedure.split(".")
+    schema, procedure = get_settings().retirement_report_procedure.split(".")
     return f"[{schema}].[{procedure}]"
 
 

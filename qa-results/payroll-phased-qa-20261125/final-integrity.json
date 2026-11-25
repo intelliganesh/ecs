@@ -1,0 +1,11 @@
+{
+  "local_target_verified": true,
+  "mail_enabled": false,
+  "stored_procedure_hashes_unchanged": true,
+  "source_row_counts_unchanged": true,
+  "query_brl_unchanged": true,
+  "job_1_configuration_differences": [],
+  "job_2_configuration_differences": [],
+  "numeric_masks_and_padding_values_verified": true,
+  "evidence_run_responses": 94
+}

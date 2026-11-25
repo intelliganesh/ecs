@@ -212,6 +212,12 @@ footer { min-height: 60px; display: flex; align-items: center; justify-content: 
 .sidebar-collapsed .nav-item { justify-content: center; gap: 0; padding-left: 0; padding-right: 0; }
 .sidebar-collapsed .nav-item > span:not(.nav-icon) { display: none; }
 .sidebar-collapsed .nav-icon { margin: 0; }
+/* Compact grey document/edit glyphs matching the supplied sidebar reference. */
+.sidebar .nav-icon { color: #aebbc0; }
+.sidebar .nav-icon svg { width: 16px; height: 16px; stroke-width: 1.8; stroke-linecap: square; stroke-linejoin: miter; }
+.sidebar .nav-item:hover .nav-icon,
+.sidebar .nav-item.active .nav-icon { color: #fff; }
+.sidebar .nav-chevron { color: #aebbc0; }
 @media (max-width: 767px) {
   .sidebar-collapsed .brand { width: 0; flex-basis: 0; }
   .sidebar-collapsed .sidebar { width: 76px; }
@@ -1121,4 +1127,165 @@ html, body, #root { height: 100%; }
 .mapping-actions .icon-button svg {
   width: 18px;
   height: 18px;
+}
+
+/* Shared builder controls and payroll-specific configuration. */
+.control-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.control-fieldset:disabled { opacity: .7; }
+.payroll-settings { margin-top: 28px; border-top: 1px solid #e4e8ef; padding-top: 20px; }
+.payroll-wage-table { min-width: 800px; }
+.payroll-grouping-options { display: flex; flex-wrap: wrap; gap: 18px 28px; padding: 12px 0; }
+
+/* Payroll tables stay inside their cards at every content width. */
+.payroll-builder .mapping-scroll,
+.payroll-builder .dataset-card { min-width: 0; }
+.payroll-builder .mapping-table-wrap { min-width: 0; max-width: 100%; overflow-x: auto; }
+.payroll-builder .mapping-table { min-width: 980px; }
+/* Both builders keep mapping controls outside each scrolling field list. */
+.mapping-step > .mapping-controls,
+.mapping-step > .dataset-help { position: static; flex: 0 0 auto; }
+.mapping-scroll,
+.dataset-card { min-width: 0; }
+.mapping-table-wrap {
+  min-width: 0;
+  max-width: 100%;
+  max-height: min(55dvh, 440px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-padding-top: 48px;
+}
+.mapping-table { min-width: 980px; }
+.mapping-table-wrap:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+@media (min-width: 768px) {
+  .mapping-scroll { container-type: size; }
+  .mapping-table-wrap { max-height: max(140px, calc(100cqh - 96px)); }
+}
+.payroll-builder .subscription-table-wrap { min-width: 0; overflow-x: auto; }
+.payroll-builder .payroll-wage-table { min-width: 820px; }
+.payroll-builder .payroll-settings { margin-inline: 30px; }
+.payroll-builder .payroll-settings .subscription-table-wrap { margin-inline: 0; }
+.payroll-builder .settings-modal { max-height: calc(100dvh - 32px); overflow: hidden; }
+.payroll-builder .settings-section { min-width: 0; overflow-x: auto; }
+.payroll-builder .settings-table { min-width: 520px; }
+
+@media (min-width: 768px) {
+  /* Five wage columns need their own widths, independent of subscriptions. */
+  .payroll-builder .payroll-wage-table { width: 100%; min-width: 1100px; table-layout: fixed; }
+  .payroll-builder .payroll-wage-table :is(th, td):nth-child(1) { width: 29%; }
+  .payroll-builder .payroll-wage-table :is(th, td):nth-child(2) { width: 19%; }
+  .payroll-builder .payroll-wage-table :is(th, td):nth-child(3) { width: 22%; }
+  .payroll-builder .payroll-wage-table :is(th, td):nth-child(4) { width: 22%; }
+  .payroll-builder .payroll-wage-table :is(th, td):nth-child(5) { width: 8%; }
+}
+
+@media (max-width: 767px) {
+  .payroll-builder .sidebar { z-index: 40; }
+  .payroll-builder .main-content:has(.wizard-steps-shell) { overflow-y: auto; }
+  .payroll-builder .wizard-steps-shell { padding: 0 0 12px; }
+  .payroll-builder .wizard-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; overflow: visible; }
+  .payroll-builder .wizard-step { min-width: 0; min-height: 44px; padding: 8px; white-space: normal; }
+  .payroll-builder .main-content:has(.wizard-steps-shell) .wizard-card,
+  .payroll-builder .main-content:has(.wizard-steps-shell) .wizard-card:has(.mapping-step) {
+    flex: 0 0 auto; overflow: visible;
+  }
+  .payroll-builder .card-heading { flex-wrap: wrap; gap: 10px; }
+  .payroll-builder .main-content:has(.wizard-steps-shell) .card-heading { position: static; }
+  .payroll-builder .card-heading h2 { font-size: 1.125rem; }
+  .payroll-builder .card-heading-actions { flex-wrap: wrap; justify-content: flex-start; }
+  .payroll-builder .mapping-step { padding-inline: 12px; }
+  .payroll-builder .mapping-scroll { flex: 0 0 auto; overflow: visible; }
+  .payroll-builder .dataset-card { padding: 10px; }
+  .payroll-builder .dataset-card-heading { flex-wrap: wrap; gap: 8px; }
+  .payroll-builder .dataset-toggle { flex-wrap: wrap; }
+  .payroll-builder .dataset-card-heading h3 span { margin-left: 0; }
+  .payroll-builder .upload-copy { flex-basis: calc(100% - 60px); }
+  .payroll-builder .upload-copy strong,
+  .payroll-builder .upload-copy span { white-space: normal; overflow-wrap: anywhere; }
+  .payroll-builder .general-upload-zone .button { width: 100%; }
+  .payroll-builder .dashboard-actions { gap: 8px; padding: 12px; }
+  .payroll-builder .job-status-tabs { width: 100%; margin-right: 0; gap: 12px; }
+  .payroll-builder .job-status-tabs button { gap: 5px; font-size: .875rem; }
+  .payroll-builder .dashboard-actions > .button { flex: 1 1 auto; padding-inline: 12px; }
+  .payroll-builder .jobs-table-wrap { flex: 0 0 auto; height: min(55dvh, 440px); }
+  .payroll-builder .dashboard-card { flex: 0 0 auto; }
+  .payroll-builder .jobs-pagination-controls { flex-wrap: wrap; }
+  .payroll-builder .subscriptions-step { padding-inline: 12px; }
+  .payroll-builder .subscriptions-step .subscription-toolbar,
+  .payroll-builder .subscriptions-step .subscription-table-wrap { margin-inline: 0; }
+  .payroll-builder .subscriptions-step .subscription-toolbar { align-items: stretch; }
+  .payroll-builder .subscriptions-step .check-label { white-space: normal; line-height: 1.4; flex-wrap: wrap; }
+  .payroll-builder .payroll-settings { margin-inline: 0; }
+  .payroll-builder .settings-section-heading { gap: 12px; flex-wrap: wrap; padding-inline: 0; }
+  .payroll-builder .subscription-table { width: 100%; min-width: 0; }
+  .payroll-builder .subscription-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .payroll-builder .subscription-table tbody { display: grid; gap: 12px; }
+  .payroll-builder .subscription-table tbody tr { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 8px; }
+  .payroll-builder .subscription-table td,
+  .payroll-builder .subscriptions-step .subscription-table td { display: block; width: 100%; min-width: 0; height: auto; padding: 0; border: 0; text-align: left; }
+  .payroll-builder .subscription-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 6px; color: var(--muted-dark); font-size: .875rem; font-weight: 650; }
+  .payroll-builder .subscriptions-step .email-tags-list input { min-width: 0; width: 100%; flex-basis: 100%; }
+  .payroll-builder .subscriptions-step .email-tag { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .payroll-builder .payroll-grouping-options { gap: 12px; }
+  .payroll-builder .modal-backdrop { padding: 12px 0; }
+  .payroll-builder .settings-modal { width: calc(100vw - 24px); padding: 14px; }
+  .payroll-builder .modal-header { align-items: flex-start; flex-wrap: wrap; padding-inline: 0; }
+  .payroll-builder .modal-header > div { display: flex; flex-wrap: wrap; gap: 8px; }
+  .payroll-builder footer { flex-wrap: wrap; gap: 4px; min-height: 0; padding: 12px; text-align: center; font-size: .75rem; }
+}
+
+/* Scroll table rows within their own surface so labels stay with the fields. */
+.subscription-table-wrap {
+  max-height: min(50dvh, 420px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-padding-top: 54px;
+}
+.subscription-table th,
+.settings-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f8fafc;
+  box-shadow: inset 0 -1px #dbe4f0;
+}
+.settings-modal {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.settings-modal .modal-header { flex: 0 0 auto; }
+.settings-modal-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.settings-modal .settings-section { min-width: 0; overflow: visible; }
+.settings-modal .settings-section-heading {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #fff;
+}
+.settings-table-wrap {
+  max-height: min(38dvh, 320px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-padding-top: 50px;
+  border: 1px solid #e1e8f2;
+  border-radius: 8px;
+}
+.settings-table-wrap .settings-table { border: 0; border-radius: 0; overflow: visible; }
+.subscription-table-wrap:focus-visible,
+.settings-table-wrap:focus-visible,
+.settings-modal-body:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.run-date-modal { max-height: calc(100dvh - 32px); overflow: hidden; }
+.run-date-modal form { display: flex; flex-direction: column; max-height: calc(100dvh - 82px); }
+.run-date-modal h2,
+.run-date-actions { flex: 0 0 auto; }
+.run-date-body { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+@media (max-width: 767px) {
+  /* Retirement uses the same page-scrolling mapping layout as Payroll on phones. */
+  .retirement-builder .main-content:has(.mapping-step) { overflow-y: auto; }
+  .retirement-builder .main-content:has(.wizard-steps-shell) .wizard-card:has(.mapping-step) { flex: 0 0 auto; overflow: visible; }
+  .retirement-builder .mapping-scroll { flex: 0 0 auto; overflow: visible; }
 }

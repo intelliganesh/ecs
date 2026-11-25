@@ -1,0 +1,26 @@
+{
+  "fileName": "Payroll_MultiDataset_QA_20261124_000901.csv",
+  "csv": "Client ID,Employee ID,Earnings\r\n000901,D00901,1000.00\r\n000901,D00902,1200.00\r\n000901,D00902,1200.00\r\n000901,D00901,1000.00\r\n\r\nEmployee Name,Pay Date,Paid Hours\r\nDemo Avery D,2026-11-20,44.00\r\nSample Jordan D,2026-11-20,44.00\r\nSample Jordan D,2026-11-24,44.00\r\nDemo Avery D,2026-11-24,44.00\r\n",
+  "excelRows": null,
+  "runId": "76e1c8bd-f6dc-447a-a4f0-16328b1a71ba",
+  "rowCount": 12,
+  "storedRows": 0,
+  "delimiter": ",",
+  "files": [
+    {
+      "fileName": "Payroll_MultiDataset_QA_20261124_000901.csv",
+      "csv": "Client ID,Employee ID,Earnings\r\n000901,D00901,1000.00\r\n000901,D00902,1200.00\r\n000901,D00902,1200.00\r\n000901,D00901,1000.00\r\n\r\nEmployee Name,Pay Date,Paid Hours\r\nDemo Avery D,2026-11-20,44.00\r\nSample Jordan D,2026-11-20,44.00\r\nSample Jordan D,2026-11-24,44.00\r\nDemo Avery D,2026-11-24,44.00\r\n",
+      "excelRows": null
+    },
+    {
+      "fileName": "Payroll_MultiDataset_QA_20261124_000902.csv",
+      "csv": "Client ID,Employee ID,Earnings\r\n000902,D00903,1120.00\r\n000902,D00903,1120.00\r\n\r\nEmployee Name,Pay Date,Paid Hours\r\nExample Casey D,2026-11-20,44.00\r\nExample Casey D,2026-11-24,44.00\r\n",
+      "excelRows": null
+    }
+  ],
+  "emailDelivery": {
+    "enabled": false,
+    "matched": 0,
+    "accepted": 0
+  }
+}

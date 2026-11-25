@@ -67,7 +67,7 @@ class ProcedureInputAndResultTests(TestCase):
     def test_dynamic_procedure_gets_job_id_dates_and_each_run_type_and_drains_results(self):
         report_job = job()
         dates = ReportDateRange(date(2026, 10, 10), date(2026, 10, 17))
-        settings = Settings(_env_file=None, payroll_report_procedure="reports.rjobbuilder_renamed")
+        settings = Settings(_env_file=None, retirement_report_procedure="reports.rjobbuilder_renamed")
         sets = [None, result([(1, 101, "2026-10-10", "Employee")]),
                 result([(1, 101, "2026-10-10", "Example")]),
                 result([(1, 101, "1900-01-01", "End")]), None]
@@ -137,7 +137,7 @@ class ProcedureInputAndResultTests(TestCase):
                 self.assertTrue(cursor.closed)
 
     def test_procedure_name_validation_still_applies_to_the_call(self):
-        settings = Settings(_env_file=None, payroll_report_procedure="rjobbuilder")
+        settings = Settings(_env_file=None, retirement_report_procedure="rjobbuilder")
         with patch.object(payroll_source, "get_settings", return_value=settings):
             self.assertTrue(payroll_report_query(job(), for_run=True).startswith("EXEC [dbo].[rjobbuilder] "))
 

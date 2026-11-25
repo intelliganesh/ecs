@@ -1,6 +1,6 @@
 # Retirement Builder job 60 — reusable test workflow
 
-Read the project-wide [AGENTS.md](../../AGENTS.md) first. The rules below apply
+Read the project-wide [AGENTS.md](../AGENTS.md) first. The rules below apply
 only to an explicitly requested job 60 testing task; opening this guide does not
 authorize Save/Run. A newer user instruction, including read-only analysis,
 controls the scope. This is a project workflow document, not an installed Codex
@@ -34,7 +34,7 @@ H queries, DB data or the procedure contract.
   Routine report QA checks the generated `.csv`, `.txt` and TAB `.tsv` files and
   their data. Do not verify generated Excel files, Download Excel, native Excel
   opening or configured Excel import unless the user explicitly requests those
-  checks. See [the testing action notes](../../action.md).
+  checks. See [the testing action notes](../action.md).
 
 ## Strict restrictions
 
@@ -273,10 +273,10 @@ record Excel output/native checks as **OUT OF SCOPE**, not pending requirements.
 ### Existing automated evidence
 
 Review current source and tests before relying on prior results:
-[extension regressions](../../backend/tests/test_report_extensions.py),
-[serialization tests](../../backend/tests/test_retirement_results.py),
-[procedure-output tests](../../backend/tests/test_retirement_procedure.py) and
-[frontend helpers](../../frontend/tests/retirementBuilder.test.mjs).
+[extension regressions](../backend/tests/test_report_extensions.py),
+[serialization tests](../backend/tests/test_retirement_results.py),
+[procedure-output tests](../backend/tests/test_retirement_procedure.py) and
+[frontend helpers](../frontend/tests/retirementBuilder.test.mjs).
 
 The extension implementation previously reported **142 backend tests, 18
 frontend tests, lint and build passing**. These are historical results, not tests
@@ -335,7 +335,7 @@ Deliver a concise report containing:
 
 ## Reusable request
 
-> Read the root AGENTS.md and docs/retirement-builder-testing/SKILLS.md. Test Retirement
+> Read the root AGENTS.md and skills/retirement-builder-test-skills.md. Test Retirement
 > Builder edit and manual Run flows for existing job 60 only. UI Save/Run is
 > allowed; no new job, code changes, manual DB mutations, schema/SP changes or
 > existing query changes. Keep MAIL_ENABLED=false and send no mail. Cover all six

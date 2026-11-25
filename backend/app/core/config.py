@@ -25,13 +25,15 @@ class Settings(BaseSettings):
     mssql_driver: str = "ODBC Driver 18 for SQL Server"
     mssql_trust_server_certificate: bool = True
     scheduler_enabled: bool = True
+    payroll_scheduler_enabled: bool = False
     scheduler_timezone: str = "UTC"
     report_input_dir: Path = Path("report-input")
     report_output_dir: Path = Path("report-output")
     error_log_file: Path = Path("logs/errors.log")
     error_log_max_bytes: int = Field(10 * 1024 * 1024, ge=1024)
     error_log_backup_count: int = Field(5, ge=1)
-    payroll_report_procedure: str = "dbo.usp_CompanyPayrollReport"
+    retirement_report_procedure: str = "dbo.usp_CompanyPayrollReport"
+    payroll_report_procedure: str = "dbo.payrolljobbuilder"
     retirement_header_source: Literal["DETAIL_ALIGNED", "SAVED_H"] = "DETAIL_ALIGNED"
     mail_enabled: bool = False
     mail_mailer: Literal["smtp"] = "smtp"
@@ -45,12 +47,12 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", case_sensitive=False, extra="ignore")
 
-    @field_validator("payroll_report_procedure")
+    @field_validator("retirement_report_procedure", "payroll_report_procedure")
     @classmethod
-    def validate_payroll_report_procedure(cls, value: str) -> str:
+    def validate_report_procedure(cls, value: str, info) -> str:
         name = value.strip()
         if not re.fullmatch(rf"{SQL_IDENTIFIER}(?:\.{SQL_IDENTIFIER})?", name):
-            raise ValueError("PAYROLL_REPORT_PROCEDURE must be a procedure name or schema.procedure.")
+            raise ValueError(f"{info.field_name.upper()} must be a procedure name or schema.procedure.")
         return name if "." in name else f"dbo.{name}"
 
     @model_validator(mode="after")
