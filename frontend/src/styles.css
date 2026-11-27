@@ -1289,3 +1289,83 @@ html, body, #root { height: 100%; }
   .retirement-builder .main-content:has(.wizard-steps-shell) .wizard-card:has(.mapping-step) { flex: 0 0 auto; overflow: visible; }
   .retirement-builder .mapping-scroll { flex: 0 0 auto; overflow: visible; }
 }
+
+/* Readable everyday text and clear navigation across both builders. */
+.app-shell { --muted: #526176; --muted-dark: #43536a; }
+.app-shell .wizard-card :is(input, select, textarea, .searchable-select-trigger),
+.app-shell :is(.jobs-table, .jobs-table th, .jobs-table td, .jobs-table input,
+  .mapping-table, .mapping-table th, .mapping-table input, .mapping-table .searchable-select-trigger,
+  .subscription-table, .subscription-table th, .subscription-table input, .subscription-table .searchable-select-trigger,
+  .settings-table, .settings-table th, .settings-table td, .settings-table input, .settings-table select,
+  .general-field, .general-option, .schedule-field, .schedule-time-field legend,
+  .general-field-help, .dataset-help, .settings-section-description, .subscription-options small,
+  .upload-copy strong, .upload-copy span,
+  .dataset-card-heading h3 span, .job-status-count, .jobs-pagination, .wizard-step > span:last-child,
+  .job-status-tabs button, .email-tag),
+.app-shell .subscription-table td[data-label]::before {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.searchable-select-menu :is(input, button, .searchable-select-empty) { font-size: 1rem; line-height: 1.5; }
+.app-shell .wizard-card input:not([type="checkbox"]):not([type="file"]) { font-size: 1rem; line-height: 1.5; }
+.app-shell .wizard-card :is(input:not([type="checkbox"]):not([type="file"]), select, .searchable-select-trigger) { min-height: 46px; }
+.app-shell .wizard-card .button { font-size: 1rem; min-height: 46px; }
+.app-shell .icon-button { min-width: 44px; min-height: 44px; }
+.app-shell .nav-item { min-height: 52px; padding-block: 8px; color: #d5dde8; font-size: 1.0625rem; line-height: 1.4; }
+.app-shell .nav-item.active { color: #fff; font-weight: 700; }
+.app-shell .nav-icon svg { width: 18px; height: 18px; }
+.app-shell .menu-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: auto; min-width: 96px; padding-inline: 16px; font-size: 1rem; }
+.app-shell .menu-label { font-weight: 700; }
+.app-shell .wizard-step { color: #526176; }
+.app-shell .wizard-step.active { color: #174ca8; }
+.app-shell .main-content > footer { font-size: 1rem; line-height: 1.5; }
+.app-shell :is(button, a):focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.app-shell .sidebar button:focus-visible { outline-color: #b6d7ff; outline-offset: -4px; }
+
+.dashboard-guidance,
+.finish-guidance,
+.settings-save-help { color: #344258; font-size: 1rem; line-height: 1.5; }
+.dashboard-guidance { margin: 0 24px 14px; }
+.finish-guidance { margin: 24px 30px 0; padding: 12px 16px; border-radius: 8px; background: #eef4fc; }
+.settings-save-help { margin: 16px 0; }
+.save-confirmation,
+.app-shell .dashboard-action-message { flex: 0 0 auto; margin: 12px 24px; padding: 14px 16px; border: 1px solid #a8c5e8; border-left-width: 5px; border-radius: 8px; background: #eef4fc; color: #253c62; font-size: 1rem; line-height: 1.5; font-weight: 500; text-align: left; overflow-wrap: anywhere; }
+.save-confirmation { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-color: #46966a; background: #edf8f0; color: #18502e; }
+.save-confirmation strong { font-size: 1.125rem; }
+.save-confirmation p { margin: 4px 0 0; }
+.app-shell .dashboard-action-message[role="alert"],
+.app-shell .field-error { border: 1px solid #e8aba4; border-left: 5px solid #b42318; border-radius: 6px; padding: 10px 12px; background: #fff1ef; color: #8f2018; font-size: 1rem; line-height: 1.5; font-weight: 500; overflow-wrap: anywhere; }
+.app-shell .dashboard-action-message[role="alert"] strong { display: block; margin-bottom: 4px; }
+@media (max-width: 767px) {
+  .save-confirmation { flex-wrap: wrap; }
+  .save-confirmation,
+  .app-shell .dashboard-action-message,
+  .dashboard-guidance,
+  .finish-guidance { margin-inline: 12px; }
+  .app-shell .wizard-step { min-width: 0; }
+  .app-shell .step-footer { gap: 12px; }
+  /* Keep enlarged text from squeezing the table or wizard out of reach. */
+  .app-shell .dashboard-card { flex: 0 0 auto; }
+  .app-shell .jobs-table-wrap { flex: 0 0 auto; height: min(55dvh, 440px); }
+  .app-shell .main-content:has(.wizard-steps-shell) { overflow-y: auto; }
+  .app-shell .main-content:has(.wizard-steps-shell) .wizard-card,
+  .app-shell .main-content:has(.wizard-steps-shell) .wizard-card:has(.mapping-step) {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+  .app-shell .main-content:has(.wizard-steps-shell) .card-heading { position: static; }
+  .app-shell .mapping-scroll { flex: 0 0 auto; overflow: visible; }
+  .app-shell .wizard-steps-shell { padding: 0 0 12px; }
+  .app-shell .wizard-steps {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    overflow: visible;
+    margin: 0;
+  }
+  .app-shell .wizard-step { min-height: 48px; padding: 8px; white-space: normal; }
+}
+
+@media (min-width: 768px) {
+  .payroll-builder .wizard-steps { grid-template-columns: repeat(5, minmax(150px, 1fr)); }
+}

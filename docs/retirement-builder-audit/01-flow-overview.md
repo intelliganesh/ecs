@@ -93,7 +93,7 @@ The 31 identified branches are functional decisions that change route, controls,
 
 ## Responsive behavior
 
-The code initializes the sidebar open above 767 px and closed on smaller initial widths. CSS changes the sidebar into a mobile overlay, uses horizontally scrollable job/mapping and wizard step regions, stacks General and Schedule controls and the Time inputs, reduces margins/control spacing, and limits modal size with internal scrolling. Subscription controls and grid cells wrap or scroll according to width. Search menus are portalled to the body and repositioned on resize and captured scroll, opening upward when below-trigger space is tight. Source breakpoints include 1100, 900, 767, 520, and 430 px. Device, screen-reader, and breakpoint behavior were not exercised. [App.tsx](/Users/apple/Desktop/ecs/frontend/src/App.tsx:83) · [CSS viewport rules](/Users/apple/Desktop/ecs/frontend/src/styles.css:661) · [Modal sizing](/Users/apple/Desktop/ecs/frontend/src/styles.css:843)
+The code initializes the sidebar open above 767 px and closed on smaller initial widths. CSS changes the sidebar into a mobile overlay, uses horizontally scrollable job/mapping and wizard step regions, stacks General and Schedule controls and the Time inputs, reduces margins/control spacing, and limits modal size with internal scrolling. Subscription controls and grid cells wrap or scroll according to width. Search menus are portalled to the body and repositioned on resize and captured scroll, opening upward when below-trigger space is tight. Source breakpoints include 1100, 900, 767, 520, and 430 px. Device, screen-reader, and breakpoint behavior were not exercised. [App.tsx](/Users/apple/Desktop/ESC/frontend/src/App.tsx:83) · [CSS viewport rules](/Users/apple/Desktop/ESC/frontend/src/styles.css:661) · [Modal sizing](/Users/apple/Desktop/ESC/frontend/src/styles.css:843)
 
 ## Discovery boundaries
 
@@ -102,5 +102,5 @@ The code initializes the sidebar open above 767 px and closed on smaller initial
 - Creating/updating/running jobs, scheduled time windows, actual mail delivery, failure injection, file output edge cases, and mobile/browser compatibility are planned for Phase 2.
 - No delete/duplicate job action, batch Run, chart, slider, radio group, file drag-and-drop handler, or end-user report source switch was found in this flow.
 
-[Routing](/Users/apple/Desktop/ecs/frontend/src/main.tsx:9) · [Wizard paths](/Users/apple/Desktop/ecs/frontend/src/App.tsx:78) · [Wizard navigation](/Users/apple/Desktop/ecs/frontend/src/App.tsx:275) · [Dashboard](/Users/apple/Desktop/ecs/frontend/src/App.tsx:466) · [File Settings](/Users/apple/Desktop/ecs/frontend/src/App.tsx:859)
+[Routing](/Users/apple/Desktop/ESC/frontend/src/main.tsx:9) · [Wizard paths](/Users/apple/Desktop/ESC/frontend/src/App.tsx:78) · [Wizard navigation](/Users/apple/Desktop/ESC/frontend/src/App.tsx:275) · [Dashboard](/Users/apple/Desktop/ESC/frontend/src/App.tsx:466) · [File Settings](/Users/apple/Desktop/ESC/frontend/src/App.tsx:859)
 

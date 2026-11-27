@@ -1,1 +1,1 @@
-"""API routers for the ECS application."""
+"""API routers for the ESC application."""

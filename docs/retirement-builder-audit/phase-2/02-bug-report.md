@@ -14,7 +14,7 @@ Ten distinct defects were confirmed by browser or SQL-backed API execution. P1 i
 
 **Suggested fix** — Clear selection on filtering out the selected row, or resolve the action target from visible rows.
 
-[Execution evidence](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:10) · [Screenshot](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/RET-B001-hidden-selection.jpg) · [frontend/src/App.tsx:482](/Users/apple/Desktop/ecs/frontend/src/App.tsx:482)
+[Execution evidence](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:10) · [Screenshot](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/RET-B001-hidden-selection.jpg) · [frontend/src/App.tsx:482](/Users/apple/Desktop/ESC/frontend/src/App.tsx:482)
 
 ## RET-B002 · Browser Back restores a canceled Add draft
 
@@ -28,7 +28,7 @@ Ten distinct defects were confirmed by browser or SQL-backed API execution. P1 i
 
 **Suggested fix** — Clear mounted draft state on cancel and invalidate the canceled navigation context.
 
-[Execution evidence](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:24) · [Screenshot](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/RET-B002-cancel-history.jpg) · [frontend/src/App.tsx:276](/Users/apple/Desktop/ecs/frontend/src/App.tsx:276) · [frontend/src/App.tsx:459](/Users/apple/Desktop/ecs/frontend/src/App.tsx:459)
+[Execution evidence](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:24) · [Screenshot](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/RET-B002-cancel-history.jpg) · [frontend/src/App.tsx:276](/Users/apple/Desktop/ESC/frontend/src/App.tsx:276) · [frontend/src/App.tsx:459](/Users/apple/Desktop/ESC/frontend/src/App.tsx:459)
 
 ## RET-B003 · Editing changes Last Run Date without execution
 
@@ -42,7 +42,7 @@ Ten distinct defects were confirmed by browser or SQL-backed API execution. P1 i
 
 **Suggested fix** — Derive the dashboard field from execution history. Keep modification timestamps independent and retain any legitimate legacy fallback.
 
-[Execution evidence](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/api-results.ndjson:21) · [backend/query.brl:701](/Users/apple/Desktop/ecs/backend/query.brl:701) · [backend/query.brl:772](/Users/apple/Desktop/ecs/backend/query.brl:772) · [backend/app/routers/retirement_builder.py:535](/Users/apple/Desktop/ecs/backend/app/routers/retirement_builder.py:535)
+[Execution evidence](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/api-results.ndjson:21) · [backend/query.brl:701](/Users/apple/Desktop/ESC/backend/query.brl:701) · [backend/query.brl:772](/Users/apple/Desktop/ESC/backend/query.brl:772) · [backend/app/routers/retirement_builder.py:535](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:535)
 
 ## RET-B004 · Disabled job is unrecoverable from the standard UI
 
@@ -56,7 +56,7 @@ Ten distinct defects were confirmed by browser or SQL-backed API execution. P1 i
 
 **Suggested fix** — Provide a supported disabled job listing with a re-enable action.
 
-[Execution evidence](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:21) · [Screenshot](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/RET-B004-disabled-job.jpg) · [frontend/src/App.tsx:561](/Users/apple/Desktop/ecs/frontend/src/App.tsx:561) · [backend/app/routers/retirement_builder.py:795](/Users/apple/Desktop/ecs/backend/app/routers/retirement_builder.py:795) · [backend/query.brl:698](/Users/apple/Desktop/ecs/backend/query.brl:698)
+[Execution evidence](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:21) · [Screenshot](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/RET-B004-disabled-job.jpg) · [frontend/src/App.tsx:561](/Users/apple/Desktop/ESC/frontend/src/App.tsx:561) · [backend/app/routers/retirement_builder.py:795](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:795) · [backend/query.brl:698](/Users/apple/Desktop/ESC/backend/query.brl:698)
 
 ## RET-B005 · Payroll filter saves a text operand and fails when run
 
@@ -70,7 +70,7 @@ Ten distinct defects were confirmed by browser or SQL-backed API execution. P1 i
 
 **Suggested fix** — Expose only numeric payroll columns for numeric conditions and validate that compatibility on save.
 
-[Execution evidence](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/api-results.ndjson:22) · [backend/app/routers/retirement_builder.py:703](/Users/apple/Desktop/ecs/backend/app/routers/retirement_builder.py:703) · [backend/app/retirement_results.py:247](/Users/apple/Desktop/ecs/backend/app/retirement_results.py:247)
+[Execution evidence](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/api-results.ndjson:22) · [backend/app/routers/retirement_builder.py:703](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:703) · [backend/app/retirement_results.py:247](/Users/apple/Desktop/ESC/backend/app/retirement_results.py:247)
 
 ## RET-B006 · Edit detail failure produces no visible feedback
 
@@ -84,7 +84,7 @@ Ten distinct defects were confirmed by browser or SQL-backed API execution. P1 i
 
 **Suggested fix** — Render the detail-load error on the dashboard and preserve the selected row for retry.
 
-[Execution evidence](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:12) · [Screenshot](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/RET-B006-hidden-edit-error.jpg) · [frontend/src/App.tsx:353](/Users/apple/Desktop/ecs/frontend/src/App.tsx:353) · [frontend/src/App.tsx:575](/Users/apple/Desktop/ecs/frontend/src/App.tsx:575)
+[Execution evidence](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:12) · [Screenshot](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/RET-B006-hidden-edit-error.jpg) · [frontend/src/App.tsx:353](/Users/apple/Desktop/ESC/frontend/src/App.tsx:353) · [frontend/src/App.tsx:575](/Users/apple/Desktop/ESC/frontend/src/App.tsx:575)
 
 ## RET-B007 · Run Time sort reverses midnight and early morning
 
@@ -98,7 +98,7 @@ Ten distinct defects were confirmed by browser or SQL-backed API execution. P1 i
 
 **Suggested fix** — Compare a normalized time-of-day key and define where blank times appear.
 
-[Execution evidence](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:19) · [Screenshot](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/RET-B007-time-sort.jpg) · [frontend/src/App.tsx:489](/Users/apple/Desktop/ecs/frontend/src/App.tsx:489)
+[Execution evidence](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:19) · [Screenshot](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/RET-B007-time-sort.jpg) · [frontend/src/App.tsx:489](/Users/apple/Desktop/ESC/frontend/src/App.tsx:489)
 
 ## RET-B008 · Tab skips nearby settings controls when a picker is open
 
@@ -112,7 +112,7 @@ Ten distinct defects were confirmed by browser or SQL-backed API execution. P1 i
 
 **Suggested fix** — Include the portalled picker in the modal focus strategy, with explicit next/previous and Escape return behavior.
 
-[Execution evidence](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:69) · [Screenshot](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/RET-B008-picker-focus.jpg) · [frontend/src/App.tsx:907](/Users/apple/Desktop/ecs/frontend/src/App.tsx:907)
+[Execution evidence](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:69) · [Screenshot](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/RET-B008-picker-focus.jpg) · [frontend/src/App.tsx:907](/Users/apple/Desktop/ESC/frontend/src/App.tsx:907)
 
 ## RET-B009 · A partially configured schedule silently becomes manual-only
 
@@ -126,7 +126,7 @@ Ten distinct defects were confirmed by browser or SQL-backed API execution. P1 i
 
 **Suggested fix** — Treat completely blank scheduling as manual. Require a date when schedule fields are entered, and show that error at the input.
 
-[Execution evidence](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:52) · [Screenshot](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/RET-B009-schedule-no-date.jpg) · [frontend/src/App.tsx:234](/Users/apple/Desktop/ecs/frontend/src/App.tsx:234) · [frontend/src/App.tsx:375](/Users/apple/Desktop/ecs/frontend/src/App.tsx:375)
+[Execution evidence](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/browser-cases.ndjson:52) · [Screenshot](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/RET-B009-schedule-no-date.jpg) · [frontend/src/App.tsx:234](/Users/apple/Desktop/ESC/frontend/src/App.tsx:234) · [frontend/src/App.tsx:375](/Users/apple/Desktop/ESC/frontend/src/App.tsx:375)
 
 ## RET-B010 · Create retry can insert a duplicate across HTTP workers
 
@@ -140,4 +140,4 @@ Ten distinct defects were confirmed by browser or SQL-backed API execution. P1 i
 
 **Suggested fix** — Persist replay identity in a shared transactional store when multiworker routing or restart resilience is required.
 
-[Execution evidence](/Users/apple/Desktop/ecs/docs/retirement-builder-audit/phase-2/evidence/api-results.ndjson:108) · [backend/app/routers/retirement_builder.py:187](/Users/apple/Desktop/ecs/backend/app/routers/retirement_builder.py:187) · [backend/app/routers/retirement_builder.py:847](/Users/apple/Desktop/ecs/backend/app/routers/retirement_builder.py:847)
+[Execution evidence](/Users/apple/Desktop/ESC/docs/retirement-builder-audit/phase-2/evidence/api-results.ndjson:108) · [backend/app/routers/retirement_builder.py:187](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:187) · [backend/app/routers/retirement_builder.py:847](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:847)

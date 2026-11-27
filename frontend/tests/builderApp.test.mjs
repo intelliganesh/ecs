@@ -14,14 +14,14 @@ const vite = await createServer({
   configFile: false, cacheDir, plugins: [react()],
   server: { middlewareMode: true, hmr: false, ws: false, watch: null }, appType: 'custom',
 })
-const { default: App } = await vite.ssrLoadModule('/src/App.tsx')
+const { default: App, SaveConfirmation } = await vite.ssrLoadModule('/src/App.tsx')
 after(async () => { await vite.close(); await rm(cacheDir, { recursive: true, force: true }) })
 
-function render(path, drafts = {}) {
+function render(path, drafts = {}, width = 1400) {
   const previousWindow = globalThis.window
   const previousStorage = globalThis.sessionStorage
   const previousFetch = globalThis.fetch
-  globalThis.window = { innerWidth: 1400 }
+  globalThis.window = { innerWidth: width }
   globalThis.sessionStorage = { getItem: (key) => drafts[key] ? JSON.stringify(drafts[key]) : null }
   globalThis.fetch = () => { throw new Error('Live API access prohibited in UI tests') }
   try {
@@ -67,6 +67,37 @@ test('retirement dashboard remains available separately', () => {
   assert.doesNotMatch(html, /id="payroll-wages-title"/)
 })
 
+test('collapsed navigation retains accessible menu names and identifies the current builder', () => {
+  for (const [path, label] of [['/payroll-builder', 'Payroll Builder'], ['/retirement-builder', 'Retirement Builder']]) {
+    const html = render(path, {}, 390)
+    assert.match(html, /sidebar-collapsed/)
+    assert.match(html, /role="navigation" aria-label="Main navigation"/)
+    assert.match(html, new RegExp(`aria-label="${label}" title="${label}" aria-current="page"`))
+    assert.match(html, /aria-label="Benefits" title="Benefits"/)
+    assert.match(html, /class="menu-label">Menu</)
+  }
+})
+
+test('save confirmation announces success, escapes job text and provides a named dismissal', () => {
+  const html = renderToString(React.createElement(SaveConfirmation, {
+    message: 'Job <script>example</script> was updated successfully.', onDismiss: () => {},
+  }))
+  assert.match(html, /role="status" aria-atomic="true"/)
+  assert.match(html, /Job saved/)
+  assert.match(html, /&lt;script&gt;example&lt;\/script&gt;/)
+  assert.doesNotMatch(html, /<script>/)
+  assert.match(html, /aria-label="Dismiss save confirmation"/)
+})
+
+test('wizard buttons name the next step without the removed finish guidance', () => {
+  const drafts = { 'ecs-payroll-builder-draft': draft('Payroll fixture') }
+  assert.match(render('/payroll-builder/jobs/new', drafts), /Next: Schedule/)
+  assert.match(render('/payroll-builder/jobs/new/mapping', drafts), /Next: Subscriptions/)
+  assert.match(render('/payroll-builder/jobs/new/subscriptions', drafts), /Next: Wage Mappings/)
+  assert.match(render('/payroll-builder/jobs/new/wage-mappings', drafts), />Finish</)
+  assert.doesNotMatch(render('/payroll-builder/jobs/new/wage-mappings', drafts), /Review your wage mappings/)
+})
+
 test('payroll add wizard uses its own draft and general screen', () => {
   const html = render('/payroll-builder/jobs/new', {
     'ecs-payroll-builder-draft': draft('Payroll fixture'),
@@ -78,12 +109,28 @@ test('payroll add wizard uses its own draft and general screen', () => {
   assert.match(html, /Output File Name Format/)
 })
 
-test('payroll subscriptions retain wage mappings without the grouping controls', () => {
-  const html = render('/payroll-builder/jobs/new/subscriptions', { 'ecs-payroll-builder-draft': draft('Payroll fixture') })
+test('payroll wage mappings move to step five for new and existing jobs', () => {
+  for (const mode of ['add', 'edit']) {
+  const path = mode === 'edit' ? 'edit' : 'new'
+  const drafts = { 'ecs-payroll-builder-draft': draft('Payroll fixture', mode) }
+  const subscriptions = render(`/payroll-builder/jobs/${path}/subscriptions`, drafts)
+  assert.doesNotMatch(subscriptions, /id="payroll-wages-title"/)
+  assert.match(subscriptions, /Next: Wage Mappings/)
+  assert.doesNotMatch(subscriptions, />Finish</)
+  const html = render(`/payroll-builder/jobs/${path}/wage-mappings`, drafts)
+  assert.match(html, /aria-label="Step 5: Wage Mappings" aria-current="step"/)
   assert.match(html, /id="payroll-wages-title"/)
   assert.doesNotMatch(html, /id="payroll-grouping-title"/)
   assert.match(html, /aria-label="Earning code 1"/)
   assert.match(html, /aria-label="Wage field 1"/)
+  assert.match(html, />Finish</)
+  assert.match(html, />OT</)
+  }
+})
+
+test('retirement subscriptions remain the fourth and final step', () => {
+  const html = render('/jobs/new/subscriptions', { 'ecs-retirement-builder-draft': draft('Retirement fixture') })
+  assert.doesNotMatch(html, /Step 5:/)
   assert.match(html, />Finish</)
 })
 

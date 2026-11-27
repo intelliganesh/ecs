@@ -1,4 +1,4 @@
-# ECS project instructions
+# ESC project instructions
 
 These instructions apply throughout this repository. Follow the current user's
 task and restrictions; a documentation or analysis request does not authorize

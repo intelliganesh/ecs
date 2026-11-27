@@ -13,7 +13,7 @@ import {
   type ConditionValueType, type ReportEmailDelivery, type SortingPriorityRow,
 } from './retirementBuilder'
 
-type Screen = 'dashboard' | 'general' | 'schedule' | 'mapping' | 'subscriptions' | 'placeholder'
+type Screen = 'dashboard' | 'general' | 'schedule' | 'mapping' | 'subscriptions' | 'wage-mappings' | 'placeholder'
 type ReportSource = 'csv' | 'companyPayroll'
 type BuilderKind = 'retirement-builder' | 'payroll-builder'
 type WageMapping = { clientId: number; wageColumn: string; payCode: string; searchWord: string }
@@ -87,10 +87,10 @@ const scheduleDefaults: Omit<ScheduleValues, 'startDate'> = {
 const emptySchedule: ScheduleValues = { startDate: '', buildFrequency: '', hour: '', minute: '', meridiem: '', week: '' }
 const emptyFileSettings: FileSettingsValues = { sortingOrder: [], conditionalStatements: [] }
 const defaultNewReportSource: ReportSource = 'companyPayroll'
-const retirementAddPaths: Record<Screen, string> = { dashboard: '/retirement-builder', general: '/jobs/new', schedule: '/jobs/new/schedule', mapping: '/jobs/new/mapping', subscriptions: '/jobs/new/subscriptions', placeholder: '/placeholder' }
-const retirementEditPaths: Record<Screen, string> = { dashboard: '/retirement-builder', general: '/jobs/edit/general', schedule: '/jobs/edit/schedule', mapping: '/jobs/edit/mapping', subscriptions: '/jobs/edit/subscriptions', placeholder: '/placeholder' }
+const retirementAddPaths: Record<Screen, string> = { dashboard: '/retirement-builder', general: '/jobs/new', schedule: '/jobs/new/schedule', mapping: '/jobs/new/mapping', subscriptions: '/jobs/new/subscriptions', 'wage-mappings': '/jobs/new/wage-mappings', placeholder: '/placeholder' }
+const retirementEditPaths: Record<Screen, string> = { dashboard: '/retirement-builder', general: '/jobs/edit/general', schedule: '/jobs/edit/schedule', mapping: '/jobs/edit/mapping', subscriptions: '/jobs/edit/subscriptions', 'wage-mappings': '/jobs/edit/wage-mappings', placeholder: '/placeholder' }
 
-function screenFromPath(path: string): Screen { if (path === '/retirement-builder') return 'dashboard'; if (path === '/jobs/new' || path === '/jobs/edit/general') return 'general'; if (path === '/jobs/new/schedule' || path === '/jobs/edit/schedule') return 'schedule'; if (path === '/jobs/new/mapping' || path === '/jobs/edit/mapping') return 'mapping'; if (path === '/jobs/new/subscriptions' || path === '/jobs/edit/subscriptions') return 'subscriptions'; return 'placeholder' }
+function screenFromPath(path: string): Screen { if (path === '/retirement-builder') return 'dashboard'; if (path === '/jobs/new' || path === '/jobs/edit/general') return 'general'; if (path === '/jobs/new/schedule' || path === '/jobs/edit/schedule') return 'schedule'; if (path === '/jobs/new/mapping' || path === '/jobs/edit/mapping') return 'mapping'; if (path === '/jobs/new/wage-mappings' || path === '/jobs/edit/wage-mappings') return 'wage-mappings'; if (path === '/jobs/new/subscriptions' || path === '/jobs/edit/subscriptions') return 'subscriptions'; return 'placeholder' }
 
 function SearchableSelect({
   options, optionLabels, defaultValue = '', value: controlledValue, onValueChange, ariaLabel, errorId,
@@ -223,7 +223,7 @@ function EmailTagsInput({ value, draft, onChange, ariaLabel, validate }: {
   </>
 }
 
-const wizardSteps: Screen[] = ['general', 'schedule', 'mapping', 'subscriptions']
+const baseWizardSteps: Screen[] = ['general', 'schedule', 'mapping', 'subscriptions']
 const earliestStartDate = '1753-01-01'
 type Draft = { wageMappings?: WageMapping[]; grouping?: string[]; mode: 'add' | 'edit'; jobId: number | null; enable: boolean; fileName: string; fileFormat: string; description: string; outputFileNameFormat: string; storeResultsToTable: boolean; selectedFile: string; reportSource: ReportSource; schedule: ScheduleValues; storedStartDateTime?: string | null; includeHeader: boolean; mappingRows: MappingRow[]; mergeFiles: boolean; subscriptions: Subscription[]; fileSettings: FileSettingsValues }
 function readDraft(mode: 'add' | 'edit', draftKey: string): Draft | null { try { const raw = sessionStorage.getItem(draftKey); if (!raw) return null; const draft = JSON.parse(raw) as Draft; if (draft.mode !== mode || (mode === 'edit' && typeof draft.jobId !== 'number')) return null; rowSequence = Math.max(rowSequence, ...draft.mappingRows.map((row) => row.id), ...draft.subscriptions.map((row) => row.id)); return draft } catch { return null } }
@@ -258,6 +258,7 @@ export default function App({ userEmail }: { userEmail: string }) {
 
 function BuilderApp({ userEmail, kind }: { userEmail: string; kind: BuilderKind }) {
   const payrollBuilder = kind === 'payroll-builder'
+  const wizardSteps: Screen[] = payrollBuilder ? [...baseWizardSteps, 'wage-mappings'] : baseWizardSteps
   const builderTitle = payrollBuilder ? 'Payroll Builder' : 'Retirement Builder'
   const builderApi = `${apiBaseUrl}/${kind}`
   const draftKey = `ecs-${kind}-draft`
@@ -266,13 +267,22 @@ function BuilderApp({ userEmail, kind }: { userEmail: string; kind: BuilderKind 
     !payrollBuilder ? value : key === 'dashboard' ? '/payroll-builder' : `/payroll-builder${value}`])) as Record<Screen, string>
   const addPaths = paths(retirementAddPaths)
   const editPaths = paths(retirementEditPaths)
-  const location = useLocation(); const routerNavigate = useNavigate(); const localPath = payrollBuilder ? location.pathname === '/payroll-builder' ? '/retirement-builder' : location.pathname.slice('/payroll-builder'.length) : location.pathname; const screen = screenFromPath(localPath); const isEditFlow = localPath.startsWith('/jobs/edit/'); const isWizard = screen !== 'dashboard' && screen !== 'placeholder'
+  const location = useLocation(); const routerNavigate = useNavigate(); const localPath = payrollBuilder ? location.pathname === '/payroll-builder' ? '/retirement-builder' : location.pathname.slice('/payroll-builder'.length) : location.pathname; const screen = !payrollBuilder && localPath.endsWith('/wage-mappings') ? 'placeholder' : screenFromPath(localPath); const isEditFlow = localPath.startsWith('/jobs/edit/'); const isWizard = screen !== 'dashboard' && screen !== 'placeholder'
   const requestedJobId = isEditFlow && typeof location.state?.jobId === 'number' ? location.state.jobId : null
   const [initialDraft] = useState(() => {
     const draft = isWizard ? readDraft(isEditFlow ? 'edit' : 'add', draftKey) : null
     return requestedJobId === null || draft?.jobId === requestedJobId ? draft : null
   })
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 767); const [showSettings, setShowSettings] = useState(false); const [saveError, setSaveError] = useState(''); const [saving, setSaving] = useState(false); const savingRef = useRef(false)
+  const [saveMessage, setSaveMessage] = useState('')
+  useEffect(() => { setSaveMessage('') }, [kind])
+  useEffect(() => { if (isWizard) setSaveMessage('') }, [isWizard])
+  useEffect(() => {
+    if (!saveError) return
+    const alert = document.querySelector<HTMLElement>('[data-save-error]')
+    alert?.scrollIntoView({ block: 'center' })
+    alert?.focus({ preventScroll: true })
+  }, [saveError])
   const [enable, setEnable] = useState(initialDraft?.enable ?? true); const [fileName, setFileName] = useState(initialDraft?.fileName ?? ''); const [draftFileFormat, setFileFormat] = useState(initialDraft?.fileFormat ?? ''); const [description, setDescription] = useState(initialDraft?.description ?? ''); const [outputFileNameFormat, setOutputFileNameFormat] = useState(initialDraft?.outputFileNameFormat ?? ''); const [storeResultsToTable, setStoreResultsToTable] = useState(initialDraft?.storeResultsToTable ?? false); const [selectedFile, setSelectedFile] = useState(initialDraft?.selectedFile ?? '')
   const [reportSource, setReportSource] = useState<ReportSource>(initialDraft?.reportSource ?? (isEditFlow || payrollBuilder ? 'csv' : defaultNewReportSource))
   const [schedule, setSchedule] = useState<ScheduleValues>(initialDraft?.schedule ?? emptySchedule); const [includeHeader, setIncludeHeader] = useState(initialDraft?.includeHeader ?? false); const [mappingRows, setMappingRows] = useState<MappingRow[]>(initialDraft?.mappingRows ?? []); const [fileSettings, setFileSettings] = useState<FileSettingsValues>(initialDraft?.fileSettings ?? emptyFileSettings)
@@ -494,7 +504,10 @@ function BuilderApp({ userEmail, kind }: { userEmail: string; kind: BuilderKind 
       return
     }
     const emails = subscriptionRows.map(subscriptionEmails)
-    if (emails.some((row) => row.some((email) => !validEmail(email)))) return
+    if (emails.some((row) => row.some((email) => !validEmail(email)))) {
+      if (payrollBuilder) navigate('subscriptions')
+      return
+    }
 
     const body = JSON.stringify({
       ...(payrollBuilder ? { wageMappings, grouping } : {}),
@@ -537,6 +550,7 @@ function BuilderApp({ userEmail, kind }: { userEmail: string; kind: BuilderKind 
       setRetirementJobs((jobs) => mergeSavedJob(jobs, saved))
       setJobsStatus('ready')
       setSelectedJobId(saved.id)
+      setSaveMessage(`Job “${saved.general?.fileName ?? fileName}” ${isUpdate ? 'was updated' : 'was created'} successfully.`)
       navigate('dashboard')
     } catch (error) {
       setSaveError(error instanceof TypeError ? `Unable to reach the ${builderTitle} service. Please try again.` : error instanceof Error ? error.message : `Unable to save ${builderTitle} job`)
@@ -554,6 +568,7 @@ function BuilderApp({ userEmail, kind }: { userEmail: string; kind: BuilderKind 
   const pageTitle = screen === 'placeholder' ? menuTitles[location.pathname] ?? '' : builderTitle; const title = screen === 'dashboard' || screen === 'placeholder' ? '' : isEditFlow ? 'Edit Job' : 'Add New Job'; const userName = userEmail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
   const content = (() => {
     if (screen === 'dashboard') return <Dashboard jobs={dashboardJobs} status={jobsStatus} filters={filters} onFilterChange={updateFilter} onAdd={startAdd} onEdit={startEdit}
+      saveMessage={saveMessage} onDismissSaveMessage={() => setSaveMessage('')}
       onRunSettled={(id, result) => {
         if (result) setRetirementJobs((jobs) => jobs.map((job) => job.id === id ? { ...job, Job_Last_Status: result } : job))
         void jobListRequests.current.apply(() => fetchRetirementJobs(undefined, kind), setRetirementJobs)
@@ -581,7 +596,7 @@ function BuilderApp({ userEmail, kind }: { userEmail: string; kind: BuilderKind 
       onFileChange={importWorkbook} onCancel={() => navigate('dashboard')}
       onSubmit={(event) => { event.preventDefault(); navigate('schedule') }}
     />
-    if (screen === 'schedule') return <ScheduleStep schedule={schedule} storedStartDateTime={isEditFlow ? storedStartDateTime : undefined}
+    if (screen === 'schedule') return <ScheduleStep schedule={schedule}
       errors={validatedSteps.schedule ? scheduleErrors : undefined}
       onChange={(patch) => setSchedule((current) => ({ ...current, ...patch }))}
       onBack={() => navigate('general')} onNext={() => navigate('mapping')}
@@ -592,6 +607,8 @@ function BuilderApp({ userEmail, kind }: { userEmail: string; kind: BuilderKind 
       onDelete={(id) => setMappingRows((rows) => rows.filter((row) => row.id !== id))}
       onOpenSettings={() => setShowSettings(true)} onBack={() => navigate('schedule')} onNext={() => navigate('subscriptions')}
     />
+    if (screen === 'wage-mappings') return <WageMappingsStep wageMappings={wageMappings} onWagesChange={setWageMappings}
+      subscriptions={subscriptions} error={saveError} saving={saving} onBack={() => navigate('subscriptions')} onFinish={saveJob} />
     return <SubscriptionsStep reportSource={reportSource} mergeFiles={mergeFiles} subscriptions={subscriptions} error={saveError}
       saving={saving} validate={!!validatedSteps.subscriptions} onMergeChange={setMergeFiles}
       onClientChange={(id, client) => setSubscriptions((rows) => rows.map((row) => row.id === id ? { ...row, client } : row))}
@@ -599,11 +616,11 @@ function BuilderApp({ userEmail, kind }: { userEmail: string; kind: BuilderKind 
       onEmailChange={(id, email, emailDraft) => setSubscriptions((rows) => rows.map((row) => row.id === id ? { ...row, email, emailDraft } : row))}
       onAdd={() => setSubscriptions((rows) => [...rows, newSubscription()])}
       onDelete={(id) => setSubscriptions((rows) => rows.filter((row) => row.id !== id))}
-      extraContent={payrollBuilder ? (clientLabels) => <PayrollSettings clientLabels={clientLabels} wageMappings={wageMappings} onWagesChange={setWageMappings} subscriptions={subscriptions} /> : undefined}
+      onNext={payrollBuilder ? () => navigate('wage-mappings') : undefined}
       onBack={() => navigate('mapping')} onFinish={saveJob}
     />
   })()
-  return <BuilderContext.Provider value={{ kind, api: builderApi, title: builderTitle }}><OptionsContext.Provider value={options}><div className={`app-shell ${kind} ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}><header className="topbar"><div className="brand">ECS</div><button className="menu-button" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen((open) => !open)} aria-label="Toggle navigation">☰</button><div className="user-name">{userName}</div></header><div className="workspace"><Sidebar builderTitle={builderTitle} active={screen} onNavigate={navigate} onNavigatePath={routerNavigate} /><main className="main-content"><div className="page-heading"><h1>{pageTitle}</h1><div className="breadcrumb"><CircleDot className="breadcrumb-icon" aria-hidden="true" /><button type="button" className="breadcrumb-link" onClick={() => navigate('dashboard')}>SYD</button><ChevronRight className="breadcrumb-chevron" aria-hidden="true" /><span>{title}</span></div></div>{screen === 'dashboard' || screen === 'placeholder' ? content : <WizardCard title={title} activeStep={screen} stepsDisabled={awaitingJob} onCancel={() => navigate('dashboard')} onNavigate={navigate} headerActions={screen === 'mapping' ? <button type="button" className="button button-primary" disabled={awaitingJob} onClick={() => addMappingRow()}><span className="button-icon"><ToolIcon name="plus" /></span>Add Dataset</button> : screen === 'general' && isEditFlow ? <button type="button" className="button button-light" onClick={() => navigate('dashboard')}>Cancel</button> : undefined}>{content}</WizardCard>}<footer><span>Copyright © 2026</span><strong>Employer Services Corporation.</strong><span>All rights reserved.</span></footer></main></div>{showSettings && <FileSettingsModal reportSource={reportSource} mappingRows={mappingRows} payrollGrouping={payrollBuilder ? grouping : undefined} initialSorting={fileSettings.sortingOrder} initialConditional={fileSettings.conditionalStatements} onSave={(sortingOrder, conditionalStatements, nextGrouping) => { setFileSettings({ sortingOrder, conditionalStatements }); if (payrollBuilder) setGrouping(nextGrouping); setShowSettings(false) }} onClose={() => setShowSettings(false)} />}</div></OptionsContext.Provider></BuilderContext.Provider>
+  return <BuilderContext.Provider value={{ kind, api: builderApi, title: builderTitle }}><OptionsContext.Provider value={options}><div className={`app-shell ${kind} ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}><header className="topbar"><div className="brand">ESC</div><button className="menu-button" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen((open) => !open)} aria-label="Toggle navigation" title={sidebarOpen ? 'Hide navigation menu' : 'Show navigation menu'}>☰ <span className="menu-label">Menu</span></button><div className="user-name">{userName}</div></header><div className="workspace"><Sidebar builderTitle={builderTitle} active={screen} onNavigate={navigate} onNavigatePath={routerNavigate} /><main className="main-content"><div className="page-heading"><h1>{pageTitle}</h1><div className="breadcrumb"><CircleDot className="breadcrumb-icon" aria-hidden="true" /><button type="button" className="breadcrumb-link" onClick={() => navigate('dashboard')}>SYD</button><ChevronRight className="breadcrumb-chevron" aria-hidden="true" /><span>{title}</span></div></div>{screen === 'dashboard' || screen === 'placeholder' ? content : <WizardCard title={title} activeStep={screen} stepsDisabled={awaitingJob} onCancel={() => navigate('dashboard')} onNavigate={navigate} headerActions={screen === 'mapping' ? <button type="button" className="button button-primary" disabled={awaitingJob} onClick={() => addMappingRow()}><span className="button-icon"><ToolIcon name="plus" /></span>Add Dataset</button> : screen === 'general' && isEditFlow ? <button type="button" className="button button-light" onClick={() => navigate('dashboard')}>Cancel</button> : undefined}>{content}</WizardCard>}<footer><span>Copyright © 2026</span><strong>Employer Services Corporation.</strong><span>All rights reserved.</span></footer></main></div>{showSettings && <FileSettingsModal reportSource={reportSource} mappingRows={mappingRows} payrollGrouping={payrollBuilder ? grouping : undefined} initialSorting={fileSettings.sortingOrder} initialConditional={fileSettings.conditionalStatements} onSave={(sortingOrder, conditionalStatements, nextGrouping) => { setFileSettings({ sortingOrder, conditionalStatements }); if (payrollBuilder) setGrouping(nextGrouping); setShowSettings(false) }} onClose={() => setShowSettings(false)} />}</div></OptionsContext.Provider></BuilderContext.Provider>
 }
 
 function MenuIcon({ name }: { name: SideIcon }) {
@@ -621,13 +638,24 @@ function MenuIcon({ name }: { name: SideIcon }) {
     <path d="m17 4 4 4" />
   </svg>
 }
-function Sidebar({ builderTitle, active, onNavigate, onNavigatePath }: { builderTitle: string; active: Screen; onNavigate: (screen: Screen) => void; onNavigatePath: (path: string) => void }) { return <aside className="sidebar">{navigation.map(([icon, label]) => <button className={`nav-item ${label === builderTitle && active !== 'placeholder' ? 'active' : ''}`} key={label} onClick={() => label === builderTitle ? onNavigate('dashboard') : onNavigatePath(menuPaths[label])}><span className="nav-icon"><MenuIcon name={icon} /></span><span>{label}</span>{['Benefits', 'Mass Mutual Files', 'Prism'].includes(label) && <span className="nav-chevron">‹</span>}</button>)}</aside> }
+function Sidebar({ builderTitle, active, onNavigate, onNavigatePath }: { builderTitle: string; active: Screen; onNavigate: (screen: Screen) => void; onNavigatePath: (path: string) => void }) {
+  return <aside className="sidebar" role="navigation" aria-label="Main navigation">{navigation.map(([icon, label]) => {
+    const current = label === builderTitle && active !== 'placeholder'
+    return <button className={`nav-item ${current ? 'active' : ''}`} key={label} aria-label={label} title={label} aria-current={current ? 'page' : undefined}
+      onClick={() => label === builderTitle ? onNavigate('dashboard') : onNavigatePath(menuPaths[label])}>
+      <span className="nav-icon"><MenuIcon name={icon} /></span><span>{label}</span>
+      {['Benefits', 'Mass Mutual Files', 'Prism'].includes(label) && <span className="nav-chevron" aria-hidden="true">‹</span>}
+    </button>
+  })}</aside>
+}
 function ToolIcon({ name }: { name: 'layers' | 'plus' | 'trash' }) { if (name === 'plus') return <Plus aria-hidden="true" />; if (name === 'trash') return <Trash2 aria-hidden="true" />; return <Layers aria-hidden="true" /> }
-function WizardCard({ title, activeStep, stepsDisabled, onCancel, onNavigate, headerActions, children }: { title: string; activeStep: Screen; stepsDisabled: boolean; onCancel: () => void; onNavigate: (screen: Screen) => void; headerActions?: ReactNode; children: ReactNode }) { const steps: { key: Screen; label: string }[] = [{ key: 'general', label: 'General' }, { key: 'schedule', label: 'Schedule' }, { key: 'mapping', label: 'Mapping' }, { key: 'subscriptions', label: 'Subscriptions' }]; return <><div className="wizard-steps-shell"><nav className="wizard-steps">{steps.map((step, index) => <button className={`wizard-step ${activeStep === step.key ? 'active' : ''}`} key={step.key} aria-current={activeStep === step.key ? 'step' : undefined} disabled={stepsDisabled} onClick={() => onNavigate(step.key)}><span className="step-number" aria-hidden="true">{index + 1}</span><span>{step.label}</span></button>)}</nav></div><section className="wizard-card"><div className="card-heading"><h2>{title}</h2><div className="card-heading-actions">{headerActions}{activeStep !== 'general' && <button className="button button-light" onClick={onCancel}>Cancel</button>}</div></div>{children}</section></> }
+function WizardCard({ title, activeStep, stepsDisabled, onCancel, onNavigate, headerActions, children }: { title: string; activeStep: Screen; stepsDisabled: boolean; onCancel: () => void; onNavigate: (screen: Screen) => void; headerActions?: ReactNode; children: ReactNode }) { const steps: { key: Screen; label: string }[] = [{ key: 'general', label: 'General' }, { key: 'schedule', label: 'Schedule' }, { key: 'mapping', label: 'Mapping' }, { key: 'subscriptions', label: 'Subscriptions' }]; const { kind } = useContext(BuilderContext); if (kind === 'payroll-builder') steps.push({ key: 'wage-mappings', label: 'Wage Mappings' }); return <><div className="wizard-steps-shell"><nav className="wizard-steps" aria-label="Job setup steps">{steps.map((step, index) => <button className={`wizard-step ${activeStep === step.key ? 'active' : ''}`} key={step.key} aria-label={`Step ${index + 1}: ${step.label}`} aria-current={activeStep === step.key ? 'step' : undefined} disabled={stepsDisabled} onClick={() => onNavigate(step.key)}><span className="step-number" aria-hidden="true">{index + 1}</span><span>{step.label}</span></button>)}</nav></div><section className="wizard-card"><div className="card-heading"><h2>{title}</h2><div className="card-heading-actions">{headerActions}{activeStep !== 'general' && <button className="button button-light" onClick={onCancel}>Cancel</button>}</div></div>{children}</section></> }
 const jobsPerPage = 10
 const jobSortCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
-function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRunSettled }: {
+function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRunSettled, saveMessage, onDismissSaveMessage }: {
+  saveMessage: string
+  onDismissSaveMessage: () => void
   jobs: DashboardJob[]
   status: JobsStatus
   filters: TableFilters
@@ -772,6 +800,7 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
   }
 
   return <section className="dashboard-card">
+    {saveMessage && <SaveConfirmation message={saveMessage} onDismiss={onDismissSaveMessage} />}
     <div className="dashboard-actions jobs-actions">
       <div className="job-status-tabs" role="tablist" aria-label="Job status">
         {(['active', 'disabled'] as const).map((scope) => <button key={scope} type="button" role="tab"
@@ -800,6 +829,8 @@ function Dashboard({ jobs, status, filters, onFilterChange, onAdd, onEdit, onRun
         {running ? 'Running…' : 'Run'}
       </button>
     </div>
+    {status === 'error' && <p className="dashboard-action-message" role="alert"><strong>Jobs could not be loaded.</strong> Check your connection and refresh the page to try again.</p>}
+    {selected && <p className="dashboard-guidance">Select Edit to change this job, or Run to generate its report.</p>}
     {templateError && <p className="dashboard-action-message" role="alert">{templateError}</p>}
     {runError && <p className="dashboard-action-message" role="alert">{runError}</p>}
     {runResult && <div className="dashboard-action-message" role="status">
@@ -919,6 +950,13 @@ function FieldError({ id, message }: { id: string; message?: string }) {
   return message ? <span className="field-error" id={id} role="alert">{message}</span> : null
 }
 
+export function SaveConfirmation({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  return <div className="save-confirmation" role="status" aria-atomic="true">
+    <div><strong>Job saved</strong><p>{message}</p></div>
+    <button type="button" className="button button-light" onClick={onDismiss} aria-label="Dismiss save confirmation">Dismiss</button>
+  </div>
+}
+
 function GeneralStep({
   fileName, fileFormat, description, outputFileNameFormat, reportSource,
   isEdit, enable, onEnableChange, storeResultsToTable, selectedFile,
@@ -948,10 +986,11 @@ function GeneralStep({
   onSubmit: (event: FormEvent) => void
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { values, loading } = useContext(OptionsContext)
+  const { values, loading, error: optionsError } = useContext(OptionsContext)
   const filenameOptions = values.outputFileNameFormats
   return <form className="form-step general-step" onSubmit={onSubmit} noValidate>
     <div className="general-form-content">
+      {optionsError && <p className="dashboard-action-message" role="alert"><strong>Settings could not be loaded.</strong> Check your connection and refresh the page before continuing.</p>}
       <div className="general-fields">
         <div className="general-field">
           <label htmlFor="retirement-file-name">File Name</label>
@@ -1005,14 +1044,13 @@ function GeneralStep({
     </div>
     <div className="general-form-actions">
       <button className="button button-light" type="button" onClick={onCancel}>Cancel</button>
-      <button className="button button-primary" type="submit" disabled={importing}>Next</button>
+      <button className="button button-primary" type="submit" disabled={importing}>Next: Schedule</button>
     </div>
   </form>
 }
 
-function ScheduleStep({ schedule, storedStartDateTime, errors, onChange, onBack, onNext }: {
+function ScheduleStep({ schedule, errors, onChange, onBack, onNext }: {
   schedule: ScheduleValues
-  storedStartDateTime?: string | null
   errors?: Record<keyof ScheduleValues, string>
   onChange: (patch: Partial<ScheduleValues>) => void
   onBack: () => void
@@ -1026,17 +1064,9 @@ function ScheduleStep({ schedule, storedStartDateTime, errors, onChange, onBack,
           <label htmlFor="retirement-start-date">Start Date</label>
           <input id="retirement-start-date" type="date" min={earliestStartDate} max="9999-12-31" value={schedule.startDate}
             aria-invalid={!!errors?.startDate}
-            aria-describedby={[
-              'retirement-start-date-help',
-              storedStartDateTime && 'retirement-stored-start-date',
-              errors?.startDate && 'retirement-start-date-error',
-            ].filter(Boolean).join(' ')}
+            aria-describedby={errors?.startDate ? 'retirement-start-date-error' : undefined}
             onInput={(event) => onChange({ startDate: event.currentTarget.value })}
             onChange={(event) => onChange({ startDate: event.currentTarget.value })} />
-          <small id="retirement-start-date-help" className="general-field-help">Leave the schedule blank for manual runs only.</small>
-          {storedStartDateTime && <small id="retirement-stored-start-date" className="general-field-help">
-            Stored start date and time <time dateTime={storedStartDateTime.replace(' ', 'T')}>{storedStartDateTime}</time>
-          </small>}
           <FieldError id="retirement-start-date-error" message={errors?.startDate} />
         </div>
         <label className="schedule-field">Build Frequency
@@ -1062,7 +1092,7 @@ function ScheduleStep({ schedule, storedStartDateTime, errors, onChange, onBack,
         </label>
       </div>
     </div>
-    <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onNext}>Next</button></div>
+    <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onNext}>Next: Mapping</button></div>
   </div>
 }
 
@@ -1112,7 +1142,6 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
           <button type="button" className="button button-primary" onClick={onOpenSettings}><Settings aria-hidden="true" size={18} />File Settings</button>
         </div>
       </div>
-      <p className="dataset-help">Each dataset is a separate report section. Trailer fields appear after their dataset. File Settings apply to the job.</p>
   </>
   return <div className="form-step mapping-step">
     {toolbar}
@@ -1185,15 +1214,15 @@ function MappingStep({ requiresDefault, includeHeader, rows, fixed, validate, on
       </div>
       </section>)}
     </div>
-    <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onNext}>Next</button></div>
+    <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onNext}>Next: Subscriptions</button></div>
   </div>
 }
 
 function SubscriptionsStep({
-  reportSource, mergeFiles, subscriptions, error, saving, validate, extraContent,
+  reportSource, mergeFiles, subscriptions, error, saving, validate, onNext,
   onMergeChange, onClientChange, onCompanyChange, onEmailChange, onAdd, onDelete, onBack, onFinish,
 }: {
-  extraContent?: (clientLabels: Record<string, string>) => ReactNode
+  onNext?: () => void
   reportSource: ReportSource
   mergeFiles: boolean
   subscriptions: Subscription[]
@@ -1210,37 +1239,18 @@ function SubscriptionsStep({
   onFinish: () => void
 }) {
   const { values } = useContext(OptionsContext)
-  const builder = useContext(BuilderContext)
   const payroll = reportSource === 'companyPayroll'
   const companyOptions = Object.entries(values.payrollCompanies).map(([id, name]) => `${id} - ${name}`)
-  const [clientCatalog, setClientCatalog] = useState({ rows: [] as ClientOption[], loading: true, error: '' })
+  const clientCatalog = useClientCatalog(payroll)
   const clientOptions = clientCatalog.rows.map(({ id }) => String(id))
   const clientLabels = Object.fromEntries(clientCatalog.rows.map(({ id, label }) => [String(id), label]))
-  useEffect(() => {
-    if (payroll) return
-    const controller = new AbortController()
-    fetch(`${builder.api}/clients`, { signal: controller.signal, cache: 'no-store' })
-      .then((response) => {
-        if (!response.ok) throw new Error('Unable to load the client list.')
-        return response.json() as Promise<ClientOption[]>
-      })
-      .then((rows) => {
-        if (!controller.signal.aborted) setClientCatalog({ rows, loading: false, error: '' })
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setClientCatalog({
-          rows: [], loading: false, error: 'Unable to load the client list. You can still enter a client ID.',
-        })
-      })
-    return () => controller.abort()
-  }, [payroll])
 
   return <div className="form-step subscriptions-step">
     <div className="subscription-toolbar">
       <label className="check-label" title="Combines each recipient's emailed attachments into one file. Generated report files are not changed."><input type="checkbox" checked={mergeFiles} onChange={(event) => onMergeChange(event.target.checked)} />Merge Files <small className="general-field-help">(emailed attachments only)</small></label>
       <button className="button button-primary" onClick={onAdd}><span className="button-icon"><ToolIcon name="plus" /></span>Add Row</button>
     </div>
-    {error && <p className="dashboard-action-message" role="alert">{error}</p>}
+    {error && <p className="dashboard-action-message" role="alert" data-save-error tabIndex={-1}><strong>The job was not saved.</strong> {error}</p>}
     <div className="subscription-table-wrap" role="region" aria-label="Subscriptions table" tabIndex={0}>
       <table className="subscription-table">
         <thead><tr><th scope="col">{payroll ? 'Payroll Company' : 'Clients'}</th><th scope="col">Mail</th><th scope="col">Action</th></tr></thead>
@@ -1274,10 +1284,51 @@ function SubscriptionsStep({
         })}</tbody>
       </table>
     </div>
-    {extraContent?.(clientLabels)}
-    <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onFinish} disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : 'Finish'}</button></div>
+    <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onNext ?? onFinish} disabled={saving} aria-busy={saving}>{saving ? 'Saving job…' : onNext ? 'Next: Wage Mappings' : 'Finish'}</button></div>
   </div>
 }
+function useClientCatalog(payroll = false) {
+  const builder = useContext(BuilderContext)
+  const [clientCatalog, setClientCatalog] = useState({ rows: [] as ClientOption[], loading: true, error: '' })
+  useEffect(() => {
+    if (payroll) return
+    const controller = new AbortController()
+    fetch(`${builder.api}/clients`, { signal: controller.signal, cache: 'no-store' })
+      .then((response) => {
+        if (!response.ok) throw new Error('Unable to load the client list.')
+        return response.json() as Promise<ClientOption[]>
+      })
+      .then((rows) => {
+        if (!controller.signal.aborted) setClientCatalog({ rows, loading: false, error: '' })
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setClientCatalog({
+          rows: [], loading: false, error: 'Unable to load the client list. You can still enter a client ID.',
+        })
+      })
+    return () => controller.abort()
+  }, [payroll, builder.api])
+  return clientCatalog
+}
+
+function WageMappingsStep({ wageMappings, onWagesChange, subscriptions, error, saving, onBack, onFinish }: {
+  wageMappings: WageMapping[]
+  onWagesChange: (rows: WageMapping[]) => void
+  subscriptions: Subscription[]
+  error: string
+  saving: boolean
+  onBack: () => void
+  onFinish: () => void
+}) {
+  const clientCatalog = useClientCatalog()
+  const clientLabels = Object.fromEntries(clientCatalog.rows.map(({ id, label }) => [String(id), label]))
+  return <div className="form-step subscriptions-step wage-mappings-step">
+    {error && <p className="dashboard-action-message" role="alert" data-save-error tabIndex={-1}><strong>The job was not saved.</strong> {error}</p>}
+    <PayrollSettings clientLabels={clientLabels} wageMappings={wageMappings} onWagesChange={onWagesChange} subscriptions={subscriptions} />
+    <div className="step-footer"><button className="button button-light" onClick={onBack}>Back</button><button className="button button-primary" onClick={onFinish} disabled={saving} aria-busy={saving}>{saving ? 'Saving job…' : 'Finish'}</button></div>
+  </div>
+}
+
 function PayrollSettings({ clientLabels, wageMappings, onWagesChange, subscriptions }: {
   clientLabels: Record<string, string>
   wageMappings: WageMapping[]
@@ -1289,7 +1340,7 @@ function PayrollSettings({ clientLabels, wageMappings, onWagesChange, subscripti
   return <div className="payroll-settings">
     <section className="settings-section" aria-labelledby="payroll-wages-title">
       <div className="settings-section-heading">
-        <div><strong id="payroll-wages-title">Wage Mappings</strong><span className="settings-section-description">Map a subscribed client’s earning codes to wage fields.</span></div>
+        <div><strong id="payroll-wages-title">Wage Mappings</strong></div>
         <button type="button" className="button button-primary" onClick={() => onWagesChange([...wageMappings, { clientId: clients[0] ?? 0, wageColumn: '', payCode: '', searchWord: '' }])}><Plus aria-hidden="true" size={16} /> Add Row</button>
       </div>
       {!clients.length && <p className="general-field-help">Add a client subscription to configure wage mappings.</p>}
@@ -1431,6 +1482,7 @@ function FileSettingsModal({ reportSource, mappingRows, initialSorting, initialC
         </div>
       </div>
       <div className="settings-modal-body" tabIndex={0} role="region" aria-label="File Settings content">
+      <p className="settings-save-help">Save &amp; Continue adds these settings to your form. Select Finish in {payrollGrouping !== undefined ? 'Wage Mappings' : 'Subscriptions'} to save the job.</p>
       {sortError && <p className="field-error" role="alert">{sortError}</p>}
       <fieldset className="control-fieldset"><SettingsTable
         title="Sorting Order:"

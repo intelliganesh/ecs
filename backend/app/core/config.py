@@ -12,7 +12,7 @@ SQL_IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_]{0,127}"
 
 
 class Settings(BaseSettings):
-    app_name: str = "ECS API"
+    app_name: str = "ESC API"
     environment: str = "development"
     api_v1_prefix: str = "/api/v1"
     cors_origins_value: str = Field("http://localhost:5173", validation_alias="CORS_ORIGINS")
@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     mail_password: SecretStr = SecretStr("")
     mail_encryption: Literal["ssl", "tls"] = "ssl"
     mail_from_address: str = ""
-    mail_from_name: str = "ECS Retirement Builder"
+    mail_from_name: str = "ESC Retirement Builder"
 
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", case_sensitive=False, extra="ignore")
 

@@ -1,6 +1,6 @@
-# ECS Applications
+# ESC Applications
 
-ECS is a React web application with a FastAPI backend and a Microsoft SQL Server
+ESC is a React web application with a FastAPI backend and a Microsoft SQL Server
 database. The implemented business flow in this checkout is **Retirement Builder**:
 configure export jobs, map fields, define sorting/conditions, run reports manually
 or on a schedule, download CSV/Excel output, and optionally email reports to
@@ -94,7 +94,7 @@ backend authentication/authorization layer. This is not a production identity sy
 - Python **3.11+**; the backend uses `datetime.UTC` and modern Python syntax.
 - Node.js/npm compatible with the lockfile. The currently locked Vite requires
   Node **20.19+ on the Node 20 line, or 22.12+**.
-- Reachable Microsoft SQL Server, a compatible ECS schema and operation-appropriate
+- Reachable Microsoft SQL Server, a compatible ESC schema and operation-appropriate
   permissions. Some lookups also depend on `prism.export` data.
 - Microsoft **ODBC Driver 18 for SQL Server** and the platform ODBC runtime.
 - SMTP credentials only for separately authorized mail-enabled operation.
@@ -189,7 +189,7 @@ restart the backend after changing environment values. Do not commit real secret
 
 | Variable | Purpose / code default |
 | --- | --- |
-| `APP_NAME` | FastAPI title; `ECS API`. |
+| `APP_NAME` | FastAPI title; `ESC API`. |
 | `ENVIRONMENT` | Environment label; `development`. |
 | `API_V1_PREFIX` | `/api/v1`; frontend currently uses that prefix directly, so changing the backend alone breaks the pairing. |
 | `CORS_ORIGINS` | Comma-separated origins for direct API access. Code default is `http://localhost:5173`; example also includes `127.0.0.1:5173`. |
@@ -232,7 +232,7 @@ excluded by `.gitignore`.
 | `MAIL_HOST`, `MAIL_PORT` | SMTP endpoint; `smtp.gmail.com`, `465`. |
 | `MAIL_ENCRYPTION` | `ssl` or `tls` (STARTTLS); `ssl`. |
 | `MAIL_USERNAME`, `MAIL_PASSWORD` | SMTP credentials; blank by default. |
-| `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | Sender; name defaults to `ECS Retirement Builder`. |
+| `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | Sender; name defaults to `ESC Retirement Builder`. |
 
 Enabling mail requires nonblank host, username, password and sender address.
 Successful file generation is separate from subscription matching, SMTP acceptance

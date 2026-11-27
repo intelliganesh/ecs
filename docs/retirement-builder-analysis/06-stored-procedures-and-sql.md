@@ -4,13 +4,13 @@
 
 A SELECT-only connection succeeded. The configured application procedure is **`dbo.usp_CompanyPayrollReport`**. `OBJECT_DEFINITION` was visible, and its definition matched migration 012 after whitespace and CREATE/ALTER declaration normalization. Its live parameters are `@jobid int`, `@start_date date`, `@end_date date`. No procedure was executed in this investigation. [Database evidence](evidence/read-only-database.json).
 
-Count: **1 application stored procedure**, plus the SQL Server system helper **`sys.sp_executesql`** called inside it. The older `dbo.ufn_CompanyPayrollRecordQueries` is a function in migration 009; migration 011 drops it. The current source uses JSON H/D/T templates and does not call that function. Its actual absence from the live database was **NOT VERIFIED**. [backend/migrations/009_payroll_record_queries.sql:1](/Users/apple/Desktop/ECS/backend/migrations/009_payroll_record_queries.sql:1), [backend/migrations/011_inline_payroll_record_queries.sql:47](/Users/apple/Desktop/ECS/backend/migrations/011_inline_payroll_record_queries.sql:47), [backend/app/payroll_source.py:84](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:84).
+Count: **1 application stored procedure**, plus the SQL Server system helper **`sys.sp_executesql`** called inside it. The older `dbo.ufn_CompanyPayrollRecordQueries` is a function in migration 009; migration 011 drops it. The current source uses JSON H/D/T templates and does not call that function. Its actual absence from the live database was **NOT VERIFIED**. [backend/migrations/009_payroll_record_queries.sql:1](/Users/apple/Desktop/ESC/backend/migrations/009_payroll_record_queries.sql:1), [backend/migrations/011_inline_payroll_record_queries.sql:47](/Users/apple/Desktop/ESC/backend/migrations/011_inline_payroll_record_queries.sql:47), [backend/app/payroll_source.py:84](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:84).
 
-There are **32 distinct application SQL definitions/templates in the traced flow**: 15 active query.brl batches, 13 direct Python SQL constants, 1 generated payroll-call wrapper, and 3 H/D/T SELECT templates. This counts a batch as one unit, not every SQL keyword/subquery. The combined edit-read batch reuses eight reads and is not counted again. The procedure body is explained separately, not added a second time. Auxiliary health `SELECT 1` and migration DDL/seed statements are excluded. All 32 units appear below. The repository's many unrelated query.brl IDs are not all used by Retirement Builder. [backend/app/routers/retirement_builder.py:218](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:218), [backend/app/routers/retirement_builder.py:235](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:235), [backend/app/payroll_source.py:44](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:44), [backend/app/retirement_results.py:76](/Users/apple/Desktop/ECS/backend/app/retirement_results.py:76), [backend/app/payroll_source.py:132](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:132).
+There are **32 distinct application SQL definitions/templates in the traced flow**: 15 active query.brl batches, 13 direct Python SQL constants, 1 generated payroll-call wrapper, and 3 H/D/T SELECT templates. This counts a batch as one unit, not every SQL keyword/subquery. The combined edit-read batch reuses eight reads and is not counted again. The procedure body is explained separately, not added a second time. Auxiliary health `SELECT 1` and migration DDL/seed statements are excluded. All 32 units appear below. The repository's many unrelated query.brl IDs are not all used by Retirement Builder. [backend/app/routers/retirement_builder.py:218](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:218), [backend/app/routers/retirement_builder.py:235](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:235), [backend/app/payroll_source.py:44](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:44), [backend/app/retirement_results.py:76](/Users/apple/Desktop/ESC/backend/app/retirement_results.py:76), [backend/app/payroll_source.py:132](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:132).
 
 ## Application procedure: dbo.usp_CompanyPayrollReport
 
-**Call site:** `load_payroll_source` → raw cursor `execute(payroll_report_query(job, for_run=True), job.id, date_range.start, date_range.end)` [backend/app/payroll_source.py:198](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:198). `_payroll_procedure_name` reads the validated configured name, schema-qualified and bracketed. [backend/app/payroll_source.py:65](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:65).
+**Call site:** `load_payroll_source` → raw cursor `execute(payroll_report_query(job, for_run=True), job.id, date_range.start, date_range.end)` [backend/app/payroll_source.py:198](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:198). `_payroll_procedure_name` reads the validated configured name, schema-qualified and bracketed. [backend/app/payroll_source.py:65](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:65).
 
 | Input | Actual source | Meaning |
 |---|---|---|
@@ -18,9 +18,9 @@ There are **32 distinct application SQL definitions/templates in the traced flow
 | @start_date | Run dialog start_date; omitted/null becomes 1900-01-01; scheduler uses sentinel | Inclusive lower bound on date cast of payroll_month |
 | @end_date | Run dialog end_date; omitted/null becomes 1900-01-01; scheduler uses sentinel | Inclusive upper bound on same source date |
 
-**Outputs:** one result set containing `[Record Sequence]`, `[Record Type]`, `[Company Name]`, `[Pay Date]`, `[Employee Count]`, `[Net Salary Total]`. Sequence is 1 for H, 2 for D, 3 for T. H has blank date text converted through the common result shape and zeros for count/total. The application wrapper projects requested columns, makes Header Pay Date NULL, orders records, and optionally appends Client ID after a separate company lookup. [backend/app/payroll_source.py:164](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:164), [backend/app/payroll_source.py:202](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:202).
+**Outputs:** one result set containing `[Record Sequence]`, `[Record Type]`, `[Company Name]`, `[Pay Date]`, `[Employee Count]`, `[Net Salary Total]`. Sequence is 1 for H, 2 for D, 3 for T. H has blank date text converted through the common result shape and zeros for count/total. The application wrapper projects requested columns, makes Header Pay Date NULL, orders records, and optionally appends Client ID after a separate company lookup. [backend/app/payroll_source.py:164](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:164), [backend/app/payroll_source.py:202](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:202).
 
-**Persistent tables read:** `dbo.rjob_query`, `dbo.companies`, `dbo.employees`, `dbo.payroll`. Joins: employees.company_id=companies.id; payroll.employee_id=employees.id. D/T group by company_name,payroll_month. The feature's procedure does not insert/update/delete persistent data; `INSERT INTO @templates`, `@records`, `@payroll` are temporary table-variable operations. Run as a whole still writes history/output/results outside this procedure. [backend/migrations/012_payroll_report_date_range.sql:9](/Users/apple/Desktop/ECS/backend/migrations/012_payroll_report_date_range.sql:9), [backend/app/routers/retirement_builder.py:1154](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:1154).
+**Persistent tables read:** `dbo.rjob_query`, `dbo.companies`, `dbo.employees`, `dbo.payroll`. Joins: employees.company_id=companies.id; payroll.employee_id=employees.id. D/T group by company_name,payroll_month. The feature's procedure does not insert/update/delete persistent data; `INSERT INTO @templates`, `@records`, `@payroll` are temporary table-variable operations. Run as a whole still writes history/output/results outside this procedure. [backend/migrations/012_payroll_report_date_range.sql:9](/Users/apple/Desktop/ESC/backend/migrations/012_payroll_report_date_range.sql:9), [backend/app/routers/retirement_builder.py:1154](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:1154).
 
 ### Definition explained section by section
 
@@ -109,23 +109,23 @@ END;
 GO
 ```
 
-No `Conditions` or `Sort_Order` is concatenated by this procedure. Those are parsed into Python fileSettings and applied after payroll retrieval. The approved H/D/T query text is executed here, whereas saved condition/sort text is interpreted by application helpers. [backend/app/payroll_source.py:112](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:112), [backend/app/retirement_results.py:438](/Users/apple/Desktop/ECS/backend/app/retirement_results.py:438).
+No `Conditions` or `Sort_Order` is concatenated by this procedure. Those are parsed into Python fileSettings and applied after payroll retrieval. The approved H/D/T query text is executed here, whereas saved condition/sort text is interpreted by application helpers. [backend/app/payroll_source.py:112](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:112), [backend/app/retirement_results.py:438](/Users/apple/Desktop/ESC/backend/app/retirement_results.py:438).
 
-No rows: if there are no matching bounded payroll records, the renderer returns `[]` and the run records successful no-output completion; an unbounded empty/missing required layout can instead fail its record-type checks. Payroll cursor with **no result set** is an error, distinct from an empty valid result set. [backend/app/payroll_source.py:199](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:199), [backend/app/retirement_results.py:482](/Users/apple/Desktop/ECS/backend/app/retirement_results.py:482).
+No rows: if there are no matching bounded payroll records, the renderer returns `[]` and the run records successful no-output completion; an unbounded empty/missing required layout can instead fail its record-type checks. Payroll cursor with **no result set** is an error, distinct from an empty valid result set. [backend/app/payroll_source.py:199](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:199), [backend/app/retirement_results.py:482](/Users/apple/Desktop/ESC/backend/app/retirement_results.py:482).
 
 ### System helper sys.sp_executesql
 
-Called from migration 012 lines 65–66; `@sql` contains only approved H/D/T SELECT text plus the fixed CTE wrapper; parameter-definition string declares three dates and values bind normalized range dates/sentinel. Its output is the SELECT above. Tables and read-only business behavior are inherited from that SQL. SQL Server's own helper implementation is not in this repository and was not inspected. [backend/migrations/012_payroll_report_date_range.sql:65](/Users/apple/Desktop/ECS/backend/migrations/012_payroll_report_date_range.sql:65).
+Called from migration 012 lines 65–66; `@sql` contains only approved H/D/T SELECT text plus the fixed CTE wrapper; parameter-definition string declares three dates and values bind normalized range dates/sentinel. Its output is the SELECT above. Tables and read-only business behavior are inherited from that SQL. SQL Server's own helper implementation is not in this repository and was not inspected. [backend/migrations/012_payroll_report_date_range.sql:65](/Users/apple/Desktop/ESC/backend/migrations/012_payroll_report_date_range.sql:65).
 
 ## All SQL batches loaded from query.brl and direct constants
 
-`_prepared_query` converts legacy `@parameter` markers to SQLAlchemy named binds, including markers surrounded by single quotes. It does not interpolate the UI values into SQL. `_execute_identity_query` compiles bind order and reads cursor result sets until it finds a positive identity. Raw query.brl excerpts below therefore show legacy markers, while runtime executes prepared bindings. [backend/app/routers/retirement_builder.py:453](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:453), [backend/app/routers/retirement_builder.py:580](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:580).
+`_prepared_query` converts legacy `@parameter` markers to SQLAlchemy named binds, including markers surrounded by single quotes. It does not interpolate the UI values into SQL. `_execute_identity_query` compiles bind order and reads cursor result sets until it finds a positive identity. Raw query.brl excerpts below therefore show legacy markers, while runtime executes prepared bindings. [backend/app/routers/retirement_builder.py:453](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:453), [backend/app/routers/retirement_builder.py:580](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:580).
 
 ### SQL-30: query.brl sqlid="30"
 
 Read mapping metadata. No parameters. Outputs mapping_column, mapping_column_desc, mapping_column_dt. No WHERE/join; every row can become a label/type entry. Empty table → empty mapping options. Called by options, save mapping normalization and report source-label setup.
 
-Definition: [backend/query.brl:456](/Users/apple/Desktop/ECS/backend/query.brl:456). Parameters: none.
+Definition: [backend/query.brl:456](/Users/apple/Desktop/ESC/backend/query.brl:456). Parameters: none.
 
 ```sql
 SELECT [mapping_column]
@@ -138,7 +138,7 @@ SELECT [mapping_column]
 
 Insert one queryConfiguration row: @jobid from saved identity/path; @recttype H/D/T for generated payroll templates (or CSV_SORT/retained legacy rows); @Query from approved JSON template or preserved query configuration; @conditionalStmt from saved rule clauses; @sortOrder from formatted sort settings. No result set. Table rjob_query. Not a stored procedure execution: it saves SQL text.
 
-Definition: [backend/query.brl:466](/Users/apple/Desktop/ECS/backend/query.brl:466). Parameters: @Query, @conditionalStmt, @jobid, @recttype, @sortOrder.
+Definition: [backend/query.brl:466](/Users/apple/Desktop/ESC/backend/query.brl:466). Parameters: @Query, @conditionalStmt, @jobid, @recttype, @sortOrder.
 
 ```sql
 INSERT INTO [dbo].[rjob_query]
@@ -159,7 +159,7 @@ INSERT INTO [dbo].[rjob_query]
 
 Read file-type lookup, no parameters. SELECT * includes filetyp and delimiter consumed by code. Used by options, list, edit, save validation and run delimiter resolution. Empty table → no file-format choices and new saves/runs reject unsupported formats.
 
-Definition: [backend/query.brl:482](/Users/apple/Desktop/ECS/backend/query.brl:482). Parameters: none.
+Definition: [backend/query.brl:482](/Users/apple/Desktop/ESC/backend/query.brl:482). Parameters: none.
 
 ```sql
 select * from [dbo].[rjob_file_typ]
@@ -169,7 +169,7 @@ select * from [dbo].[rjob_file_typ]
 
 Insert one mapping into rjob_file_detail. @jobid from identity/path; @jobclientcolumn=field; @jobfieldmapping=resolved mapping key; @jobdefaultvalue=defaultValue; @jobformat=format; @jobrectype=H/D/T; @startposition/startPosition and @field_len/length parsed integers; @datasetNo always 1; @colSeqNo row index from 1. No result set.
 
-Definition: [backend/query.brl:504](/Users/apple/Desktop/ECS/backend/query.brl:504). Parameters: @colSeqNo, @datasetNo, @field_len, @jobclientcolumn, @jobdefaultvalue, @jobfieldmapping, @jobformat, @jobid, @jobrectype, @startposition.
+Definition: [backend/query.brl:504](/Users/apple/Desktop/ESC/backend/query.brl:504). Parameters: @colSeqNo, @datasetNo, @field_len, @jobclientcolumn, @jobdefaultvalue, @jobfieldmapping, @jobformat, @jobid, @jobrectype, @startposition.
 
 ```sql
 INSERT INTO [dbo].[rjob_file_detail]
@@ -198,7 +198,7 @@ INSERT INTO [dbo].[rjob_file_detail]
 
 Insert parent into rjob. Inputs from general/subscriptions/mapping: @jobdesc, @jobfilename, @jobstatus fixed Active, @filetype resolved delimiter, @ismerge, @mergeemail combined addresses, @includeHRecord, @fileNameFormat normalized code, @isEnabled, @StoreResult, @enddate None. GETDATE stamps modified and last-run columns. SELECT SCOPE_IDENTITY returns the new ID used for child inserts. Failure to read a positive identity becomes save error.
 
-Definition: [backend/query.brl:529](/Users/apple/Desktop/ECS/backend/query.brl:529). Parameters: @StoreResult, @enddate, @fileNameFormat, @filetype, @includeHRecord, @isEnabled, @ismerge, @jobdesc, @jobfilename, @jobstatus, @mergeemail.
+Definition: [backend/query.brl:529](/Users/apple/Desktop/ESC/backend/query.brl:529). Parameters: @StoreResult, @enddate, @fileNameFormat, @filetype, @includeHRecord, @isEnabled, @ismerge, @jobdesc, @jobfilename, @jobstatus, @mergeemail.
 
 ```sql
 INSERT INTO [dbo].[rjob]
@@ -220,7 +220,7 @@ INSERT INTO [dbo].[rjob]
 
 Insert one subscription: @jobid identity/path, @jobclientid positive companyId or parsed CSV client ID, @jobemailind row email. Table rjob_client_detail. Blank email allowed. No SELECT result.
 
-Definition: [backend/query.brl:550](/Users/apple/Desktop/ECS/backend/query.brl:550). Parameters: @jobclientid, @jobemailind, @jobid.
+Definition: [backend/query.brl:550](/Users/apple/Desktop/ESC/backend/query.brl:550). Parameters: @jobclientid, @jobemailind, @jobid.
 
 ```sql
 INSERT INTO [dbo].[rjob_client_detail]
@@ -237,7 +237,7 @@ INSERT INTO [dbo].[rjob_client_detail]
 
 Insert schedule into rjob_schedule_info. @jobid parent ID; @jobName fileName; @startDateTime date/time conversion or None; @dayInterval/@weekInterval both 0; @rbJobTypeChk frequency label; @ScheduleType D/W/B/M; @MonthlyWeekNo and @MonthlyDate blank; @ScheduleWeek Sunday-based index; @schedule_hr/@schedule_min parsed strings; @schedule_session AM/PM. Null date means manual-only. No result set.
 
-Definition: [backend/query.brl:567](/Users/apple/Desktop/ECS/backend/query.brl:567). Parameters: @MonthlyDate, @MonthlyWeekNo, @ScheduleType, @ScheduleWeek, @dayInterval, @jobName, @jobid, @rbJobTypeChk, @schedule_hr, @schedule_min, @schedule_session, @startDateTime, @weekInterval.
+Definition: [backend/query.brl:567](/Users/apple/Desktop/ESC/backend/query.brl:567). Parameters: @MonthlyDate, @MonthlyWeekNo, @ScheduleType, @ScheduleWeek, @dayInterval, @jobName, @jobid, @rbJobTypeChk, @schedule_hr, @schedule_min, @schedule_session, @startDateTime, @weekInterval.
 
 ```sql
 INSERT INTO [dbo].[rjob_schedule_info]
@@ -273,7 +273,7 @@ INSERT INTO [dbo].[rjob_schedule_info]
 
 Read dashboard. Inner join rjob_schedule_info on job ID excludes parents without schedule rows; left join history on job ID; left join a GLOBAL TOP 1 history_details subquery, not latest per job. WHERE isEnabled=1. Returns parent data, day/time/frequency strings, activity, history status/message, formatted range. Backend suppresses initial last-run date if no status and overlays in-process running status. Empty → dashboard no matching records. Multiple history/schedule rows can multiply a parent; no DISTINCT or grouping prevents that.
 
-Definition: [backend/query.brl:693](/Users/apple/Desktop/ECS/backend/query.brl:693). Parameters: none.
+Definition: [backend/query.brl:693](/Users/apple/Desktop/ESC/backend/query.brl:693). Parameters: none.
 
 ```sql
 SELECT RJ.jobid
@@ -327,7 +327,7 @@ SELECT RJ.jobid
 
 Read CSV client options from prism.export.Client_Details. Current SQL is NOT the commented-out dbo.Client SELECT. Excludes Client_Status_Code=T; NULL status also does not satisfy !=T. Cast Client_ID to decimal and combine ID/name into client_name. Ordered by ID then label. No parameters. Backend filters valid positive IDs and deduplicates first label. Empty → no catalog options but custom ID entry remains; SQL error →503.
 
-Definition: [backend/query.brl:743](/Users/apple/Desktop/ECS/backend/query.brl:743). Parameters: none.
+Definition: [backend/query.brl:743](/Users/apple/Desktop/ESC/backend/query.brl:743). Parameters: none.
 
 ```sql
 --SELECT [id]
@@ -343,7 +343,7 @@ order by 1,2
 
 DELETE batch for one @jobid path parameter. Clears rjob_query, rjob_client_detail, rjob_file_detail, rjob_schedule_info, rjob_file_sorting_details and rjob_file_condition_details. Only called inside PUT transaction before recreating effective details. Does not delete rjob, results or history. Six statements count as one source-defined SQL batch in the total.
 
-Definition: [backend/query.brl:755](/Users/apple/Desktop/ECS/backend/query.brl:755). Parameters: @jobid.
+Definition: [backend/query.brl:755](/Users/apple/Desktop/ESC/backend/query.brl:755). Parameters: @jobid.
 
 ```sql
 DELETE FROM [dbo].[rjob_query] WHERE jobid=@jobid
@@ -358,7 +358,7 @@ DELETE FROM [dbo].[rjob_query] WHERE jobid=@jobid
 
 UPDATE parent WHERE jobid=@jobid; parameters come from merged effective general/mapping/subscriptions payload, as for query36 except no enddate argument. Updates modified AND joblastrun to GETDATE even though no report was run; displayed last-run can therefore move on edit if a history status already exists. No result set.
 
-Definition: [backend/query.brl:765](/Users/apple/Desktop/ECS/backend/query.brl:765). Parameters: @StoreResult, @fileNameFormat, @filetype, @includeHRecord, @isEnabled, @ismerge, @jobdesc, @jobfilename, @jobid, @jobstatus, @mergeemail.
+Definition: [backend/query.brl:765](/Users/apple/Desktop/ESC/backend/query.brl:765). Parameters: @StoreResult, @fileNameFormat, @filetype, @includeHRecord, @isEnabled, @ismerge, @jobdesc, @jobfilename, @jobid, @jobstatus, @mergeemail.
 
 ```sql
 UPDATE [dbo].[rjob]
@@ -381,7 +381,7 @@ UPDATE [dbo].[rjob]
 
 UPDATE rjob_history WHERE job_id=@JOB_ID. @JOB_ID saved job ID, @STATUS Success/Failed, @STAT_MSG generation/failure message. Updates trigger/update date and status. No insert if absent: _record_run checks rowcount and uses INSERT_RUN_HISTORY if zero. All matching history rows update, not a specific run UUID.
 
-Definition: [backend/query.brl:640](/Users/apple/Desktop/ECS/backend/query.brl:640). Parameters: @JOB_ID, @STATUS, @STAT_MSG.
+Definition: [backend/query.brl:640](/Users/apple/Desktop/ESC/backend/query.brl:640). Parameters: @JOB_ID, @STATUS, @STAT_MSG.
 
 ```sql
 UPDATE [dbo].[rjob_history]
@@ -396,7 +396,7 @@ UPDATE [dbo].[rjob_history]
 
 Read format metadata from rjobformat. Returns jobformat, concatenated jobdesc label, jobformattype. No params/WHERE. Backend filters recognized text/date/number/phone/email/ssn/all buckets; current output-name categories are excluded, so live Format choices empty.
 
-Definition: [backend/query.brl:651](/Users/apple/Desktop/ECS/backend/query.brl:651). Parameters: none.
+Definition: [backend/query.brl:651](/Users/apple/Desktop/ESC/backend/query.brl:651). Parameters: none.
 
 ```sql
 SELECT [jobformat],[jobformat]+' - '+[jobformat_desc] as jobdesc,[jobformattype] FROM [dbo].[rjobformat]
@@ -406,7 +406,7 @@ SELECT [jobformat],[jobformat]+' - '+[jobformat_desc] as jobdesc,[jobformattype]
 
 Insert sort detail: @jobid saved ID, @order compact positive sequential priority starting at 1, @mapping source label stripped. Table rjob_file_sorting_details stores no direction column. Direction survives separately in rjob_query.Sort_Order. No result set.
 
-Definition: [backend/query.brl:657](/Users/apple/Desktop/ECS/backend/query.brl:657). Parameters: @jobid, @mapping, @order.
+Definition: [backend/query.brl:657](/Users/apple/Desktop/ESC/backend/query.brl:657). Parameters: @jobid, @mapping, @order.
 
 ```sql
 INSERT INTO [dbo].[rjob_file_sorting_details]
@@ -426,7 +426,7 @@ INSERT INTO [dbo].[rjob_file_sorting_details]
 
 Insert filter: @jobid saved ID, @mapping rule.mappingColumn, @Symbol comparison or date:comparison, @val rounded numeric or compact YYYYMMDD. Table rjob_file_condition_details. No result set. Dates encoded to fit numeric column and decoded on read.
 
-Definition: [backend/query.brl:672](/Users/apple/Desktop/ECS/backend/query.brl:672). Parameters: @Symbol, @jobid, @mapping, @val.
+Definition: [backend/query.brl:672](/Users/apple/Desktop/ESC/backend/query.brl:672). Parameters: @Symbol, @jobid, @mapping, @val.
 
 ```sql
 INSERT INTO [dbo].[rjob_file_condition_details]
@@ -448,7 +448,7 @@ INSERT INTO [dbo].[rjob_file_condition_details]
 
 Read one parent by :jobid; None → detail 404/run 404. Selects StoreResults, includeHeader, FileNameFormat, enable and parent metadata.
 
-Definition: [backend/app/routers/retirement_builder.py:235](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:235).
+Definition: [backend/app/routers/retirement_builder.py:235](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:235).
 
 ```sql
 SELECT jobid, jobdesc, jobfilename, jobstatus, joblastmodified, joblastrun,
@@ -462,7 +462,7 @@ WHERE jobid = :jobid
 
 Read schedule by :jobid. Supplies form date/frequency/time, and scheduler revalidation. Existing invalid/missing schedule values can fail model reconstruction; there is no universal empty-value repair.
 
-Definition: [backend/app/routers/retirement_builder.py:242](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:242).
+Definition: [backend/app/routers/retirement_builder.py:242](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:242).
 
 ```sql
 SELECT jobid, jobName, startDateTime, dayInterval, weekInterval,
@@ -476,7 +476,7 @@ WHERE jobid = :jobid
 
 Read enabled jobs joined to non-null startDateTime schedules, ordered by job ID. Used to hide default schedule labels for manual jobs and by scheduler scanning. Empty → nothing scheduled.
 
-Definition: [backend/app/routers/retirement_builder.py:249](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:249).
+Definition: [backend/app/routers/retirement_builder.py:249](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:249).
 
 ```sql
 SELECT j.jobid, s.startDateTime, s.ScheduleType, s.ScheduleWeek, s.MonthlyDate,
@@ -491,7 +491,7 @@ ORDER BY j.jobid
 
 Read mappings by :jobid ordered DataSetNo,ColSeqNo. Output names/source/default/format/type/position/length reconstruct rows. Empty → no mappings; UI/run require at least one.
 
-Definition: [backend/app/routers/retirement_builder.py:257](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:257).
+Definition: [backend/app/routers/retirement_builder.py:257](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:257).
 
 ```sql
 SELECT jobid, jobclientcolumn, jobfieldmapping, jobdefaultvalue, jobformat,
@@ -505,7 +505,7 @@ ORDER BY DataSetNo, ColSeqNo
 
 Read positive/legacy encoded recipient IDs and emails by :jobid; payroll source determines ID namespace. Empty → no subscriptions, valid.
 
-Definition: [backend/app/routers/retirement_builder.py:264](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:264).
+Definition: [backend/app/routers/retirement_builder.py:264](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:264).
 
 ```sql
 SELECT jobid, jobclientid, jobemailind
@@ -518,7 +518,7 @@ ORDER BY jobclientid
 
 Read sort priorities and mapping columns by :jobid ordered sort_order. Older negative order encodes DESC as -stored-1 priority. Saved query Sort_Order takes precedence when available. Empty → no fallback sorts.
 
-Definition: [backend/app/routers/retirement_builder.py:270](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:270).
+Definition: [backend/app/routers/retirement_builder.py:270](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:270).
 
 ```sql
 SELECT job_id, sort_order, mapping_column
@@ -531,7 +531,7 @@ ORDER BY sort_order
 
 Read mapping/operator/value by :jobid, ordered mapping_column. _condition_from_db decodes date:prefix and compact date. Empty → no detail filters.
 
-Definition: [backend/app/routers/retirement_builder.py:276](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:276).
+Definition: [backend/app/routers/retirement_builder.py:276](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:276).
 
 ```sql
 SELECT job_id, mapping_column, condition_symbol, condition_value
@@ -544,7 +544,7 @@ ORDER BY mapping_column
 
 Read saved query texts/conditions/sort by :jobid ordered Sort_Order,recttype. Recognized PAYROLL or marked H/D/T determines source. Missing/partial approved H/D/T can block run.
 
-Definition: [backend/app/routers/retirement_builder.py:282](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:282).
+Definition: [backend/app/routers/retirement_builder.py:282](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:282).
 
 ```sql
 SELECT jobid, recttype, Query, Conditions, Sort_Order
@@ -557,7 +557,7 @@ ORDER BY Sort_Order, recttype
 
 Read one ID with UPDLOCK,HOLDLOCK by :jobid inside transaction; serializes report attempts until commit. It is a lock-taking read, not a row update. Missing ID →404 for manual run, skip for scheduler.
 
-Definition: [backend/app/routers/retirement_builder.py:295](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:295).
+Definition: [backend/app/routers/retirement_builder.py:295](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:295).
 
 ```sql
 SELECT jobid FROM dbo.rjob WITH (UPDLOCK, HOLDLOCK) WHERE jobid = :jobid
@@ -567,7 +567,7 @@ SELECT jobid FROM dbo.rjob WITH (UPDLOCK, HOLDLOCK) WHERE jobid = :jobid
 
 Insert history only if query52 rowcount=0. :jobid saved ID, :run_status Success/Failed, :message bounded run message; GETDATE for timestamps. No output consumed.
 
-Definition: [backend/app/routers/retirement_builder.py:296](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:296).
+Definition: [backend/app/routers/retirement_builder.py:296](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:296).
 
 ```sql
 INSERT INTO dbo.rjob_history
@@ -579,7 +579,7 @@ VALUES (:jobid, GETDATE(), GETDATE(), :run_status, :message, GETDATE())
 
 Insert every recorded attempt: :jobid, :flag A manual or S scheduled, :start_date/:end_date normalized requested dates (1900 sentinel when open). History_details has no run UUID correlation in this insert.
 
-Definition: [backend/app/routers/retirement_builder.py:301](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:301).
+Definition: [backend/app/routers/retirement_builder.py:301](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:301).
 
 ```sql
 INSERT INTO dbo.rjob_history_details (Job_Id, Flag, Start_Date, End_Date)
@@ -590,7 +590,7 @@ VALUES (:jobid, :flag, :start_date, :end_date)
 
 Read companies grouped by company_name with HOLDLOCK; COUNT_BIG=1 →MIN(id), duplicate name →NULL. Options drop NULL/nonpositive IDs. Run requiring company identity rejects unmatched/ambiguous names. No parameters. Not a company-data update.
 
-Definition: [backend/app/payroll_source.py:44](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:44).
+Definition: [backend/app/payroll_source.py:44](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:44).
 
 ```sql
 SELECT company_name, CASE WHEN COUNT_BIG(*) = 1 THEN MIN(id) END
@@ -602,7 +602,7 @@ GROUP BY company_name
 
 Insert mapped report records only if Store Results enabled. Each row receives generated UUID :run_id, :job_id, 1-based :row_number, H/D/T :record_type, JSON output dictionary :row_values. No read result consumed; store_results returns len(rows).
 
-Definition: [backend/app/retirement_results.py:76](/Users/apple/Desktop/ECS/backend/app/retirement_results.py:76).
+Definition: [backend/app/retirement_results.py:76](/Users/apple/Desktop/ESC/backend/app/retirement_results.py:76).
 
 ```sql
 INSERT INTO dbo.rjob_result (run_id, job_id, row_number, record_type, row_values)
@@ -611,7 +611,7 @@ INSERT INTO dbo.rjob_result (run_id, job_id, row_number, record_type, row_values
 
 ## Generated payroll wrapper: SQL unit 29
 
-Defined in `payroll_report_query` [backend/app/payroll_source.py:132](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:132). Example below uses all five report columns and all three configured record types; actual projection/type list depends on job mappings, naming and rules. The procedure name is the confirmed configured name; `?` arguments are bound job ID/start/end, not string interpolation.
+Defined in `payroll_report_query` [backend/app/payroll_source.py:132](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:132). Example below uses all five report columns and all three configured record types; actual projection/type list depends on job mappings, naming and rules. The procedure name is the confirmed configured name; `?` arguments are bound job ID/start/end, not string interpolation.
 
 ```sql
 DECLARE @payroll TABLE (
@@ -630,11 +630,11 @@ WHERE [Record Type] IN ('D', 'H', 'T')
 ORDER BY [Record Sequence], [Company Name] DESC, [Pay Date];
 ```
 
-The 10,001st row detects exceeding the 10,000 source-row limit. Without a payroll source (CSV override or saved CSV), this wrapper and SP are not called. Data is converted to a UTF-8 CSV in memory for the common renderer. It is not a physical payroll staging table. [backend/app/payroll_source.py:194](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:194), [backend/app/routers/retirement_builder.py:1214](/Users/apple/Desktop/ECS/backend/app/routers/retirement_builder.py:1214).
+The 10,001st row detects exceeding the 10,000 source-row limit. Without a payroll source (CSV override or saved CSV), this wrapper and SP are not called. Data is converted to a UTF-8 CSV in memory for the common renderer. It is not a physical payroll staging table. [backend/app/payroll_source.py:194](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:194), [backend/app/routers/retirement_builder.py:1214](/Users/apple/Desktop/ESC/backend/app/routers/retirement_builder.py:1214).
 
 ## H/D/T templates: SQL units 30–32
 
-Exact source: [backend/config/payroll_record_queries.json:1](/Users/apple/Desktop/ECS/backend/config/payroll_record_queries.json:1). These are saved by query31 on Finish, validated against approved texts by the procedure, and executed inside the SP. H reads companies; D and T read companies/employees/payroll and return the same grouped count and net-salary sum with different sequence/type literals. No inputs are inserted into their SQL strings.
+Exact source: [backend/config/payroll_record_queries.json:1](/Users/apple/Desktop/ESC/backend/config/payroll_record_queries.json:1). These are saved by query31 on Finish, validated against approved texts by the procedure, and executed inside the SP. H reads companies; D and T read companies/employees/payroll and return the same grouped count and net-salary sum with different sequence/type literals. No inputs are inserted into their SQL strings.
 
 ```sql
 /* company payroll */ SELECT 1, 'H' AS RECTYPE, c.company_name, '', 0, 0 FROM dbo.companies AS c;
@@ -642,7 +642,7 @@ Exact source: [backend/config/payroll_record_queries.json:1](/Users/apple/Deskto
 /* company payroll */ SELECT 3, 'T', c.company_name, p.payroll_month, COUNT(*) AS employee_count, SUM(p.net_salary) AS net_salary_total FROM dbo.companies AS c JOIN dbo.employees AS e ON e.company_id = c.id JOIN dbo.payroll AS p ON p.employee_id = e.id GROUP BY c.company_name, p.payroll_month;
 ```
 
-COUNT(*) counts joined payroll rows, not COUNT(DISTINCT employee_id). There is no employee-active or payment-status WHERE predicate. Multiple companies with the same company_name can be merged by GROUP BY; identity-dependent grouping/email rejects ambiguous company names through its separate lookup. [backend/app/payroll_source.py:44](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:44), [backend/app/payroll_source.py:213](/Users/apple/Desktop/ECS/backend/app/payroll_source.py:213).
+COUNT(*) counts joined payroll rows, not COUNT(DISTINCT employee_id). There is no employee-active or payment-status WHERE predicate. Multiple companies with the same company_name can be merged by GROUP BY; identity-dependent grouping/email rejects ambiguous company names through its separate lookup. [backend/app/payroll_source.py:44](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:44), [backend/app/payroll_source.py:213](/Users/apple/Desktop/ESC/backend/app/payroll_source.py:213).
 
 ## Tables and persistence map
 
@@ -670,6 +670,6 @@ That is **17 referenced persistent data tables**, of which 16 dbo schemas were i
 
 ## Migrations versus runtime
 
-Migrations 001–012 are scripts, not automatically applied by this app's startup. They define results storage, seed mapping/file catalogs/sample data, normalize output-name codes, and evolve payroll query logic. Do not execute them to perform this read-only analysis. `003` seeds net_salary as basic_salary+allowances-deductions and adds a computed gross_pay column; those are setup calculations, not per-run retirement formulas. The live schema confirms computed gross_pay; no assumption is made that all real payroll rows were created by this seed script. [backend/migrations/001_retirement_builder_results.sql:1](/Users/apple/Desktop/ECS/backend/migrations/001_retirement_builder_results.sql:1), [backend/migrations/003_sample_payroll_data.sql:90](/Users/apple/Desktop/ECS/backend/migrations/003_sample_payroll_data.sql:90).
+Migrations 001–012 are scripts, not automatically applied by this app's startup. They define results storage, seed mapping/file catalogs/sample data, normalize output-name codes, and evolve payroll query logic. Do not execute them to perform this read-only analysis. `003` seeds net_salary as basic_salary+allowances-deductions and adds a computed gross_pay column; those are setup calculations, not per-run retirement formulas. The live schema confirms computed gross_pay; no assumption is made that all real payroll rows were created by this seed script. [backend/migrations/001_retirement_builder_results.sql:1](/Users/apple/Desktop/ESC/backend/migrations/001_retirement_builder_results.sql:1), [backend/migrations/003_sample_payroll_data.sql:90](/Users/apple/Desktop/ESC/backend/migrations/003_sample_payroll_data.sql:90).
 
 Installed schema and procedure metadata were actually inspected without values. Full deployed scheduler executable behavior (`service/SchedulerAppBackend.exe`) is **NOT VERIFIED**; the traced browser API uses the Python code, and no binary was executed. Independent jobs/processes could exist outside this route's implementation.
